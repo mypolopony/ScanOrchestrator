@@ -79,8 +79,10 @@ def registerInstances(prefix, num):
                          'number': num}
     # Generate instance information
     for n in range(num):
+        instances = list()
         # A new instanace
         inst = instance_template
+        inst['number'] = n
 
         # Find the most recent trial
         previous = s3.list_objects(Bucket='sunworld_file_transfer',Prefix=prefix + '_' + str(n) + '_', Delimiter='/')
@@ -91,9 +93,10 @@ def registerInstances(prefix, num):
         else:
             inst['attempt'] = 1
 
-        inst['fullname'] = '_'.join([prefix, str(num), str(inst['attempt'])])
+        inst['fullname'] = '_'.join([prefix, str(inst['number']), str(inst['attempt'])])
+        instances.append(inst)
 
-        logging.info('Created Instance: {}'.json.dumps(inst))
+        logging.info('Identified Instance: {}'.format(json.dumps(inst)))
     
     return instances
 
@@ -115,16 +118,7 @@ def handleMessage(result):
     for goodkey in ['clientid', 'scanid', 'filename', 'size']:
         logging.info('\t{}\t{}'.format(goodkey.capitalize(), task[goodkey]))
 
-
-    sequence = ['restart','init','matlab_kill','video_xfer']
-    for stage in sequence:
-        args = ArgsObject({'stage': stage,
-                         'session_name': datetime.strftime(datetime.now(),'%c'),
-                         'b_force': True})
-        do_instances_win.run(args)
-
-
-    # Delete task
+    # Delete task / Reenque task on fail
     # When tasks are received, they are temporarily marked as 'taken' but it is up to this process to actually
     # delete them or, failing that, default to releasing them back to the queue
 
@@ -165,13 +159,81 @@ def poll():
     time.sleep(RETRY_DELAY)
 
 
+def execute(task, args):
+    '''
+    Main koshyframework entry
+    :param task: Task to be executed
+    :param args: Standard argument object
+    :return: results contains instance level data
+    '''
+
+    args.stage = task
+    logging.info('Executing {}'.format(task))
+
+    results = do_instances_win.run(args)
+
+    return results
+
+
+def check(task, args):
+    '''
+    Koshyframework entry for tasks that require polling
+    
+    :param task: Task to be executed
+    :param args: Standard argument object
+    :return: results contains instance level data
+    '''
+
+    args.stage = task
+    args.check_status_only = True
+
+    success = None
+    while not success:
+        time.sleep(60)
+        logging.info('Status Check: {}'.format(task))
+
+        results = do_instances_win.run(args)
+
+        complete = [v for v in results if v['result'].lower() == 'success']
+        incomplete = [v for v in results if v['result'].lower() != 'success']
+
+        logging.info('Complete: {}'.format(complete))
+        logging.info('Incomplete: {}'.format(incomplete))
+
+        if len(incomplete) == 0:
+            logging.info('Completed {}'.format(task))
+            success = True
+
+    return results
+
+
 def run():
-    sequence = ['restart','init','matlab_kill','video_xfer']
+    '''
+    This is an override in place of the long poller. Here, we can direct activity explicitly
+    '''
+
+    prefix = 'automation_trial'
+    num_instances = 2
+
+    args = ArgsObject({'session_name': datetime.strftime(datetime.now(), '%c'),
+                       'b_force': True,
+                       'instances': dict(zip(range(num_instances), [inst['fullname'] for inst in registerInstances(prefix, num_instances)])),
+                       'prefix': prefix,
+                       'scan_folder':'59055036037c2fc5e372ad9d',
+                       'upload_bucket':'sunworld_file_transfer',
+                       'expected_prefix':'22005520_2017-05-13'})
+
+    #  Instances override
+    print('Instances override')
+    args.instances = {0: 'automation_trial_0_1',
+                 1: 'automation_trial_1_1'}
+
+    waits = ['rvm_generate', 'preprocess', 'detection', 'process', 'postprocess']
+    sequence = ['restart', 'matlab_kill', 'init', 'restart', 'rvm_generate', 'video_xfer', 'restart', 'preprocess', 'detection', 'process', 'postprocess']
     for stage in sequence:
-        args = ArgsObject({'stage': stage,
-                         'session_name': datetime.strftime(datetime.now(),'%c'),
-                         'b_force': True})
-        do_instances_win.run(args)
+            execute(stage, args)
+            if stage in waits:
+                check(stage, args)
 
 
 if __name__ == '__main__':
@@ -220,27 +282,4 @@ if __name__ == '__main__':
   "SigningCertURL" : "https://sns.us-west-2.amazonaws.com/SimpleNotificationService-b95095beb82e8f6a046b3aafc7f4149a.pem",
   "UnsubscribeURL" : "https://sns.us-west-2.amazonaws.com/?Action=Unsubscribe&amp;SubscriptionArn=arn:aws:sns:us-west-2:090780547013:new-upload:aa8b4d08-a7bd-4acb-963c-458b71512c1c"
 }
-'''
-
-
-'''
-:: Appendix B: Sample tasks
-
-
-    # 1] Pre-process goes here
-    logging.info('\n\nPre-processing (client {}, scanid {}, file {})'.format(task['clientid'], task['scanid'], task['filename']))
-    preprocess(task)
-
-    # 2] Detection goes here
-    logging.info('\n\nRunning detection (client {}, scanid {}, file {})'.format(task['clientid'], task['scanid'], task['filename']))
-    detection(task)
-
-    # 3] Process goes here
-    logging.info('\n\nProcessing (client {}, scanid {}, file {})'.format(task['clientid'], task['scanid'], task['filename']))
-    process(task)
-
-    # 4] Post-process goes here
-    logging.info('\n\nPost-processing (client {}, scanid {}, file {})'.format(task['clientid'], task['scanid'], task['filename']))
-    postprocess(task, img_payload)
-
 '''

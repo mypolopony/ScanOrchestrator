@@ -166,10 +166,6 @@ def url_to_image(url):
     return image
 
 
-def execute(cmd):
-  do_instances_win.py -n dummy_session -g matlab_status
-
-
 def handleMessage(result):
     # Weurd double string to JSON
     msg = json.loads(json.loads(result.body)['Message'])['Records'][0]
