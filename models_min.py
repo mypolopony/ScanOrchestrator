@@ -15,6 +15,26 @@ class Role(db.Document):
     label = db.StringField(server_default='')  # for display purposes
 
 
+class ProcessStatus(db.Document):
+    '''
+    This one atomic unit of a status report from an instance, hopefully in the midst of processing
+    '''
+
+    # This class breaks our general style because it is an effort to conform to Koshyframework+AWS-SSM
+    instanceId = db.StringField(),
+    tagIndex = db.IntegerField(),
+    tagName = db.StringField(),
+    progress = db.FloatField(),
+    status = db.StringField(),
+    startTime = db.DateTimeField(),
+    lastUpdatedAt = db.DateTimeField(),
+    lastStateChange = db.DateTiemfielde(),
+    task = db.StringField(),
+    subtask = db.StringField(),
+    currentCommandId = db.StringField()
+
+
+
 class User(db.Document, UserMixin):
     '''
     For individual logins and accounts
