@@ -22,13 +22,13 @@ class ProcessStatus(db.Document):
 
     # This class breaks our general style because it is an effort to conform to Koshyframework+AWS-SSM
     instanceId = db.StringField(),
-    tagIndex = db.IntegerField(),
+    tagIndex = db.IntField(),
     tagName = db.StringField(),
     progress = db.FloatField(),
     status = db.StringField(),
     startTime = db.DateTimeField(),
     lastUpdatedAt = db.DateTimeField(),
-    lastStateChange = db.DateTiemfielde(),
+    lastStateChange = db.DateTimeField(),
     task = db.StringField(),
     subtask = db.StringField(),
     currentCommandId = db.StringField()

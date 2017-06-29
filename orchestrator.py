@@ -12,8 +12,8 @@ import numpy as np
 from mongoengine import connect
 from pymongo import MongoClient
 
-from infra import do_instances_win
 # AgriData
+from infra import do_instances_win
 from models_min import *
 
 # Database
