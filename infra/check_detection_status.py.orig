@@ -1,0 +1,140 @@
+#author kgeorge
+#adapted from https://github.com/awslabs/aws-python-sample
+from pprint import pprint
+import boto3
+import uuid
+import time
+import math
+import os
+import argparse
+import logging
+import sys
+import glob
+import yaml
+import zipfile
+import re
+import infra_common
+import eventlet
+import copy
+
+
+#relative path import
+#mechanism to dynamically include the relative path where utility python modules are kept to the module search path.
+from inspect import getsourcefile
+current_path = os.path.abspath(getsourcefile(lambda:0))
+source_dir=os.path.dirname(current_path)
+parent_dir = os.path.split(os.path.dirname(current_path))[0]
+sys.path.insert(0, parent_dir)
+
+def compute_instance_name(config, args, k):
+    return '%s-%s-%d' % (args.name_prefix_for_instance, args.session_name, k)
+
+
+def convert_back_slash_to_foward_slash_in_pathname(pathname):
+    return pathname.replace('\\', '/')
+
+
+def init_log(args):
+    #start logger
+    logger=logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    # create file handler which logs even debug messages
+    # create console handler with a higher log level
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(logging.DEBUG)
+    logger.addHandler(ch)
+    logging.debug('Started')
+
+
+def get_zip_filesnames(bucket_name=None, prefix_path=None):
+    s3_res = boto3.resource('s3',
+                         aws_access_key_id=config['s3_aws_access_key_id'],#''AKIAJAUEYBYRCPNUQRKA',
+                         aws_secret_access_key=config['s3_aws_secret_access_key']#'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'
+    )
+
+    bucket=s3_res.Bucket(args.bucket_name)
+    #files_in_target_as_objects=list(bucket.objects.filter(Prefix=prefix_path))
+    filenames_in_target=[os.path.split(str(o.key))[1] for o in list(bucket.objects.filter(Prefix=prefix_path))]
+    return filenames_in_target
+
+
+
+def check_detection_output(args, config):
+    prefix_path_in=convert_back_slash_to_foward_slash_in_pathname(
+        os.path.join(args.session_name, "videos")
+    )
+    zip_filenames_in=set(get_zip_filesnames(bucket_name=args.bucket_name, prefix_path=prefix_path_in))
+
+
+    prefix_path_out=convert_back_slash_to_foward_slash_in_pathname(
+        os.path.join(args.session_name, "videos_out")
+    )
+    zip_filenames_out=set(get_zip_filesnames(bucket_name=args.bucket_name, prefix_path=prefix_path_out))
+
+    assert(len(zip_filenames_out - zip_filenames_in)==0)
+
+    return zip_filenames_in, zip_filenames_out
+
+
+
+
+
+def main(args, config):
+    s3client = boto3.client('s3')
+    i_iterations=0
+    init_log(args)
+    try:
+        with infra_common.StatusWriter(args.status_filepath) as st_wr:
+
+            with eventlet.timeout.Timeout(config['check_detection_status_timeout_in_sec_for_status_chk'],
+                                          infra_common.TimeoutError(
+                                                      'Status check for %s timed out: ' % os.path.basename(__file__))):
+
+                    z_in, z_out=check_detection_output(args, config)
+                    num_left=len(z_in - z_out)
+                    if num_left != 0:
+                        raise infra_common.BenignException
+                        logging.info((' %d done out of %d' %(len(z_out), len(z_in))))
+
+    except infra_common.TimeoutError,e:
+        logging.error((e))
+        pass
+
+
+
+def parse_args():
+    output_subdir = 'output'
+    source_dir = os.path.dirname(current_path)
+    output_rootdir = os.path.join(source_dir, output_subdir)
+    parser=argparse.ArgumentParser('detection script')
+    default_config_path=os.path.join(output_rootdir, 'default_config.yml')
+    default_folder_path=r'c:\Users\Administrator\Desktop\videos'
+    default_upload_bucket='sunworld_file_transfer'
+    default_session_name=None
+    default_expected_prefix='22005520_2017-05-13'
+    parser.add_argument('-c', '--config_filepath', help='config filepath',
+                        dest='config_filepath', default=default_config_path)
+    parser.add_argument('-f', '--folder_path', help='common prefix to  folder containing zipped files',  dest='folder_path', default=default_folder_path)
+    parser.add_argument('-n', '--session_name', help='session name', dest='session_name', required=True)
+    parser.add_argument('-b', '--bucket_name', help='bucket name', dest='bucket_name', default=default_upload_bucket)
+    parser.add_argument('-r', '--status_filepath', help='path to status file', dest='status_filepath', default=None,
+                        required=True)
+    args=parser.parse_args()
+    pprint((args))
+    return args
+
+
+if __name__ == "__main__":
+    args=parse_args()
+
+    config_filepath=args.config_filepath
+    with file(config_filepath) as fp:
+        config=yaml.load(fp)
+
+    pprint(('config', config))
+    main(args, config)
+    pass
+
+
+
+

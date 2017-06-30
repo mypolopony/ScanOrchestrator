@@ -99,15 +99,18 @@ def calculateInstanceDetails(prefix, num):
     for n in range(num):
         # Find the most recent trial
         previous = s3.list_objects(Bucket='sunworld_file_transfer', Prefix=prefix + '_' + str(n) + '_', Delimiter='/')
-        if previous:
+        if 'CommonPrefixes' in previous.keys():
             previous = [str(p['Prefix'][:-1]) for p in previous['CommonPrefixes'] if 'out' not in p['Prefix']]
             last = sorted(previous, key=lambda x: int(x.split('_')[-1]), reverse=True)[0]
             attempt = np.max([int(last.split('_')[-1]) + 1, attempt])
+        else:
+            attempt=1
 
     logging.info('Using Trial Number: {}'.format(attempt))
 
     for n in range(num):
         inst = copy.deepcopy(instance_template)
+        inst['attempt'] = attempt
         inst['number'] = n
         inst['fullname'] = '_'.join([prefix, str(inst['number']), str(attempt)])
         instances.append(inst)
@@ -234,22 +237,32 @@ def run():
     This is an override in place of the long poller. Here, we can direct activity explicitly
     '''
 
-    prefix = 'automation_trial'
+    prefix = 'orchestrator_trial'
     num_instances = 2
 
+    instances = calculateInstanceDetails(prefix, num_instances)
+    print('Instances: {}'.format(instances))
+
+    # Standard argument object
     args = ArgsObject({'session_name': datetime.strftime(datetime.now(), '%c'),
                        'b_force': True,
-                       'instances': dict(zip(range(num_instances), [inst['fullname'] for inst in
-                                                                    calculateInstanceDetails(prefix, num_instances)])),
+                       'instances': dict(zip(range(num_instances), [inst['fullname'] for inst in instances])),
                        'prefix': prefix,
                        'scan_folder': '59055036037c2fc5e372ad9d',
                        'upload_bucket': 'sunworld_file_transfer',
                        'expected_prefix': '22005520_2017-05-13'})
 
+    # These processes require the extra check
     waitfor = [ 'rvm_generate', 'preprocess', 'detection', 'check_detection_status', 'process', 'postprocess']
-    sequence = ['git_pull_and_config', 'restart', 'matlab_kill', 'clear_folder_and_sync', 'restart', 'rvm_generate', 'video_xfer', 'restart',
+
+    # Tasl sequence
+    sequence = ['restart', 'matlab_kill', 'clear_folder_and_sync_code', 'git_pull_and_config', 'restart', 'rvm_generate', 'video_xfer', 'restart',
                 'preprocess', 'detection', 'check_detection_status', 'post_detect_xfer', 'restart', 'process',
                 'restart', 'postprocess']
+    sequence = ['restart', 'detection', 'check_detection_status', 'post_detect_xfer', 'restart', 'process',
+                'restart', 'postprocess']
+
+    # Main loop
     for stage in sequence:
         execute(stage, args)
         if stage in waitfor:
