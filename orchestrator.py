@@ -68,6 +68,7 @@ class ArgsObject:
     def __str__(self):
         return json.dumps(self._response)
 
+
 '''
 def report(args, results):
     payload = list()
@@ -85,6 +86,7 @@ def report(args, results):
                 subtask = db.StringField(),
                 currentCommandId = db.StringField()}
 '''
+
 
 def calculateInstanceDetails(prefix, num):
     instances = list()
@@ -104,7 +106,7 @@ def calculateInstanceDetails(prefix, num):
             last = sorted(previous, key=lambda x: int(x.split('_')[-1]), reverse=True)[0]
             attempt = np.max([int(last.split('_')[-1]) + 1, attempt])
         else:
-            attempt=1
+            attempt = 1
 
     logging.info('Using Trial Number: {}'.format(attempt))
 
@@ -253,14 +255,12 @@ def run():
                        'expected_prefix': '22005520_2017-05-13'})
 
     # These processes require the extra check
-    waitfor = [ 'rvm_generate', 'preprocess', 'detection', 'check_detection_status', 'process', 'postprocess']
+    waitfor = ['rvm_generate', 'preprocess', 'process', 'postprocess']
 
-    # Tasl sequence
-    sequence = ['restart', 'matlab_kill', 'clear_folder_and_sync_code', 'git_pull_and_config', 'restart', 'rvm_generate', 'video_xfer', 'restart',
-                'preprocess', 'detection', 'check_detection_status', 'post_detect_xfer', 'restart', 'process',
-                'restart', 'postprocess']
-    sequence = ['restart', 'detection', 'check_detection_status', 'post_detect_xfer', 'restart', 'process',
-                'restart', 'postprocess']
+    # Task sequence
+    sequence = ['restart', 'matlab_kill', 'clear_folder_and_sync_code', 'git_pull_and_config', 'restart',
+                'rvm_generate', 'video_xfer', 'restart', 'preprocess', 'detection', 'check_detection_status',
+                'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
 
     # Main loop
     for stage in sequence:
@@ -271,6 +271,10 @@ def run():
 
 if __name__ == '__main__':
     # poll()
+
+    from infra.config_writer_win_test import main
+
+    main(None)
     run()
 
 '''

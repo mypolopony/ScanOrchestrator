@@ -82,13 +82,18 @@ config_dict={
 
 	    'git_pull_and_config': [{'operation': 'raw_power_shell_cmd',
 							 'cmd_str': [
-								 # 'Ag_check_current_dir %s ' % config_writer_win.working_dir,
-								 'git remote rm origin',
-								 'git remote add  origin "https://' + git_user_name + ':' + git_password + '@github.com/' + git_organization_name + '/' + git_repo_name + '"',
-								 'git fetch --all ',
-								 'git merge origin/master',
-								 'git checkout master',
-							 ]
+                                     # 'Ag_check_current_dir %s ' % config_writer_win.working_dir,
+                                     'git remote rm origin',
+                                     'git remote add  origin "https://' + git_user_name + ':' + git_password + '@github.com/' + git_organization_name + '/' + git_repo_name + '"',
+                                     'git fetch --all ',
+                                     'git config --global user.email "bot@agridata.ai"',
+                                     'git config --global user.name "Windows Instance Bot"',
+                                     'git merge origin/master',
+                                     'git checkout --theirs .',
+                                     'git add .',
+                                     'git commit -m "merge"',
+                                     'git checkout master',
+                                 ]
 							 },
 							{'operation': 'execute_python',
 							 'python_script': r'config_writer.py',

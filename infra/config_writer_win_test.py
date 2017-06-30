@@ -62,7 +62,12 @@ def main(args):
                                      'git remote rm origin',
                                      'git remote add  origin "https://' + config_writer_win.git_user_name + ':' + config_writer_win.git_password + '@github.com/' + config_writer_win.git_organization_name + '/' + config_writer_win.git_repo_name + '"',
                                      'git fetch --all ',
+                                     'git config --global user.email "bot@agridata.ai"',
+                                     'git config --global user.name "Windows Instance Bot"',
                                      'git merge origin/master',
+                                     'git checkout --theirs .',
+                                     'git add .',
+                                     'git commit -m "merge"',
                                      'git checkout master',
                                  ]
                                  },

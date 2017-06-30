@@ -118,40 +118,41 @@ class DetectHang(object):
 
 
 def main(args, config):
-    s3_client = boto3.client('s3',  aws_access_key_id=config['s3_aws_access_key_id'],#''AKIAJAUEYBYRCPNUQRKA',
+    s3_client = boto3.client('s3',  aws_access_key_id=config['s3_aws_access_key_id'],
                          aws_secret_access_key=config['s3_aws_secret_access_key'])
-    i_iterations=0
     init_log(args)
+    f_progress = 0.0
+    num_left = None
 
-    last_reported_size=0
-    last_reported_z_in=0
-    last_reported_z_out=0
-    last_reported_f_progress=0.0
-    try:
-        with infra_common.StatusWriter(args.status_filepath) as st_wr:
+    while num_left is None or num_left > 0:
+        try:
+            with infra_common.StatusWriter(args.status_filepath) as st_wr:
 
-            with eventlet.timeout.Timeout(config['check_detection_status_timeout_in_sec_for_status_chk'],
-                                          infra_common.TimeoutError(
-                                                      'Status check for %s timed out: ' % os.path.basename(__file__))):
+                with eventlet.timeout.Timeout(config['check_detection_status_timeout_in_sec_for_status_chk'],
+                                              infra_common.TimeoutError(
+                                                          'Status check for %s timed out: ' % os.path.basename(__file__))):
 
-                current_reported_size=check_detection_progress(s3_client, args, config )
-                last_reported_size=current_reported_size
-                z_in, z_out=check_detection_output(s3_client, args, config)
-                last_reported_z_in=z_in
-                last_reported_z_out=z_out
-                num_left=len(z_in - z_out)
+                    # Capture size and tasks left
+                    current_reported_size=check_detection_progress(s3_client, args, config)
+                    z_in, z_out=check_detection_output(s3_client, args, config)
+                    last_reported_z_in=z_in
+                    last_reported_z_out=z_out
+                    num_left=len(z_in - z_out)
 
-                f_progress = 0.0
-                if len(last_reported_z_in) > 0:
-                    f_progress = float(len(last_reported_z_out)) / len(last_reported_z_in)
-                last_reported_f_progress = f_progress
-                st_wr.set_progress_pcnt(last_reported_f_progress * 100)
+                    # Progress
+                    if len(last_reported_z_in) > 0:
+                        f_progress = float(len(last_reported_z_out)) / len(last_reported_z_in)
 
-gi
+                    last_reported_f_progress = f_progress
+                    st_wr.set_progress_pcnt(last_reported_f_progress * 100.0)
 
-    except infra_common.TimeoutError,e:
-        logging.error((e))
-        pass
+                    # Report progress
+                    logging.info('Reported size: {}. Finished {} of {}.'.format(current_reported_size, len(z_out), len(z_in)))
+
+        except infra_common.TimeoutError, e:
+            # Note a timeout error but don't exit
+            logging.error(e)
+            pass
 
 
 

@@ -724,8 +724,8 @@ def do_job(args):
                                               OutputS3BucketName='foo_delme',
                                               OutputS3KeyPrefix='send_command_result',
                                               Parameters={"commands": commands})
-            commandinfo(instance_ids, commands, ssmCommand['Command']['CommandId'])
-            wait_step_command_finishes(ssm, ssmCommand)
+                commandinfo(instance_ids, commands, ssmCommand['Command']['CommandId'])
+                wait_step_command_finishes(ssm, ssmCommand)
 
         if (args.stage == 'code_xfer'):
 
@@ -741,8 +741,8 @@ def do_job(args):
                                               OutputS3BucketName='foo_delme',
                                               OutputS3KeyPrefix='send_command_result',
                                               Parameters={"commands": commands})
-            commandinfo(instance_ids, commands, ssmCommand['Command']['CommandId'])
-            wait_step_command_finishes(ssm, ssmCommand)
+                commandinfo(instance_ids, commands, ssmCommand['Command']['CommandId'])
+                wait_step_command_finishes(ssm, ssmCommand)
 
         if (args.stage == 'clear_folder_and_sync_code'):
 

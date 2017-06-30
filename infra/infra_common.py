@@ -44,7 +44,6 @@ class StatusWriter(object):
         pass
 
     def __enter__(self):
-        assert(not os.path.isfile(self.status_filepath))
         with file(self.status_filepath, 'w') as st:
             st.write("%0.2f" % self.progress_pcnt)
         return self
