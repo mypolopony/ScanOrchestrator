@@ -261,6 +261,8 @@ def run():
     sequence = ['restart', 'matlab_kill', 'clear_folder_and_sync_code', 'git_pull_and_config', 'restart',
                 'rvm_generate', 'video_xfer', 'restart', 'preprocess', 'detection', 'check_detection_status',
                 'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
+    sequence = ['detection', 'check_detection_status',
+                'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
 
     # Main loop
     for stage in sequence:
