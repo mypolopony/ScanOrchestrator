@@ -1,4 +1,9 @@
-import jwt
+import sys
+if sys.version_info[0] < 3:
+    import  python_jwt as jwt
+else:
+    import jwt
+
 from datetime import datetime
 from flask_mongoengine import MongoEngine
 from flask_login import UserMixin

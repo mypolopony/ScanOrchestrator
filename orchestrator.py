@@ -239,8 +239,8 @@ def run():
     This is an override in place of the long poller. Here, we can direct activity explicitly
     '''
 
-    prefix = 'orchestrator_trial'
-    num_instances = 2
+    prefix = 'blk4_trial'
+    num_instances = 10
 
     instances = calculateInstanceDetails(prefix, num_instances)
     print('Instances: {}'.format(instances))
@@ -255,14 +255,15 @@ def run():
                        'expected_prefix': '22005520_2017-05-13'})
 
     # These processes require the extra check
-    waitfor = ['rvm_generate', 'preprocess', 'process', 'postprocess']
+    waitfor = ['rvm_generate', 'preprocess', 'shape_estimation', 'process', 'postprocess']
 
     # Task sequence
     sequence = ['restart', 'matlab_kill', 'clear_folder_and_sync_code', 'git_pull_and_config', 'restart',
-                'rvm_generate', 'video_xfer', 'restart', 'preprocess', 'detection', 'check_detection_status',
-                'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
-    sequence = ['detection', 'check_detection_status',
-                'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
+                'rvm_generate', 'rvm_copy', 'video_xfer', 'restart', 'preprocess', 'restart', 'shape_estimation', 'detection', 'check_detection_status',
+               'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
+
+    #sequence = [  'git_pull_and_config', 'detection', 'check_detection_status',
+    #            'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
 
     # Main loop
     for stage in sequence:
@@ -274,7 +275,7 @@ def run():
 if __name__ == '__main__':
     # poll()
 
-    from infra.config_writer_win_test import main
+    from infra.config_writer_win import main
 
     main(None)
     run()
