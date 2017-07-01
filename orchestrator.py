@@ -239,8 +239,9 @@ def run():
     This is an override in place of the long poller. Here, we can direct activity explicitly
     '''
 
-    prefix = 'blk4_trial'
-    num_instances = 10
+    prefix = 'duckhorn_THPCF-08'
+    num_instances = 5
+    client_id='594ce94f1fb3590bef00c927'
 
     instances = calculateInstanceDetails(prefix, num_instances)
     print('Instances: {}'.format(instances))
@@ -250,7 +251,7 @@ def run():
                        'b_force': True,
                        'instances': dict(zip(range(num_instances), [inst['fullname'] for inst in instances])),
                        'prefix': prefix,
-                       'scan_folder': '59055036037c2fc5e372ad9d',
+                       'scan_folder': client_id,
                        'upload_bucket': 'sunworld_file_transfer',
                        'expected_prefix': '22005520_2017-05-13'})
 
