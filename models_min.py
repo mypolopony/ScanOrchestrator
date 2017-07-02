@@ -1,7 +1,7 @@
-import jwt
 from datetime import datetime
 from flask_mongoengine import MongoEngine
 from flask_login import UserMixin
+import jwt
 
 
 db = MongoEngine()

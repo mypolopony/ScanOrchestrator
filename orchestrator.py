@@ -272,7 +272,7 @@ def run():
                        'clientid': clientid,
                        'scanid': scanid,
                        'upload_bucket': 'sunworld_file_transfer',
-                       'expected_prefix': '22005520_2017-05-13'})
+                       'expected_prefix': clientid})
 
     # These processes require the extra check
     waitfor = ['rvm_generate', 'preprocess', 'process', 'postprocess']
