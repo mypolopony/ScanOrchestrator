@@ -259,7 +259,7 @@ def run():
     waitfor = ['rvm_generate', 'preprocess', 'shape_estimation', 'process', 'postprocess']
 
     # Task sequence
-    sequence = ['restart', 'matlab_kill', 'clear_folder_and_sync_code', 'git_pull_and_config', 'restart',
+    sequence = ['restart', 'matlab_kill', 'clear_folder_and_sync_code', 'git_pull_and_config','pre_rvm_generate', 'restart',
                 'rvm_generate', 'rvm_copy', 'video_xfer', 'restart', 'preprocess', 'restart', 'shape_estimation', 'detection', 'check_detection_status',
                'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
 
