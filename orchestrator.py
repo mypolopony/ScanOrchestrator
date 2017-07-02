@@ -87,6 +87,21 @@ def report(args, results):
                 currentCommandId = db.StringField()}
 '''
 
+def keepDetectionAlive(args):
+    detectors = dict()
+
+    # While the status of the instances are not all Success
+    while set([instance['Status'] for instance in args.instances]) != set(['Success']):
+        for instance in args.instances:
+            detectors[instance.id] = {'instance': instance, 'last_pct': 0.0}
+
+            keys = s3.list_objects(Bucket='sunworld_file_transfer', Prefix='_'.join([instance.fullname, instance.attempt]))
+            video = [v for v in keys if '.tar.gz' in v and 'out' not in keys]
+            video_out =  [v for v in keys if '.tar.gz' in v and 'out' in keys]
+
+            if video:
+                detectors['last_pct'] = float(len(video_out)) / float(len(video))
+
 
 def calculateInstanceDetails(prefix, num):
     instances = list()
@@ -238,10 +253,17 @@ def run():
     '''
     This is an override in place of the long poller. Here, we can direct activity explicitly
     '''
-
+    '''
     prefix = 'duckhorn_THPCF-08'
     num_instances = 5
-    client_id='594ce94f1fb3590bef00c927'
+    clientid='594ce94f1fb3590bef00c927'
+    scanid='22005520_2017-05-13'
+    '''
+    prefix = 'orchestrator_trial'
+    num_instances = 2
+    clientid = '59055036037c2fc5e372ad9d'
+    scanid = '2017-06-26_11-15'
+
 
     instances = calculateInstanceDetails(prefix, num_instances)
     print('Instances: {}'.format(instances))
@@ -251,9 +273,11 @@ def run():
                        'b_force': True,
                        'instances': dict(zip(range(num_instances), [inst['fullname'] for inst in instances])),
                        'prefix': prefix,
-                       'scan_folder': client_id,
+                       'scan_folder': clientid,
+                       'clientid': clientid,
+                        'scanid': scanid,
                        'upload_bucket': 'sunworld_file_transfer',
-                       'expected_prefix': '22005520_2017-05-13'})
+                       'expected_prefix': scanid})
 
     # These processes require the extra check
     waitfor = ['rvm_generate', 'preprocess', 'shape_estimation', 'process', 'postprocess']
@@ -281,44 +305,3 @@ if __name__ == '__main__':
     main(None)
     run()
 
-'''
-# :: Appendix A
-# An example task:
-
-{
-  "Type" : "Notification",
-  "MessageId" : "7115cdd0-e31f-5e43-9153-9c1221f88f32",
-  "TopicArn" : "arn:aws:sns:us-west-2:090780547013:new-upload",
-  "Subject" : "Amazon S3 Notification",
-  "Message" : "{'Records':[
-        {'eventVersion':'2.0',
-         'eventSource':'aws:s3',
-         'awsRegion':'us-west-2',
-         'eventTime':'2017-06-20T06:28:55.494Z',
-         'eventName':'ObjectCreated:Put',
-         'userIdentity':
-            {'principalId':'AWS:AIDAJPMALFTJJN5RTRQAC'},
-         'requestParameters':
-            {'sourceIPAddress':'98.210.157.168'},
-         'responseElements':
-            {'x-amz-request-id':'BB6CD5D54D02C197',
-             'x-amz-id-2':'ZHly6fPy5asEZg5kamHhV6LNji7/T3Nn02InIE0/0QixAfDISj/Da5dtE66dzAzNH3DJ9SqvPmk='},
-         's3':
-            {'s3SchemaVersion':'1.0',
-             'configurationId':'new_upload',
-             'bucket':
-                {'name':'agridatadepot',
-                 'ownerIdentity': {'principalId':'A3GBGXVKMUOGDW'},
-                 'arn':'arn:aws:s3:::agridatadepot'},
-             'object':
-                {'key':'OfficeBox/2017-99-99_99-99/2017-99-99_99-99.tar.gz',
-                 'size':9069,
-                 'eTag':'e2ce2b566d95a2b5f10d5570c501d4c7',
-                 'sequencer':'005948C0A745CBCF86'}}}]}",
-  "Timestamp" : "2017-06-20T06:28:55.566Z",
-  "SignatureVersion" : "1",
-  "Signature" : "lBabeX5mPNZDU3bfrOznWBeT5QuSQUaJCUCujkGMZhQeby7z1/9f7HdKDpYsdKjzL3bv0bJWkNDGfsyl9YmHAP++HllVxDo3ZXw8wnx8a1dYwVcH3iI5qbswywrWZSc28cY+L0JSTusc8x2ICpIBXHjhosAyoqBHlgBqtQ6KBj9WYXrjEA7Azs/WVDZhG357yzPK2GFuN8THtX7wWXssHlIp1gVoHb/IJD7Ii5KPFlq2DLJlFSqINYxY0UBoKr2m5e/nYGYri1NKdEh+Phkapi3gAub3nH6JJhfPZ+zHapDhxsrjD4SHC+dUBmOOv3nhEnHUDCp1Q316mH41Ihe7bQ==",
-  "SigningCertURL" : "https://sns.us-west-2.amazonaws.com/SimpleNotificationService-b95095beb82e8f6a046b3aafc7f4149a.pem",
-  "UnsubscribeURL" : "https://sns.us-west-2.amazonaws.com/?Action=Unsubscribe&amp;SubscriptionArn=arn:aws:sns:us-west-2:090780547013:new-upload:aa8b4d08-a7bd-4acb-963c-458b71512c1c"
-}
-'''
