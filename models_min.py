@@ -15,10 +15,11 @@ class Role(db.Document):
     label = db.StringField(server_default='')  # for display purposes
 
 
-class ProcessStatus(db.Document):
-    '''
+'''
+class OrchestratorStatus(db.Document):
+    """
     This one atomic unit of a status report from an instance, hopefully in the midst of processing
-    '''
+    """
 
     # This class breaks our general style because it is an effort to conform to Koshyframework+AWS-SSM
     instanceId = db.StringField(),
@@ -32,6 +33,7 @@ class ProcessStatus(db.Document):
     task = db.StringField(),
     subtask = db.StringField(),
     currentCommandId = db.StringField()
+'''
 
 
 

@@ -69,10 +69,10 @@ class ArgsObject:
         return json.dumps(self._response)
 
 
-'''
 def report(args, results):
     payload = list()
 
+    '''
     for result in results:
         item = {'instanceId': db.StringField(),
                 'tagIndex' : db.IntegerField(),
@@ -85,7 +85,7 @@ def report(args, results):
                 task = db.StringField(),
                 subtask = db.StringField(),
                 currentCommandId = db.StringField()}
-'''
+    '''
 
 def keepDetectionAlive(args):
     detectors = dict()
