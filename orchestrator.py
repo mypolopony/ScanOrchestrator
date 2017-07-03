@@ -257,12 +257,12 @@ def run():
     prefix = 'duckhorn_THPCF-08'
     num_instances = 5
     clientid='594ce94f1fb3590bef00c927'
-    scanid='22005520_2017-05-13'
+    scanids=['22005520_2017-05-13']
     '''
     prefix = 'orchestrator_trial'
     num_instances = 2
     clientid = '59055036037c2fc5e372ad9d'
-    scanid = '2017-06-26_11-15'
+    scanids = ['2017-06-26_11-15']
 
 
     instances = calculateInstanceDetails(prefix, num_instances)
@@ -273,22 +273,39 @@ def run():
                        'b_force': True,
                        'instances': dict(zip(range(num_instances), [inst['fullname'] for inst in instances])),
                        'prefix': prefix,
-                       'scan_folder': clientid,
                        'clientid': clientid,
-                        'scanid': scanid,
+                        'scanids': scanids,
                        'upload_bucket': 'sunworld_file_transfer',
-                       'expected_prefix': scanid})
+                       })
 
     # These processes require the extra check
     waitfor = ['rvm_generate', 'preprocess', 'shape_estimation', 'process', 'postprocess']
 
     # Task sequence
-    sequence = ['restart', 'matlab_kill', 'clear_folder_and_sync_code', 'git_pull_and_config','pre_rvm_generate', 'restart',
-                'rvm_generate', 'rvm_copy', 'video_xfer', 'restart', 'preprocess', 'restart', 'shape_estimation', 'detection', 'check_detection_status',
-               'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
+    sequence = [
+        'restart',
+        'matlab_kill',
+        'clear_folder_and_sync_code',
+        'git_pull_and_config',
+        'pre_rvm_generate',
+        'restart',
+        'rvm_generate',
+        'rvm_copy',
+        'video_xfer',
+        'restart',
+        'preprocess',
+        'detection',
+        'check_detection_status',
+        'post_detect_xfer',
+        #'restart',
+        #'shape_estimation',
+        'restart',
+        'process',
+        'restart',
+        'postprocess'
+    ]
 
-    #sequence = [  'git_pull_and_config', 'detection', 'check_detection_status',
-    #            'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
+
 
     # Main loop
     for stage in sequence:
