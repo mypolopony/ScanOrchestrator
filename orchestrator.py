@@ -253,7 +253,12 @@ def run():
     '''
     This is an override in place of the long poller. Here, we can direct activity explicitly
     '''
-
+    '''
+    prefix = 'duckhorn_THPCF-08'
+    num_instances = 5
+    clientid='594ce94f1fb3590bef00c927'
+    scanid='22005520_2017-05-13'
+    '''
     prefix = 'orchestrator_trial'
     num_instances = 2
     clientid = '59055036037c2fc5e372ad9d'
@@ -270,18 +275,20 @@ def run():
                        'prefix': prefix,
                        'scan_folder': clientid,
                        'clientid': clientid,
-                       'scanid': scanid,
+                        'scanid': scanid,
                        'upload_bucket': 'sunworld_file_transfer',
-                       'expected_prefix': clientid})
+                       'expected_prefix': scanid})
 
     # These processes require the extra check
-    waitfor = ['rvm_generate', 'preprocess', 'process', 'postprocess']
+    waitfor = ['rvm_generate', 'preprocess', 'shape_estimation', 'process', 'postprocess']
 
     # Task sequence
-    sequence = ['restart', 'matlab_kill', 'clear_folder_and_sync_code', 'git_pull_and_config', 'restart', 'pre_rvm_generate',
-                'rvm_generate', 'video_xfer', 'restart', 'preprocess', 'detection', 'check_detection_status',
-                'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
-    sequence = ['pre_rvm_generate']
+    sequence = ['restart', 'matlab_kill', 'clear_folder_and_sync_code', 'git_pull_and_config','pre_rvm_generate', 'restart',
+                'rvm_generate', 'rvm_copy', 'video_xfer', 'restart', 'preprocess', 'restart', 'shape_estimation', 'detection', 'check_detection_status',
+               'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
+
+    #sequence = [  'git_pull_and_config', 'detection', 'check_detection_status',
+    #            'post_detect_xfer', 'restart', 'process', 'restart', 'postprocess']
 
     # Main loop
     for stage in sequence:
@@ -293,7 +300,8 @@ def run():
 if __name__ == '__main__':
     # poll()
 
-    from infra.config_writer_win_test import main
+    from infra.config_writer_win import main
 
     main(None)
     run()
+
