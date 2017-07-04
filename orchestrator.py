@@ -253,28 +253,29 @@ def run():
     '''
     This is an override in place of the long poller. Here, we can direct activity explicitly
     '''
-    '''
-    prefix = 'duckhorn_THPCF-08'
-    num_instances = 5
-    clientid='594ce94f1fb3590bef00c927'
-    scanids=['22005520_2017-05-13']
-    '''
-    prefix = 'orchestrator_trial'
-    num_instances = 2
-    clientid = '59055036037c2fc5e372ad9d'
-    scanids = ['2017-06-26_11-15']
+    client = Client.objects.get(name='Duckhorn Vineyards')
+    block = Block.objects.get(name='THPCF-08')
+    farm = Farm.objects.get(id=block.farm)
 
+    prefix = client.name.replace(' ','').lower() + '_' + block.name
+    scanids = ['2017-06-26_11-15']
+    num_instances = 2
 
     instances = calculateInstanceDetails(prefix, num_instances)
     print('Instances: {}'.format(instances))
 
     # Standard argument object
-    args = ArgsObject({'session_name': datetime.strftime(datetime.now(), '%c'),
+    args = ArgsObject({'session_name': datetime.now().strftime('%m-%d-%H-%M'),
                        'b_force': True,
                        'instances': dict(zip(range(num_instances), [inst['fullname'] for inst in instances])),
                        'prefix': prefix,
-                       'clientid': clientid,
-                        'scanids': scanids,
+                       'clientid': str(client.id),
+                       'clientname': client.name,
+                       'farmid': str(farm.id),
+                       'farmname': farm.name,
+                       'blockid': str(block.id),
+                       'blockname': block.name,
+                       'scanids': scanids,
                        'upload_bucket': 'sunworld_file_transfer',
                        })
 

@@ -3,7 +3,7 @@ from flask_mongoengine import MongoEngine
 from flask_login import UserMixin
 import sys
 if sys.version_info[0] < 3:
-    import  python_jwt as jwt
+    import jwt
 else:
     import jwt
 
