@@ -1,11 +1,8 @@
-from datetime import datetime
+import jwt
+import datetime
+from pymongo import MongoClient
 from flask_mongoengine import MongoEngine
 from flask_login import UserMixin
-import sys
-if sys.version_info[0] < 3:
-    import jwt
-else:
-    import jwt
 
 
 db = MongoEngine()
@@ -19,28 +16,6 @@ class Role(db.Document):
     label = db.StringField(server_default='')  # for display purposes
 
 
-'''
-class OrchestratorStatus(db.Document):
-    """
-    This one atomic unit of a status report from an instance, hopefully in the midst of processing
-    """
-
-    # This class breaks our general style because it is an effort to conform to Koshyframework+AWS-SSM
-    instanceId = db.StringField(),
-    tagIndex = db.IntField(),
-    tagName = db.StringField(),
-    progress = db.FloatField(),
-    status = db.StringField(),
-    startTime = db.DateTimeField(),
-    lastUpdatedAt = db.DateTimeField(),
-    lastStateChange = db.DateTimeField(),
-    task = db.StringField(),
-    subtask = db.StringField(),
-    currentCommandId = db.StringField()
-'''
-
-
-
 class User(db.Document, UserMixin):
     '''
     For individual logins and accounts
@@ -48,12 +23,12 @@ class User(db.Document, UserMixin):
 
     first_name = db.StringField(max_length=255)
     last_name = db.StringField(max_length=255)
-    email = db.StringField(max_length=255)
+    email = db.StringField(max_length=255, unique_with=['client'])
     active = db.BooleanField(default=True)
     confirmed_at = db.DateTimeField()
     username = db.StringField()
     password_hash = db.StringField(max_length=255)
-    client = db.ObjectIdField()
+    client = db.ObjectIdField(unique_with=['email'], required=True)
 
     @property
     def password(self):
@@ -85,8 +60,8 @@ class User(db.Document, UserMixin):
         '''
         try:
             payload = {
-                'exp': datetime.utcnow() + datetime.timedelta(days=365),
-                'iat': datetime.utcnow(),
+                'exp': datetime.datetime.utcnow() + datetime.timedelta(days=365),
+                'iat': datetime.datetime.utcnow(),
                 'sub': str(self.id)
             }
             return jwt.encode(
@@ -239,11 +214,17 @@ class Scan(db.Document):
     '''
 
     client = db.ObjectIdField()
+    scanid = db.StringField()
     start = db.DateTimeField()
     end = db.DateTimeField()
-    video_files = db.ListField(db.ObjectIdField())
+    farm = db.ObjectIdField()
+    blocks = db.ListField(db.ObjectIdField())
+    cameras = db.DictField()
+    filenames = db.ListField()
     rvm = db.ObjectIdField()
-    notes = db.StringField()
+    notes = db.ListField(db.StringField())
+    startleft = db.StringField()
+    startright = db.StringField()
 
 
 class Video(db.Document):

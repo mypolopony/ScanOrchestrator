@@ -4,7 +4,9 @@ import ConfigParser
 import copy
 import json
 import logging
+import subprocess
 import sys
+import os
 import time
 
 import boto3
@@ -13,17 +15,8 @@ from mongoengine import connect
 from pymongo import MongoClient
 
 # AgriData
-from infra import do_instances_win
 from models_min import *
-
-# Database
-server = 'ds161551.mlab.com'
-port = 61551
-username = 'agridata'
-password = 'agridata'
-dbname = 'dev-agdb'
-connect(dbname, host=server, port=port, username=username, password=password)
-c = MongoClient('mongodb://' + username + ':' + password + '@' + server + ':' + str(port) + '/' + dbname)
+from connection import *
 
 # Operational parameters
 WAIT_TIME = 20  # AWS wait time for messages
@@ -33,6 +26,11 @@ RETRY_DELAY = 60  # Number of seconds to wait upon encountering an error
 # Load config file
 config = ConfigParser.ConfigParser()
 config.read('poller.conf')
+
+# Temporary location for collateral in processing
+tmpdir = '/tmp/agridata/'
+if not os.path.exists(tmpdir):
+    os.mkdirs(tmpdir)
 
 # AWS Resources: S3
 S3Key = config.get('s3', 'aws_access_key_id')
@@ -52,23 +50,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(m
                     datefmt='%a, %d %b %Y %H:%M:%S')
 
 
-class ArgsObject:
-    def __init__(self, response):
-        self.__dict__['_response'] = response
-
-    def __getattr__(self, key):
-        try:
-            return self._response[key]
-        except KeyError:
-            sys.stderr.write('Sorry no key matches {}'.format(key))
-
-    def __repr__(self):
-        return json.dumps(self._response)
-
-    def __str__(self):
-        return json.dumps(self._response)
-
-
 def report(args, results):
     payload = list()
 
@@ -86,53 +67,6 @@ def report(args, results):
                 subtask = db.StringField(),
                 currentCommandId = db.StringField()}
     '''
-
-def keepDetectionAlive(args):
-    detectors = dict()
-
-    # While the status of the instances are not all Success
-    while set([instance['Status'] for instance in args.instances]) != set(['Success']):
-        for instance in args.instances:
-            detectors[instance.id] = {'instance': instance, 'last_pct': 0.0}
-
-            keys = s3.list_objects(Bucket='sunworld_file_transfer', Prefix='_'.join([instance.fullname, instance.attempt]))
-            video = [v for v in keys if '.tar.gz' in v and 'out' not in keys]
-            video_out =  [v for v in keys if '.tar.gz' in v and 'out' in keys]
-
-            if video:
-                detectors['last_pct'] = float(len(video_out)) / float(len(video))
-
-
-def calculateInstanceDetails(prefix, num):
-    instances = list()
-    instance_template = {'prefix': prefix,
-                         'fullname': None,
-                         'status': None,
-                         'task': None,
-                         'attempt': None,
-                         'number': num}
-    attempt = 1
-    # Generate instance information
-    for n in range(num):
-        # Find the most recent trial
-        previous = s3.list_objects(Bucket='sunworld_file_transfer', Prefix=prefix + '_' + str(n) + '_', Delimiter='/')
-        if 'CommonPrefixes' in previous.keys():
-            previous = [str(p['Prefix'][:-1]) for p in previous['CommonPrefixes'] if 'out' not in p['Prefix']]
-            last = sorted(previous, key=lambda x: int(x.split('_')[-1]), reverse=True)[0]
-            attempt = np.max([int(last.split('_')[-1]) + 1, attempt])
-        else:
-            attempt = 1
-
-    logging.info('Using Trial Number: {}'.format(attempt))
-
-    for n in range(num):
-        inst = copy.deepcopy(instance_template)
-        inst['attempt'] = attempt
-        inst['number'] = n
-        inst['fullname'] = '_'.join([prefix, str(inst['number']), str(attempt)])
-        instances.append(inst)
-
-    return instances
 
 
 def handleMessage(result):
@@ -192,134 +126,83 @@ def poll():
     time.sleep(RETRY_DELAY)
 
 
-def execute(task, args):
+def transformScan(scan):
     '''
-    Main Koshyframework entry
-    
-    :param task: Task to be executed
-    :param args: Standard argument object
-    :return: results contains instance level data
-    '''
+    This is a method for changing old-style scanids into new-style scanids. This will eventually become
+    deprecated as we switch (on the boxes) to the new format. It is called for old-style scans before
+    they are processed. 
 
-    args.stage = task
-    args.check_status_only = False
-
-    # TODO Make this a function with *kwargs
-    logging.info('')
-    logging.info('>> Executing {} <<'.format(task))
-    logging.info('')
-
-    results = do_instances_win.run(args)
-
-    return results
-
-
-def check(task, args):
-    '''
-    Koshyframework entry for tasks that require polling
-    
-    :param task: Task to be executed
-    :param args: Standard argument object
-    :return: results contains instance level data
+    To do this:
+        1) Add the scan ID to the .tar.gz file (this is useful when working with multiple scans)
+            - Rename the files on S3 by moving the originals to the new style with formatting change
+            - Delete the old files (this is safe after several weeks of code verification; also, backups exist)
+        2) Fill in the 'filename' column of the CSVs which can be mysteriously missing
+        3) Rename the CSVs by placing the scanid before the cameraid
+        4) Reupload
     '''
 
-    args.stage = task
-    args.check_status_only = True
+    ## Rename tars
+    # %his can be done without downloading any of the .tar.gz files, although they will
+    # be downloaded later. This process is expected to take some time, as resource on S3 
+    # cannot be moved but must be copied
+    s3base = '{}/{}'.format(str(scan.client), str(scan.id))
+    for fidx, file in enumerate(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=s3base)['Contents']):
+        if str(scan.client) in file['Key'] and '.tar.gz' in file['Key']:
 
-    success = None
-    results = None
+            # Ksplit is: [0] clientid; [-2==1] scanid; [-1==2] camera
+            ksplit = file['Key'].split('/')
+            scanid = ksplit[-2]
+            logging.info('[{}/{}, {}/{}] Converting s3://{}/{}'.format(pidx,len(list(page_iterator)),fidx,len(page['Contents']),bucket,file['Key']))
+            s3resource.Object(bucket, ksplit[0] + '/' + scanid + '/' + scanid + '_' + ksplit[-1]).copy_from(CopySource=config.get('s3','bucket')+'/'+file['Key'])
+            logging.info('--> {}'.format(ksplit[0] + '/' + scanid + '/' + scanid + '_' + ksplit[-1]))
 
-    while not success:
-        time.sleep(60)
-        logging.info('')
-        logging.info('>> Status Check: {} <<'.format(task))
+            # Here is the delete command, so use wisely
+            # s3resource.Object(bucket,file['Key']).delete()
 
-        results = do_instances_win.run(args)
+    ## Download files required for tar inspection and CSV update
+    # Temporary file destination
+    dest = os.path.join(tmpdr, '{}/{}'.format(str(scan.client), str(scan.scanid)))
+    if not os.path.exists(os.path.join(tmpdir,dest)):
+        mkdirs(dest)
 
-        complete = [v for v in results if v['result'].lower() == 'success']
-        incomplete = [v for v in results if v['result'].lower() != 'success']
+    # Downlaod to scan folder
+    subprocess.call(['rclone','-v',
+                     '--config', '{}/config/rclone/rclone.conf'.format(config.get('env','home')),
+                     'copy', 'AgriDataS3:{}/{}/{}/'.format(config.get('s3','bucket'), str(client.id), str(scan.scanid)),
+                     dest])
 
-        logging.info('Complete: {}'.format(complete))
-        logging.info('Incomplete: {}'.format(incomplete))
+    ## Rename CSVs by prepending the scanid (22179658_09_07.tar.gz becomes 2017-06-28_08-51_22179658_09_07.tar.gz)
 
-        if len(incomplete) == 0:
-            logging.info('Completed {}'.format(task))
-            success = True
+    ## Add 'filenames' column to CSV
 
-    return results
+    ## Upload 
 
-
-def run():
+def initiateScanProcess(scan):
     '''
-    This is an override in place of the long poller. Here, we can direct activity explicitly
+    This is the entry point to the processing pipeline. It takes a raw, newly uploaded scan and 
+    handles some essential tasks that are required before processing.
     '''
-    client = Client.objects.get(name='Duckhorn Vineyards')
-    block = Block.objects.get(name='THPCF-08')
-    farm = Farm.objects.get(id=block.farm)
 
-    prefix = client.name.replace(' ','').lower() + '_' + block.name
-    scanids = ['2017-06-26_11-15']
-    num_instances = 2
+    ## Check for formatting
+    # These are the keys (files) in the scan directory
+    s3base = '{}/{}'.format(str(scan.client), str(scan.id))
+    keys = [obj['Key'] for obj in s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=s3base)['Contents']]
 
-    instances = calculateInstanceDetails(prefix, num_instances)
-    print('Instances: {}'.format(instances))
+    # If there are any files that don't start with a scanid, they must be of the old format, so format them.
+    if not len([k for k in keys if k.split('/')[-1].startswith(scanid)]):
+        transformScan(scan)
 
-    # Standard argument object
-    args = ArgsObject({'session_name': datetime.now().strftime('%m-%d-%H-%M'),
-                       'b_force': True,
-                       'instances': dict(zip(range(num_instances), [inst['fullname'] for inst in instances])),
-                       'prefix': prefix,
-                       'clientid': str(client.id),
-                       'clientname': client.name,
-                       'farmid': str(farm.id),
-                       'farmname': farm.name,
-                       'blockid': str(block.id),
-                       'blockname': block.name,
-                       'scanids': scanids,
-                       'upload_bucket': 'sunworld_file_transfer',
-                       })
+    # The scan is uploaded and ready to be placed in the 'ready' or 'rvm' queue, where it 
+    # may be be evaluated for 'goodness'
 
-    # These processes require the extra check
-    waitfor = ['rvm_generate', 'preprocess', 'shape_estimation', 'process', 'postprocess']
-
-    # Task sequence
-    sequence = [
-        'restart',
-        'matlab_kill',
-        'clear_folder_and_sync_code',
-        'git_pull_and_config',
-        'pre_rvm_generate',
-        'restart',
-        'rvm_generate',
-        'rvm_copy',
-        'video_xfer',
-        'restart',
-        'preprocess',
-        'detection',
-        'check_detection_status',
-        'post_detect_xfer',
-        #'restart',
-        #'shape_estimation',
-        'restart',
-        'process',
-        'restart',
-        'postprocess'
-    ]
-
-
-
-    # Main loop
-    for stage in sequence:
-        execute(stage, args)
-        if stage in waitfor:
-            check(stage, args)
+def sendMsgToAzure(queue, msg):
+    # Here, we send a message to an azure service bus
 
 
 if __name__ == '__main__':
+    ## Poller
     # poll()
 
-    from infra.config_writer_win import main
-
-    main(None)
-    run()
-
+    ## Manual scan
+    for scan in Scan.objects():
+        initiateScanProcess(scan)
