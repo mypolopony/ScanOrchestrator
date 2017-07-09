@@ -213,7 +213,8 @@ class Scan(db.Document):
     A Scan is one outing with the ATV
     '''
 
-    client = db.ObjectIdField()
+    client = db.DynamicField()          # Sadly sometimes str, sometimes ObjectId
+    missed = db.ListField()
     scanid = db.StringField()
     start = db.DateTimeField()
     end = db.DateTimeField()

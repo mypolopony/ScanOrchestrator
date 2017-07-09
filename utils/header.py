@@ -35,6 +35,7 @@ if not os.path.exists(tmpdir):
 S3Key = config.get('s3', 'aws_access_key_id')
 S3Secret = config.get('s3', 'aws_secret_access_key')
 s3 = boto3.client('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secret)
+s3r = boto3.resource('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secret)
 
 # AWS Resources: SQS
 SQSKey = config.get('sqs', 'aws_access_key_id')
