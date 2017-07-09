@@ -264,5 +264,8 @@ if __name__ == '__main__':
 
     ## Manual scan
     # for scan in Scan.objects():
-    scan = Scan.objects.get(scanid='2017-06-28_22-54')
-    initiateScanProcess(scan)
+    for scan in Scan.objects():
+        try:
+            initiateScanProcess(scan)
+        except Exception as e:
+            logging.info('A fnord error has occured: {}'.format(e))
