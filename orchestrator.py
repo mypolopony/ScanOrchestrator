@@ -87,7 +87,12 @@ def report(args, results):
     '''
 
 @announce
-def handleMessage(result):
+def handleAWSMessage(result):
+    '''
+    This is a basic AWS message handler that can be extended for a more specialized task. It likely won't be used in
+    the transition to Azure except perhaps to shuttle messages from one service to the other.
+    '''
+
     # Weird double string to JSON
     msg = json.loads(json.loads(result.body)['Message'])['Records'][0]
     obj = msg['s3']['object']
