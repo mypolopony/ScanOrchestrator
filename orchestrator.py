@@ -13,6 +13,7 @@ import boto3
 import shutil
 
 import pandas as pd
+import matlab.engine
 
 from bson.objectid import ObjectId
 
@@ -47,6 +48,12 @@ SQSQueueName = config.get('sqs', 'queue_name')
 SQSQueueRegion = config.get('sqs', 'region')
 sqsr = boto3.resource('sqs', aws_access_key_id=SQSKey, aws_secret_access_key=SQSSecret, region_name=SQSQueueRegion)
 queue = sqsr.get_queue_by_name(QueueName='new-upload-queue')
+
+# Azure Service Queue
+from azure.servicebus import ServiceBusService, Message, Queue
+bus_service = ServiceBusService(service_namespace='agridataschoolbus',
+                                shared_access_key_name='SharedPolicy',
+                                shared_access_key_value='+fWawVsNi4aD20AGFgxFvjoqOXd5tsGJsanieTDc+sI=')
 
 # Initializing logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
@@ -152,6 +159,7 @@ def transformScan(scan):
         3) Rename the CSVs by placing the scanid before the cameraid
         4) Re-upload
     '''
+
     logging.info('Transforming Scan {} (client {})'.format(scan.client, scan.scanid))
 
     ## Rename tars and csvs in place on S3
@@ -254,8 +262,92 @@ def initiateScanProcess(scan):
     # The scan is uploaded and ready to be placed in the 'ready' or 'rvm' queue, where it
     # may be be evaluated for 'goodness'
 
-# def sendMsgToAzure(queue, msg):
-    # Here, we send a message to an azure service bus
+@announce
+def sendtoServiceBus(queue, msg):
+    '''
+    This is plainly just a wrapper for a message to a service bus, maybe other messaging things will happen here
+    '''
+    bus_service.send_queue_message(queue, Message(msg))
+
+
+@announce
+def receivefromServiceBus(role, lock=False):
+    '''
+    A generic way of asking for work to do, based on the task. The default behavior, for longer running processes,
+    is for peek_lock to be False, which means deleting the message when it is received. This means that the
+    task process is responsible for re-enqueing the task if it fails.
+    '''
+    qname = 'worker-' + role
+    msg = bus_service.receive_queue_message(qname, peek_lock=lock)
+    return msg.body
+
+
+@announce
+def generateRVM(scans):
+    '''
+    Given a set of scans (or one scan), generate a row video map.
+    '''
+
+    # Convert to list if necessary
+    if type(scans) is not list:
+        scans = list(scans)
+
+    # Start MATLAB
+    mlab = matlabProcess()
+    try:
+        # Send the arguments off to batch_auto
+        ret = mlab.batch_auto(0, 25, 0, scans[0].client, scans)      # TODO: Beware these magic numbers
+        logging.info('>> Success on {}'.format(scanid))
+        # TODO: Emit message
+    except:
+        logging.error('>> Failure on {}'.format(scanid))
+        # TODO: Emit message
+        return
+
+    # Return characteristics of RVM, like goodness for example
+    return None
+
+
+@announce
+def preprocess(scan):
+    '''
+    Preprocessing method
+    '''
+
+    # Start MATLAB
+    mlab = matlabProcess()
+
+
+@announce
+def identifyRole():
+    '''
+    This wmethod is called when an instance starts. Based on its ComputerInfo, it will identify itself as a
+    member of a particular work group and then proceeded to execute the correct tasks.
+    '''
+
+    if os.name == 'nt':
+        try:
+            output = subprocess.check_output(["powershell.exe", "Get-ComputerInfo"], shell=True)
+            instance_type = re.search('CsName[ ]+: [a-z]+', output).group().split(':')[-1].strip()
+            return instance_type
+        except Exception as e:
+            print('Error: {}'.format(e))
+    else:
+        return os.name
+
+
+@announce
+def matlabProcess(startpath='C:\Users\agridata\Projects\agridata\code'):
+    '''
+    Start MATLAB engine. This should not be global because it does not apply to all users of the script. Having said that,
+    my hope is that it becomes a pain to pass around. The Windows path is a safe default that probably should be offloaded
+    elsewhere since it
+    '''
+    logging.info('Starting MATLAB. . .')
+    mlab = matlab.engine.start_matlab()
+    mlab.addpath(mlab.genpath(startpath))
+
+    return mlab
 
 
 if __name__ == '__main__':
@@ -263,9 +355,24 @@ if __name__ == '__main__':
     # poll()
 
     ## Manual scan
-    # for scan in Scan.objects():
-    for scan in Scan.objects():
-        try:
-            initiateScanProcess(scan)
-        except Exception as e:
-            logging.info('A fnord error has occured: {}'.format(e))
+    #for scan in Scan.objects():
+    #    try:
+    #        initiateScanProcess(scan)
+    #    except Exception as e:
+    #        logging.info('A fnord error has occured: {}'.format(e))
+
+    clientid    = '5953469d1fb359d2a7a66287'    # Just a
+    scanid      = '2017-06-27_23-37'            # test case
+    scan        = Scan.objects.get(client=clientid,scanid=scanid)
+    role        = identifyRole(scan)
+
+    # Initial decision point. It is important that these do not return anything. This requires that each task stream
+    # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. THe
+    # reason is that that task itself has the sole responsibility of knowing what it should or should not be doing and how
+    # to handle adverse or successful events.
+    task = receivefromServiceBus(role)
+    if role == 'worker-rvm':
+        generateRVM(task)
+    if role == 'worker-preprocess':
+        preprocess(task)
+
