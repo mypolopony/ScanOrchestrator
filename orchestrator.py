@@ -288,25 +288,31 @@ def receivefromServiceBus(role, lock=False):
 
 
 @announce
-def generateRVM(scans):
+def generateRVM(task):
     '''
     Given a set of scans (or one scan), generate a row video map.
     '''
 
-    # Convert to list if necessary
-    if type(scans) is not list:
-        scans = list(scans)
+    # Obtain the scan
+    scans = Scan.objects(client=task['clientid'], scanid=task['scanid'])
+
+    # Check staging database for previous scans of this block
+    staged = db.staging.find({'block': scan.blocks[0]})
+    if staged:
+        scans = scans + staged
 
     # Start MATLAB
     mlab = matlabProcess()
     try:
         # Send the arguments off to batch_auto
-        ret = mlab.batch_auto(0, 25, 0, scans[0].client, scans)      # TODO: Beware these magic numbers
+        ret = mlab.batch_auto(0, 1, 0, scans[0].client, scans)      # TODO: Beware these magic numbers
         logging.info('>> Success on {}'.format(scanid))
         # TODO: Emit message
     except:
         logging.error('>> Failure on {}'.format(scanid))
         # TODO: Emit message
+        # TODO: Re-enqueue message
+        # TODO: Place scans into staging
         return
 
     # Return characteristics of RVM, like goodness for example
@@ -366,10 +372,11 @@ if __name__ == '__main__':
     #    except Exception as e:
     #        logging.info('A fnord error has occured: {}'.format(e))
 
-    clientid    = '5953469d1fb359d2a7a66287'    # Just a
-    scanid      = '2017-06-27_23-37'            # test case
-    scan        = Scan.objects.get(client=clientid,scanid=scanid)
-    role        = identifyRole(scan)
+    task = {
+        'clientid'    = '5953469d1fb359d2a7a66287'    # Just a
+        'scanid'      = '2017-06-27_23-37'            # test case
+        'role'        = identifyRole(scan)
+    }
 
     # Initial decision point. It is important that these do not return anything. This requires that each task stream
     # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. THe
