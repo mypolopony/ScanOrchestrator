@@ -13,6 +13,7 @@ import boto3
 import shutil
 
 import pandas as pd
+import numpy as np
 import matlab.engine
 
 from bson.objectid import ObjectId
@@ -33,7 +34,7 @@ config.read('utils/poller.conf')
 # Temporary location for collateral in processing
 tmpdir = config.get('env', 'tmpdir')
 if not os.path.exists(tmpdir):
-    os.mkdirs(tmpdir)
+    os.makedirs(tmpdir)
 
 # AWS Resources: S3
 S3Key = config.get('s3', 'aws_access_key_id')
@@ -47,13 +48,18 @@ SQSSecret = config.get('sqs', 'aws_secret_access_key')
 SQSQueueName = config.get('sqs', 'queue_name')
 SQSQueueRegion = config.get('sqs', 'region')
 sqsr = boto3.resource('sqs', aws_access_key_id=SQSKey, aws_secret_access_key=SQSSecret, region_name=SQSQueueRegion)
-queue = sqsr.get_queue_by_name(QueueName='new-upload-queue')
+queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 
-# Azure Service Queue
+# AWS Resources: SNS
+aws_arns = dict()
+aws_arns['statuslog'] = 'arn:aws:sns:us-west-2:090780547013:statuslog'
+sns = boto3.client('sns', region_name=config.get('sns','region'))
+
+# Azure Service Bus
 from azure.servicebus import ServiceBusService, Message, Queue
-bus_service = ServiceBusService(service_namespace='agridataschoolbus',
-                                shared_access_key_name='SharedPolicy',
-                                shared_access_key_value='+fWawVsNi4aD20AGFgxFvjoqOXd5tsGJsanieTDc+sI=')
+bus_service = ServiceBusService(service_namespace='agridataqueues',
+                                shared_access_key_name='sharedaccess',
+                                shared_access_key_value='cWonhEE3LIQ2cqf49mAL2uIZPV/Ig85YnyBtdb1z+xo=')
 
 # Initializing logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
@@ -134,7 +140,7 @@ def poll():
         for ridx, result in enumerate(results):
             try:
                 logging.info('Handling message {}/{}'.format(ridx, len(results)))
-                handleMessage(result)
+                handleAWSMessage(result)
             except:
                 logging.exception('Error while handling messge: {}'.format(result.body))
                 # can add dead letter queue for poisonous messages here
@@ -276,15 +282,30 @@ def sendtoServiceBus(queue, msg):
 
 
 @announce
-def receivefromServiceBus(role, lock=False):
+def receivefromServiceBus(queue, lock=False):
     '''
     A generic way of asking for work to do, based on the task. The default behavior, for longer running processes,
     is for peek_lock to be False, which means deleting the message when it is received. This means that the
     task process is responsible for re-enqueing the task if it fails.
     '''
-    qname = 'worker-' + role
-    msg = bus_service.receive_queue_message(qname, peek_lock=lock)
+    msg = bus_service.receive_queue_message(queue, peek_lock=lock)
     return msg.body
+
+@announce
+def emitSNSMessage(message, context=None, topic='statuslog'):
+    # A simple notification payload, sent to all of a topic's subscribed endpoints
+    payload = {
+        'message'   : message,
+        'topic_arn' : aws_arns[topic],
+        'context'   : context
+    }
+
+    # Emit the message
+    response = sns.publish(
+        TopicArn    =  aws_arns[topic],
+        Message     =  json.dumps(payload),                 # SNS likes strings
+        Subject     =  '{} message'.format(topic)
+    )
 
 
 @announce
@@ -294,23 +315,44 @@ def generateRVM(task):
     '''
 
     # Obtain the scan
-    scans = Scan.objects(client=task['clientid'], scanid=task['scanid'])
+    scan = Scan.objects.get(client=ObjectId(task['clientid']), scanid=task['scanid'])
+    scans = [str(scan.scanid)]
 
     # Check staging database for previous scans of this block
     staged = db.staging.find({'block': scan.blocks[0]})
     if staged:
-        scans = scans + staged
+        scans = scans + [s['_id'] for s in staged]
 
     # Start MATLAB
     mlab = matlabProcess()
     try:
-        # Send the arguments off to batch_auto
-        ret = mlab.batch_auto(0, 1, 0, scans[0].client, scans)      # TODO: Beware these magic numbers
-        logging.info('>> Success on {}'.format(scanid))
-        # TODO: Emit message
-    except:
-        logging.error('>> Failure on {}'.format(scanid))
-        # TODO: Emit message
+        # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
+        s3uri, localuri = mlab.generateRVM(task['clientid'], scans)      # TODO: Beware these magic numbers
+        data = pd.read_csv(localuri, header=0)
+        rows_found = len(set([(r, d) for r,d in zip(data['rows'],data['direction'])])) / 2
+
+        # Check for completeness
+        try:
+            block = Block.objects.get(id=scan.blocks[0])
+            if rows_found < block.num_rows * 0.5:
+                logging.warning('RVM is not long enough! Saving to holding area')
+                # TODO: Emit message, insert into staging db
+            if rows_found > block.num_rows:
+                logging.warning('Too many rows found!')
+                # TODO: Emit message
+        except:
+            pass
+
+        # Split tarfiles
+        tarfiles = pd.Series.unique(data['file'])
+        for shard in np.array_split(tarfiles, int(len(tarfiles)/6)):
+            task['tarfiles'] = list(shard)
+            sendtoServiceBus('preprocess', task)
+
+        emitSNSMessage('all is well!')
+    except Exception as err:
+        task['message'] = str(err)
+        emitSNSMessage('Failure on {}'.format(json.dumps(task)))
         # TODO: Re-enqueue message
         # TODO: Place scans into staging
         return
@@ -348,7 +390,7 @@ def identifyRole():
 
 
 @announce
-def matlabProcess(startpath='C:\Users\agridata\Projects\agridata\code'):
+def matlabProcess(startpath=r'S:\Projects'):
     '''
     Start MATLAB engine. This should not be global because it does not apply to all users of the script. Having said that,
     my hope is that it becomes a pain to pass around. The Windows path is a safe default that probably should be offloaded
@@ -372,19 +414,23 @@ if __name__ == '__main__':
     #    except Exception as e:
     #        logging.info('A fnord error has occured: {}'.format(e))
 
+    # A task from the service bus
+    # task = receivefromServiceBus(queue)
+
+    # Just a test case, Bettinelli G2
     task = {
-        'clientid'    = '5953469d1fb359d2a7a66287'    # Just a
-        'scanid'      = '2017-06-27_23-37'            # test case
-        'role'        = identifyRole(scan)
+        'clientid'    : '5953469d1fb359d2a7a66287',
+        'scanid'      : '2017-06-30_10-01',
+        'role'        : identifyRole()
     }
+    print(task)
 
     # Initial decision point. It is important that these do not return anything. This requires that each task stream
     # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. THe
     # reason is that that task itself has the sole responsibility of knowing what it should or should not be doing and how
     # to handle adverse or successful events.
-    task = receivefromServiceBus(role)
-    if role == 'worker-rvm':
+    if task['role'] == 'base':
         generateRVM(task)
-    if role == 'worker-preprocess':
+    if task['role'] == 'worker-preprocess':
         preprocess(task)
 
