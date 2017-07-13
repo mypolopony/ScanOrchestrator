@@ -68,7 +68,6 @@ bus_service = ServiceBusService(service_namespace='agridataqueues',
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S')
 
-
 def announce(func, *args, **kwargs):
     def wrapper(*args, **kwargs):
         logging.info('***** Executing {} *****'.format(func.func_name))
@@ -384,7 +383,7 @@ def identifyRole():
     if os.name == 'nt':
         try:
             output = subprocess.check_output(["powershell.exe", "Get-ComputerInfo"], shell=True)
-            instance_type = re.search('CsName[ ]+: [a-z]+', output).group().split(':')[-1].strip()
+            instance_type = re.search('CsName.+', output).group().split(':')[-1].strip().replace('\r','').lower()
             return instance_type
         except Exception as e:
             print('Error: {}'.format(e))
@@ -393,7 +392,7 @@ def identifyRole():
 
 
 @announce
-def matlabProcess(startpath=r'S:\Projects'):
+def matlabProcess(startpath=r'E:\Projects'):
     '''
     Start MATLAB engine. This should not be global because it does not apply to all users of the script. Having said that,
     my hope is that it becomes a pain to pass around. The Windows path is a safe default that probably should be offloaded
@@ -420,20 +419,24 @@ if __name__ == '__main__':
     # A task from the service bus
     # task = receivefromServiceBus(queue)
 
-    # Just a test case, Bettinelli G2
-    task = {
-        'clientid'    : '5953469d1fb359d2a7a66287',
-        'scanid'      : '2017-06-30_10-01',
-        'role'        : identifyRole()
-    }
-    print(task)
+    try:
+        # Just a test case, Bettinelli G2
+        task = {
+            'clientid'    : '5953469d1fb359d2a7a66287',
+            'scanid'      : '2017-06-30_10-01',
+            'role'        : identifyRole()
+        }
+        print(task)
 
-    # Initial decision point. It is important that these do not return anything. This requires that each task stream
-    # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. THe
-    # reason is that that task itself has the sole responsibility of knowing what it should or should not be doing and how
-    # to handle adverse or successful events.
-    if task['role'] == 'base':
-        generateRVM(task)
-    if task['role'] == 'worker-preprocess':
-        preprocess(task)
+        # Initial decision point. It is important that these do not return anything. This requires that each task stream
+        # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. THe
+        # reason is that that task itself has the sole responsibility of knowing what it should or should not be doing and how
+        # to handle adverse or successful events.
+        if task['role'] == 'base-selwyn':
+            generateRVM(task)
+        if task['role'] == 'worker-preprocess':
+            preprocess(task)
 
+    except Exception as e:
+    	with open('E:\\5.txt','w+') as outfile:
+            outfile.write(str(e))

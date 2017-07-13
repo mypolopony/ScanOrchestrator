@@ -1,3 +1,0 @@
-[submodule "origin"]
-	path = infra
-	url = https://github.com/motioniq/infra.git
