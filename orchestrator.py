@@ -54,9 +54,11 @@ sqsr = boto3.resource('sqs', aws_access_key_id=SQSKey, aws_secret_access_key=SQS
 queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 
 # AWS Resources: SNS
+SNSKey = config.get('sns', 'aws_access_key_id')
+SNSSecret = config.get('sns', 'aws_secret_access_key')
+sns = boto3.client('sns', region_name=config.get('sns','region'), aws_access_key_id=SNSKey, aws_secret_access_key=SNSSecret)
 aws_arns = dict()
 aws_arns['statuslog'] = 'arn:aws:sns:us-west-2:090780547013:statuslog'
-sns = boto3.client('sns', region_name=config.get('sns','region'))
 
 # Azure Service Bus
 from azure.servicebus import ServiceBusService, Message, Queue
@@ -440,3 +442,4 @@ if __name__ == '__main__':
     except Exception as e:
     	with open('E:\\5.txt','w+') as outfile:
             outfile.write(str(e))
+        emitSNSMessage('Critical Failure {}'.format(str(e)), context=None, topic='statuslog')
