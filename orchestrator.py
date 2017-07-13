@@ -14,7 +14,6 @@ import shutil
 
 import pandas as pd
 import numpy as np
-import matlab.engine
 
 from bson.objectid import ObjectId
 
@@ -384,6 +383,7 @@ def identifyRole():
 
     if os.name == 'nt':
         try:
+            import matlab.engine
             output = subprocess.check_output(["powershell.exe", "Get-ComputerInfo"], shell=True)
             instance_type = re.search('CsName.+', output).group().split(':')[-1].strip().replace('\r','').lower()
             return instance_type
