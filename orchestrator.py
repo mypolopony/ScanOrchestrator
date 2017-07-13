@@ -30,7 +30,7 @@ RETRY_DELAY = 60  # Number of seconds to wait upon encountering an error
 # Load config file
 config = ConfigParser.ConfigParser()
 if os.name == 'nt':
-    config.read('S:\\Projects\\ScanOrchestrator\\utils\\poller.conf')
+    config.read('E:\\Projects\\ScanOrchestrator\\utils\\poller.conf')
 else:
     config.read('utils/poller.conf')
 
