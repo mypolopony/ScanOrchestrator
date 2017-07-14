@@ -15,7 +15,6 @@ import shutil
 
 import pandas as pd
 import numpy as np
-import matlab.engine
 
 from bson.objectid import ObjectId
 
@@ -247,7 +246,7 @@ def transformScan(scan):
             logging.error('\n *** Failed: {} {}'.format(camera, csv))
             continue
 
-    ## Upload and delete old (accomplished in one via rsync)
+    ## Upload
     subprocess.call(['rclone', '-v',
                      '--config', '{}/.config/rclone/rclone.conf'.format(config.get('env', 'home')),
                      'copy', dest,
@@ -275,8 +274,9 @@ def initiateScanProcess(scan):
     keys = [obj['Key'] for obj in s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=s3base)['Contents']]
 
     # If there are any files that don't start with a scanid, they must be of the old format, so format them.
-    if not len([k for k in keys if k.split('/')[-1].startswith(scan.scanid)]):
-        transformScan(scan)
+    # if not len([k for k in keys if k.split('/')[-1].startswith(scan.scanid)]):
+    #     transformScan(scan)
+    print('This feature disabled; a more intelligent service is required to perform transformation')
 
     # The scan is uploaded and ready to be placed in the 'ready' or 'rvm' queue, where it
     # may be be evaluated for 'goodness'
@@ -394,7 +394,7 @@ def preprocess():
 
     while task:
         # Download the tarfiles
-        for tar in task['tarfiles']
+        for tar in task['tarfiles']:
             key = '{}/{}/{}'.format(task['clientid'], task['scanid'], tar)
             print(key)
             s3r.Bucket(config.get('s3','bucket').download_file(key, video_dir))
@@ -432,11 +432,16 @@ def identifyRole():
     # Windows box
     if os.name == 'nt':
         try:
+            # Bring in MATLAB
+            import matlab.engine
+
+            # Look for computer type (role)
             output = subprocess.check_output(["powershell.exe", "Get-ComputerInfo"], shell=True)
             instance_type = re.search('CsName[ ]+: [a-z]+', output).group().split(':')[-1].strip()
             return instance_type
         except Exception as e:
             print('Error: {}'.format(e))
+
     # Linux box
     else:
         return os.name
@@ -463,10 +468,11 @@ if __name__ == '__main__':
     # to handle adverse or successful events.
 
     # Convert scan filenames and CSVs from old style to new style
-    if sys.args[1] == 'convert':
+    if sys.argv[1] == 'convert':
         # Scanid can be specified on the command line
-        if sys.argv == 3:
-            scans = [sys.args[2]]
+        if len(sys.argv) == 3:
+            scans = [Scan.objects.get(scanid=sys.argv[2])]
+
         # Or else we'll just run through all the scans
         else:
             scans = Scan.objects()
@@ -478,11 +484,11 @@ if __name__ == '__main__':
                 logging.info('A fnord error has occured: {}'.format(e))
 
     # Daemon mode
-    elif sys.args[1] == 'poll':
+    elif sys.argv[1] == 'poll':
         poll()
 
     # RVM Generation
-    elif sys.args[1] == 'rvm':
+    elif sys.argv[1] == 'rvm':
         task = {
            'clientid'    : '5953469d1fb359d2a7a66287',
            'scanid'      : '2017-06-30_10-01',
@@ -491,7 +497,7 @@ if __name__ == '__main__':
         logging.info('Initializing with scan {}'.format(task['scanid']))
 
     # Preprocessing
-    elif sys.args[1] == 'preprocess':
+    elif sys.argv[1] == 'preprocess':
         preprocess()
 
     # Error
