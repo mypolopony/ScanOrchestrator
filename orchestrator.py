@@ -14,6 +14,7 @@ import shutil
 
 import pandas as pd
 import numpy as np
+import matlab.engine
 
 from bson.objectid import ObjectId
 
@@ -53,11 +54,9 @@ sqsr = boto3.resource('sqs', aws_access_key_id=SQSKey, aws_secret_access_key=SQS
 queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 
 # AWS Resources: SNS
-SNSKey = config.get('sns', 'aws_access_key_id')
-SNSSecret = config.get('sns', 'aws_secret_access_key')
-sns = boto3.client('sns', region_name=config.get('sns','region'), aws_access_key_id=SNSKey, aws_secret_access_key=SNSSecret)
 aws_arns = dict()
 aws_arns['statuslog'] = 'arn:aws:sns:us-west-2:090780547013:statuslog'
+sns = boto3.client('sns', region_name=config.get('sns','region'))
 
 # Azure Service Bus
 from azure.servicebus import ServiceBusService, Message, Queue
@@ -68,6 +67,7 @@ bus_service = ServiceBusService(service_namespace='agridataqueues',
 # Initializing logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S')
+
 
 def announce(func, *args, **kwargs):
     def wrapper(*args, **kwargs):
@@ -291,8 +291,16 @@ def receivefromServiceBus(queue, lock=False):
     is for peek_lock to be False, which means deleting the message when it is received. This means that the
     task process is responsible for re-enqueing the task if it fails.
     '''
-    msg = bus_service.receive_queue_message(queue, peek_lock=lock)
-    return msg.body
+    incoming = bus_service.receive_queue_message(queue, peek_lock=lock)
+
+    # Here, we can accept either properly formatted JSON strings or, if necessary, convert the
+    # quotes to make them compliant.
+    try:
+        msg = json.loads(incoming.body)
+    except:
+        msg = json.loads(incoming.body.replace("'",'"'))
+
+    return msg
 
 @announce
 def emitSNSMessage(message, context=None, topic='statuslog'):
@@ -330,7 +338,7 @@ def generateRVM(task):
     mlab = matlabProcess()
     try:
         # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
-        s3uri, localuri = mlab.generateRVM(task['clientid'], scans)      # TODO: Beware these magic numbers
+        s3uri, localuri = mlab.runTask('rvm', task['clientid'], scans)
         data = pd.read_csv(localuri, header=0)
         rows_found = len(set([(r, d) for r,d in zip(data['rows'],data['direction'])])) / 2
 
@@ -365,9 +373,42 @@ def generateRVM(task):
 
 
 @announce
-def preprocess(scan):
+def preprocess():
     '''
     Preprocessing method
+    '''
+    # Start MATLAB
+    mlab = matlabProcess()
+
+    # Grab a task
+    task = receivefromServiceBus('preprocess')
+
+    # Canonical filepath
+    video_dir = r'E:\Projects\videos'
+
+    while task:
+        # Download the tarfiles
+        for tar in task['tarfiles']
+            key = '{}/{}/{}'.format(task['clientid'], task['scanid'], tar)
+            s3r.Bucket(config.get('s3','bucket').download_file(key, video_dir))
+
+        # Run
+        ret = mlab.runTask('preprocess', task['clientid'], scans)
+
+@announce
+def detection(scan):
+    '''
+    Detection method
+    '''
+
+    # Start MATLAB
+    mlab = matlabProcess()
+
+
+@announce
+def process(scan):
+    '''
+    Processing method
     '''
 
     # Start MATLAB
@@ -381,14 +422,15 @@ def identifyRole():
     member of a particular work group and then proceeded to execute the correct tasks.
     '''
 
+    # Windows box
     if os.name == 'nt':
         try:
-            import matlab.engine
             output = subprocess.check_output(["powershell.exe", "Get-ComputerInfo"], shell=True)
-            instance_type = re.search('CsName.+', output).group().split(':')[-1].strip().replace('\r','').lower()
+            instance_type = re.search('CsName[ ]+: [a-z]+', output).group().split(':')[-1].strip()
             return instance_type
         except Exception as e:
             print('Error: {}'.format(e))
+    # Linux box
     else:
         return os.name
 
@@ -421,25 +463,24 @@ if __name__ == '__main__':
     # A task from the service bus
     # task = receivefromServiceBus(queue)
 
-    try:
-        # Just a test case, Bettinelli G2
-        task = {
-            'clientid'    : '5953469d1fb359d2a7a66287',
-            'scanid'      : '2017-06-30_10-01',
-            'role'        : identifyRole()
-        }
-        print(task)
+    # Just a test case, Bettinelli G2 (WILL BE MESSAGE)
+    task = {
+        'clientid'    : '5953469d1fb359d2a7a66287',
+        'scanid'      : '2017-06-30_10-01',
+        'role'        : identifyRole()
+    }
+    print(task)
 
-        # Initial decision point. It is important that these do not return anything. This requires that each task stream
-        # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. THe
-        # reason is that that task itself has the sole responsibility of knowing what it should or should not be doing and how
-        # to handle adverse or successful events.
-        if task['role'] == 'base-selwyn':
-            generateRVM(task)
-        if task['role'] == 'worker-preprocess':
-            preprocess(task)
+    # Initial decision point. It is important that these do not return anything. This requires that each task stream
+    # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. THe
+    # reason is that that task itself has the sole responsibility of knowing what it should or should not be doing and how
+    # to handle adverse or successful events.
+    if task['role'] == 'base':
+        generateRVM(task)
+    elif task['role'] == 'preprocess':
+        preprocess()
+    elif task['role'] == 'posix':
+        detection(task)
+    elif task['role'] == 'process':
+        process(task)
 
-    except Exception as e:
-    	with open('E:\\5.txt','w+') as outfile:
-            outfile.write(str(e))
-        emitSNSMessage('Critical Failure {}'.format(str(e)), context=None, topic='statuslog')
