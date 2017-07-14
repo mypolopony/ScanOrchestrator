@@ -6,6 +6,7 @@ import logging
 import subprocess
 import tarfile
 import glob
+import sys
 import os
 import re
 import time
@@ -201,7 +202,11 @@ def transformScan(scan):
             # Copy and Delete
             s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
                                                                                       'Key': file['Key']})
-            s3r.Object(config.get('s3', 'bucket'), file['Key']).delete()
+
+            # Tthe Great Rename Fiasco of 2017 was brought about by this line. As files in the old format were deleted,
+            # boxes in the field began to began to re-upload imagery, starting with the earliest scans. The line is kept
+            # here as an historical exhibit.
+            # s3r.Object(config.get('s3', 'bucket'), file['Key']).delete()
 
 
     ## Download files required for tar inspection and cv update
@@ -382,6 +387,7 @@ def preprocess():
 
     # Grab a task
     task = receivefromServiceBus('preprocess')
+    print(task)
 
     # Canonical filepath
     video_dir = r'E:\Projects\videos'
@@ -390,6 +396,7 @@ def preprocess():
         # Download the tarfiles
         for tar in task['tarfiles']
             key = '{}/{}/{}'.format(task['clientid'], task['scanid'], tar)
+            print(key)
             s3r.Bucket(config.get('s3','bucket').download_file(key, video_dir))
 
         # Run
@@ -450,37 +457,43 @@ def matlabProcess(startpath=r'E:\Projects'):
 
 
 if __name__ == '__main__':
-    ## Poller
-    # poll()
-
-    ## Manual scan
-    #for scan in Scan.objects():
-    #    try:
-    #        initiateScanProcess(scan)
-    #    except Exception as e:
-    #        logging.info('A fnord error has occured: {}'.format(e))
-
-    # A task from the service bus
-    # task = receivefromServiceBus(queue)
-
-    # Just a test case, Bettinelli G2 (WILL BE MESSAGE)
-    task = {
-        'clientid'    : '5953469d1fb359d2a7a66287',
-        'scanid'      : '2017-06-30_10-01',
-        'role'        : identifyRole()
-    }
-    print(task)
-
-    # Initial decision point. It is important that these do not return anything. This requires that each task stream
+    # Initial decision points. It is important that these do not return anything. This requires that each task stream
     # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. THe
     # reason is that that task itself has the sole responsibility of knowing what it should or should not be doing and how
     # to handle adverse or successful events.
-    if task['role'] == 'base':
-        generateRVM(task)
-    elif task['role'] == 'preprocess':
-        preprocess()
-    elif task['role'] == 'posix':
-        detection(task)
-    elif task['role'] == 'process':
-        process(task)
 
+    # Convert scan filenames and CSVs from old style to new style
+    if sys.args[1] == 'convert':
+        # Scanid can be specified on the command line
+        if sys.argv == 3:
+            scans = [sys.args[2]]
+        # Or else we'll just run through all the scans
+        else:
+            scans = Scan.objects()
+
+        for scan in scans:
+            try:
+                initiateScanProcess(scan)
+            except Exception as e:
+                logging.info('A fnord error has occured: {}'.format(e))
+
+    # Daemon mode
+    elif sys.args[1] == 'poll':
+        poll()
+
+    # RVM Generation
+    elif sys.args[1] == 'rvm':
+        task = {
+           'clientid'    : '5953469d1fb359d2a7a66287',
+           'scanid'      : '2017-06-30_10-01',
+           'role'        : 'rvm',
+        }
+        logging.info('Initializing with scan {}'.format(task['scanid']))
+
+    # Preprocessing
+    elif sys.args[1] == 'preprocess':
+        preprocess()
+
+    # Error
+    else:
+        logging.error('Sorry, no arguments supplied')
