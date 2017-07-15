@@ -274,9 +274,9 @@ def initiateScanProcess(scan):
     keys = [obj['Key'] for obj in s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=s3base)['Contents']]
 
     # If there are any files that don't start with a scanid, they must be of the old format, so format them.
-    # if not len([k for k in keys if k.split('/')[-1].startswith(scan.scanid)]):
-    #     transformScan(scan)
-    print('This feature disabled; a more intelligent service is required to perform transformation')
+    if not len([k for k in keys if k.split('/')[-1].startswith(scan.scanid)]):
+        transformScan(scan)
+    # print('This feature disabled; a more intelligent service is required to perform transformation')
 
     # The scan is uploaded and ready to be placed in the 'ready' or 'rvm' queue, where it
     # may be be evaluated for 'goodness'
