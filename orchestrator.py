@@ -183,7 +183,8 @@ def transformScan(scan):
     pattern_cam = re.compile('[0-9]{8}')
     for fidx, file in enumerate(s3.list_objects(Bucket=config.get('s3','bucket'),
                                                 Prefix='{}/{}'.format(scan.client, scan.scanid))['Contents']):
-        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)):     # Exclude the folder itself
+        # Exclude the folder itself and any good files (sorry 2018)
+        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)) and not file['Key'].startswith('2017'):     
             # Extract camera and timestamp for rearrangement
             camera = re.search(pattern_cam, file['Key']).group()
             time = '_'.join([file['Key'].split('_')[-2], file['Key'].split('_')[-1]])
