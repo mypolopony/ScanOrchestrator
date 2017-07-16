@@ -197,10 +197,10 @@ def transformScan(scan):
     # cannot be moved but must be copied.
     pattern_cam = re.compile('[0-9]{8}')
     for fidx, file in enumerate(s3.list_objects(Bucket=config.get('s3','bucket'),
-                                                Prefix='{}/{}'.format(scan.client, scan.scanid))['Contents']):
+                                                Prefix='{}/{}/{}'.format(scan.client, scan.scanid, file['Key']))['Contents']):
 
         # Exclude the folder itself and any good files (sorry 2018)
-        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)) and not file['Key'].startswith('2017'):     
+        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid))"
             # Extract camera and timestamp for rearrangement
             camera = re.search(pattern_cam, file['Key']).group()
             time = '_'.join([file['Key'].split('_')[-2], file['Key'].split('_')[-1]])
@@ -213,10 +213,9 @@ def transformScan(scan):
             if '.csv' in file['Key']:
                 newfile = '{}/{}/{}_{}.csv'.format(str(scan.client), str(scan.scanid), str(scan.scanid), camera)
 
-            logger.info('Renaming {} --> {}'.format(file['Key'], newfile))
-
             # Copy (unless the file exists already)
-            if not s3r.Object(config.get('s3', 'bucket'), newfile).load()
+            if not s3r.Object(config.get('s3', 'bucket'), newfile).load():
+                logger.info('Renaming {} --> {}'.format(file['Key'], newfile))
                 s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
                                                                                       'Key': file['Key']})
 
