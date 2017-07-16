@@ -64,14 +64,29 @@ bus_service = ServiceBusService(service_namespace='agridataqueues',
                                 shared_access_key_name='sharedaccess',
                                 shared_access_key_value='cWonhEE3LIQ2cqf49mAL2uIZPV/Ig85YnyBtdb1z+xo=')
 
-# Initializing logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
-                    datefmt='%a, %d %b %Y %H:%M:%S')
 
+# Initialize logging
+logger = logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
+                    datefmt='%a, %d %b %Y %H:%M:%S')
+logger = logging.getLogger('default')
+logger.setLevel(logging.DEBUG)
+# File Handler
+fh = logging.FileHandler(config.get('file_logger', 'log_path'))
+fh.setLevel(logging.DEBUG)
+# Console Handler
+ch = logging.StreamHandler()
+ch.setLevel(logging.ERROR)
+# Formatter
+formatter = logging.Formatter('%(asctime)s [%(levelname)s]: %(message)s', datefmt='%a, %d %b %Y %H:%M:%S')
+ch.setFormatter(formatter)
+fh.setFormatter(formatter)
+# Add handlers
+logger.addHandler(ch)
+logger.addHandler(fh)
 
 def announce(func, *args, **kwargs):
     def wrapper(*args, **kwargs):
-        logging.info('***** Executing {} *****'.format(func.func_name))
+        logger.info('***** Executing {} *****'.format(func.func_name))
         return func(*args, **kwargs)
 
     return wrapper
@@ -113,10 +128,10 @@ def handleAWSMessage(result):
     task['filename']    = obj['key'].split('/')[2]
     task['size']        = float(obj['size']) / 1024.0
 
-    logging.info('\tWorking on {} ({} MB)'.format(task['filename'], task['size']))
+    logger.info('\tWorking on {} ({} MB)'.format(task['filename'], task['size']))
 
     for goodkey in ['clientid', 'scanid', 'filename', 'size']:
-        logging.info('\t{}\t{}'.format(goodkey.capitalize(), task[goodkey]))
+        logger.info('\t{}\t{}'.format(goodkey.capitalize(), task[goodkey]))
 
         # Delete task / Re-enque task on fail
         # When tasks are received, they are temporarily marked as 'taken' but it is up to this process to actually
@@ -126,35 +141,35 @@ def handleAWSMessage(result):
 def poll():
     start = datetime.datetime.now()
 
-    logging.info('Amazon AWS SQS Poller\n\n')
+    logger.info('Amazon AWS SQS Poller\n\n')
 
     # Poll messages
     # while True:
     try:
-        logging.info('Requesting tasks')
+        logger.info('Requesting tasks')
         try:
             results = queue.receive_messages(MaxNumberOfMessages=NUM_MSGS, WaitTimeSeconds=WAIT_TIME)
         except Exception as e:
-            logging.error('A problem occured: {}'.format(str(e)))
+            logger.error('A problem occured: {}'.format(str(e)))
             raise e
 
         # For each result. . .
-        logging.info('Received {} tasks'.format(len(results)))
+        logger.info('Received {} tasks'.format(len(results)))
         for ridx, result in enumerate(results):
             try:
-                logging.info('Handling message {}/{}'.format(ridx, len(results)))
+                logger.info('Handling message {}/{}'.format(ridx, len(results)))
                 handleAWSMessage(result)
             except:
-                logging.exception('Error while handling messge: {}'.format(result.body))
+                logger.exception('Error while handling messge: {}'.format(result.body))
                 # can add dead letter queue for poisonous messages here
         else:
-            logging.info('No tasks to do.')
+            logger.info('No tasks to do.')
 
     except Exception as e:
         # General errors, with a retry delay
-        logging.exception('Unexpected error: {}. Sleeping for {} seconds'.format(str(e), RETRY_DELAY))
+        logger.exception('Unexpected error: {}. Sleeping for {} seconds'.format(str(e), RETRY_DELAY))
 
-    logging.info('Sleeping for {} seconds'.format(RETRY_DELAY))
+    logger.info('Sleeping for {} seconds'.format(RETRY_DELAY))
     time.sleep(RETRY_DELAY)
 
 
@@ -174,7 +189,7 @@ def transformScan(scan):
         4) Re-upload
     '''
 
-    logging.info('Transforming Scan {} (client {})'.format(scan.client, scan.scanid))
+    logger.info('Transforming Scan {} (client {})'.format(scan.client, scan.scanid))
 
     ## Rename tars and csvs in place on S3
     # This can be done without downloading any of the .tar.gz files, although they will
@@ -197,7 +212,7 @@ def transformScan(scan):
             if '.csv' in file['Key']:
                 newfile = '{}/{}/{}_{}.csv'.format(str(scan.client), str(scan.scanid), str(scan.scanid), camera)
 
-            logging.info('Renaming {} --> {}'.format(file['Key'], newfile))
+            logger.info('Renaming {} --> {}'.format(file['Key'], newfile))
 
             # Copy and Delete
             s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
@@ -217,14 +232,14 @@ def transformScan(scan):
 
     # Rsync scan to temporary folder
     subprocess.call(['rclone',
-                     '--config', '{}/.config/rclone/rclone.conf'.format(config.get('env','home')),
+                     '--config', '{}/.config/rclone/rclone.conf'.format(os.path.expanduser('~')),
                      'copy', '{}:{}/{}/{}'.format(config.get('rclone','profile'),
                                                    config.get('s3','bucket'),
                                                    str(scan.client),
                                                    str(scan.scanid)), dest])
 
     ## Add filenames column to CSV
-    logging.info('Filling in CSV columns. . . this can take a while. . .')
+    logger.info('Filling in CSV columns. . . this can take a while. . .')
     for csv in glob.glob(dest + '/*.csv'):
         camera  = re.search(pattern_cam, csv).group()
         log     = pd.read_csv(csv)
@@ -235,21 +250,21 @@ def transformScan(scan):
                     names.append(tf.split('/')[-1])
 
             if len(names) == len(log) + 1:
-                logging.info('Names == Log + 1: This is normal, shaving one from Names')
+                logger.info('Names == Log + 1: This is normal, shaving one from Names')
                 names = names[:-1]
             elif len(names) == len(log) - 1:
-                logging.info('Log == Names + 1: This is odd but still okay, adding one to Names')
+                logger.info('Log == Names + 1: This is odd but still okay, adding one to Names')
                 names.append(names[-1])
 
             log['filename'] = names
             log.to_csv(csv)
         except Exception as e:
-            logging.error('\n *** Failed: {} {}'.format(camera, csv))
+            logger.error('\n *** Failed: {} {}'.format(camera, csv))
             continue
 
     ## Upload
     subprocess.call(['rclone', '-v',
-                     '--config', '{}/.config/rclone/rclone.conf'.format(config.get('env', 'home')),
+                     '--config', '{}/.config/rclone/rclone.conf'.format(os.path.expanduser('~')),
                      'copy', dest,
                      '{}:{}/{}/{}/'.format(config.get('rclone', 'profile'),
                                                    config.get('s3', 'bucket'),
@@ -352,10 +367,10 @@ def generateRVM(task):
         try:
             block = Block.objects.get(id=scan.blocks[0])
             if rows_found < block.num_rows * 0.5:
-                logging.warning('RVM is not long enough! Saving to holding area')
+                logger.warning('RVM is not long enough! Saving to holding area')
                 # TODO: Emit message, insert into staging db
             if rows_found > block.num_rows:
-                logging.warning('Too many rows found!')
+                logger.warning('Too many rows found!')
                 # TODO: Emit message
         except:
             pass
@@ -455,7 +470,7 @@ def matlabProcess(startpath=r'E:\Projects'):
     my hope is that it becomes a pain to pass around. The Windows path is a safe default that probably should be offloaded
     elsewhere since it
     '''
-    logging.info('Starting MATLAB. . .')
+    logger.info('Starting MATLAB. . .')
     mlab = matlab.engine.start_matlab()
     mlab.addpath(mlab.genpath(startpath))
 
@@ -482,7 +497,7 @@ if __name__ == '__main__':
             try:
                 initiateScanProcess(scan)
             except Exception as e:
-                logging.info('A fnord error has occured: {}'.format(e))
+                logger.info('A fnord error has occured: {}'.format(e))
 
     # Daemon mode
     elif sys.argv[1] == 'poll':
@@ -495,7 +510,7 @@ if __name__ == '__main__':
            'scanid'      : '2017-06-30_10-01',
            'role'        : 'rvm',
         }
-        logging.info('Initializing with scan {}'.format(task['scanid']))
+        logger.info('Initializing with scan {}'.format(task['scanid']))
 
     # Preprocessing
     elif sys.argv[1] == 'preprocess':
@@ -503,4 +518,4 @@ if __name__ == '__main__':
 
     # Error
     else:
-        logging.error('Sorry, no arguments supplied')
+        logger.error('Sorry, no arguments supplied')
