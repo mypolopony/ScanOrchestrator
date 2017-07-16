@@ -71,7 +71,7 @@ logger = logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelnam
 logger = logging.getLogger('default')
 logger.setLevel(logging.DEBUG)
 # File Handler
-fh = logging.FileHandler(config.get('file_logger', 'log_path'))
+fh = logging.FileHandler('events.log')
 fh.setLevel(logging.DEBUG)
 # Console Handler
 ch = logging.StreamHandler()
@@ -197,10 +197,10 @@ def transformScan(scan):
     # cannot be moved but must be copied.
     pattern_cam = re.compile('[0-9]{8}')
     for fidx, file in enumerate(s3.list_objects(Bucket=config.get('s3','bucket'),
-                                                Prefix='{}/{}/{}'.format(scan.client, scan.scanid, file['Key']))['Contents']):
+                                                Prefix='{}/{}/{}'.format(scan.client, scan.scanid))['Contents']):
 
         # Exclude the folder itself and any good files (sorry 2018)
-        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid))"
+        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)) and not file['Key'].startswith(scan.scanid):
             # Extract camera and timestamp for rearrangement
             camera = re.search(pattern_cam, file['Key']).group()
             time = '_'.join([file['Key'].split('_')[-2], file['Key'].split('_')[-1]])

@@ -1,0 +1,8 @@
+Sun, 16 Jul 2017 01:33:03 [INFO]: ***** Executing initiateScanProcess *****
+Sun, 16 Jul 2017 01:33:04 [INFO]: ***** Executing transformScan *****
+Sun, 16 Jul 2017 01:33:04 [INFO]: Transforming Scan 5953469d1fb359d2a7a66287 (client 2017-07-01_13-28)
+Sun, 16 Jul 2017 01:33:04 [INFO]: A fnord error has occured: local variable 'file' referenced before assignment
+Sun, 16 Jul 2017 01:35:15 [INFO]: ***** Executing initiateScanProcess *****
+Sun, 16 Jul 2017 01:35:16 [INFO]: ***** Executing transformScan *****
+Sun, 16 Jul 2017 01:35:16 [INFO]: Transforming Scan 5953469d1fb359d2a7a66287 (client 2017-07-01_13-28)
+Sun, 16 Jul 2017 01:35:16 [INFO]: A fnord error has occured: tuple index out of range
