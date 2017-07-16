@@ -214,8 +214,9 @@ def transformScan(scan):
 
             logger.info('Renaming {} --> {}'.format(file['Key'], newfile))
 
-            # Copy and Delete
-            s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
+            # Copy (unless the file exists already)
+            if not s3r.Object(config.get('s3', 'bucket'), newfile).load()
+                s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
                                                                                       'Key': file['Key']})
 
             # Tthe Great Rename Fiasco of 2017 was brought about by this line. As files in the old format were deleted,
