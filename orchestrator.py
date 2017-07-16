@@ -183,30 +183,33 @@ def transformScan(scan):
     pattern_cam = re.compile('[0-9]{8}')
     for fidx, file in enumerate(s3.list_objects(Bucket=config.get('s3','bucket'),
                                                 Prefix='{}/{}'.format(scan.client, scan.scanid))['Contents']):
-        # Exclude the folder itself and any good files (sorry 2018)
-        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)) and not file['Key'].startswith('2017'):     
-            # Extract camera and timestamp for rearrangement
-            camera = re.search(pattern_cam, file['Key']).group()
-            time = '_'.join([file['Key'].split('_')[-2], file['Key'].split('_')[-1]])
+        try:
+            # Exclude the folder itself
+            if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)):     
+                # Extract camera and timestamp for rearrangement
+                camera = re.search(pattern_cam, file['Key']).group()
+                time = '_'.join([file['Key'].split('_')[-2], file['Key'].split('_')[-1]])
 
-            # Tars
-            if '.tar.gz' in file['Key']:
-                newfile = '{}/{}/{}_{}_{}'.format(str(scan.client), str(scan.scanid), str(scan.scanid), camera, time)
+                # Tars
+                if '.tar.gz' in file['Key']:
+                    newfile = '{}/{}/{}_{}_{}'.format(str(scan.client), str(scan.scanid), str(scan.scanid), camera, time)
 
-            # CSVs
-            if '.csv' in file['Key']:
-                newfile = '{}/{}/{}_{}.csv'.format(str(scan.client), str(scan.scanid), str(scan.scanid), camera)
+                # CSVs
+                if '.csv' in file['Key']:
+                    newfile = '{}/{}/{}_{}.csv'.format(str(scan.client), str(scan.scanid), str(scan.scanid), camera)
 
-            logging.info('Renaming {} --> {}'.format(file['Key'], newfile))
+                logging.info('Renaming {} --> {}'.format(file['Key'], newfile))
 
-            # Copy and Delete
-            s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
-                                                                                      'Key': file['Key']})
+                # Copy and Delete
+                s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
+                                                                                          'Key': file['Key']})
 
-            # Tthe Great Rename Fiasco of 2017 was brought about by this line. As files in the old format were deleted,
-            # boxes in the field began to began to re-upload imagery, starting with the earliest scans. The line is kept
-            # here as an historical exhibit.
-            # s3r.Object(config.get('s3', 'bucket'), file['Key']).delete()
+                # Tthe Great Rename Fiasco of 2017 was brought about by this line. As files in the old format were deleted,
+                # boxes in the field began to began to re-upload imagery, starting with the earliest scans. The line is kept
+                # here as an historical exhibit.
+                # s3r.Object(config.get('s3', 'bucket'), file['Key']).delete()
+        except Exception as e:
+            logging.info('Skipping {} ({})'.format(file['Key'], e))
 
 
     ## Download files required for tar inspection and cv update
@@ -275,8 +278,8 @@ def initiateScanProcess(scan):
     keys = [obj['Key'] for obj in s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=s3base)['Contents']]
 
     # If there are any files that don't start with a scanid, they must be of the old format, so format them.
-    if not len([k for k in keys if k.split('/')[-1].startswith(scan.scanid)]):
-        transformScan(scan)
+    # if not len([k for k in keys if k.split('/')[-1].startswith(scan.scanid)]):
+    transformScan(scan)
     # print('This feature disabled; a more intelligent service is required to perform transformation')
 
     # The scan is uploaded and ready to be placed in the 'ready' or 'rvm' queue, where it
