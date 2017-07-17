@@ -75,17 +75,10 @@ logger = logging.getLogger('default')
 logger.setLevel(logging.DEBUG)
 # File Handler
 fh = logging.FileHandler('events.log')
-<<<<<<< HEAD
 fh.setLevel(logging.INFO)
 # Console Handler
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
-=======
-fh.setLevel(logging.DEBUG)
-# Console Handler
-ch = logging.StreamHandler()
-ch.setLevel(logging.ERROR)
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
 # Formatter
 formatter = logging.Formatter('%(asctime)s [%(levelname)s]: %(message)s', datefmt='%a, %d %b %Y %H:%M:%S')
 ch.setFormatter(formatter)
@@ -117,10 +110,6 @@ def handleAWSMessage(result):
     task = dict()
     task['clientid']    = obj['key'].split('/')[0]
     task['scanid']      = obj['key'].split('/')[1]
-<<<<<<< HEAD
-
-    return task
-=======
     task['filename']    = obj['key'].split('/')[2]
     task['size']        = float(obj['size']) / 1024.0
 
@@ -132,13 +121,11 @@ def handleAWSMessage(result):
         # Delete task / Re-enque task on fail
         # When tasks are received, they are temporarily marked as 'taken' but it is up to this process to actually
         # delete them or, failing that, default to releasing them back to the queue
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
 
 @announce
 def poll():
     start = datetime.datetime.now()
 
-<<<<<<< HEAD
     logger.info('Scan Detector Starting\n\n')
 
     # Poll messages
@@ -173,37 +160,6 @@ def poll():
             logger.exception('Unexpected error: {}. Sleeping for {} seconds'.format(str(e), RETRY_DELAY))
 
     logger.debug('Sleeping for {} seconds'.format(RETRY_DELAY))
-=======
-    logger.info('Amazon AWS SQS Poller\n\n')
-
-    # Poll messages
-    # while True:
-    try:
-        logger.info('Requesting tasks')
-        try:
-            results = queue.receive_messages(MaxNumberOfMessages=NUM_MSGS, WaitTimeSeconds=WAIT_TIME)
-        except Exception as e:
-            logger.error('A problem occured: {}'.format(str(e)))
-            raise e
-
-        # For each result. . .
-        logger.info('Received {} tasks'.format(len(results)))
-        for ridx, result in enumerate(results):
-            try:
-                logger.info('Handling message {}/{}'.format(ridx, len(results)))
-                handleAWSMessage(result)
-            except:
-                logger.exception('Error while handling messge: {}'.format(result.body))
-                # can add dead letter queue for poisonous messages here
-        else:
-            logger.info('No tasks to do.')
-
-    except Exception as e:
-        # General errors, with a retry delay
-        logger.exception('Unexpected error: {}. Sleeping for {} seconds'.format(str(e), RETRY_DELAY))
-
-    logger.info('Sleeping for {} seconds'.format(RETRY_DELAY))
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
     time.sleep(RETRY_DELAY)
 
 
@@ -231,11 +187,7 @@ def transformScan(scan):
     # cannot be moved but must be copied.
     pattern_cam = re.compile('[0-9]{8}')
     for fidx, file in enumerate(s3.list_objects(Bucket=config.get('s3','bucket'),
-<<<<<<< HEAD
                                                 Prefix='{}/{}'.format(scan.client, scan.scanid))['Contents']):
-=======
-                                                Prefix='{}/{}/{}'.format(scan.client, scan.scanid))['Contents']):
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
 
         # Exclude the folder itself
         if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)) and not file['Key'].startswith(scan.scanid):
@@ -251,15 +203,14 @@ def transformScan(scan):
             if '.csv' in file['Key']:
                 newfile = '{}/{}/{}_{}.csv'.format(str(scan.client), str(scan.scanid), str(scan.scanid), camera)
 
-<<<<<<< HEAD
             # Copy (unless the file exists already). Boto3 will error when loading a non-existent object
             try:
                 s3r.Object(config.get('s3', 'bucket'), newfile).load()
             except:
-=======
+                pass
+
             # Copy (unless the file exists already)
             if not s3r.Object(config.get('s3', 'bucket'), newfile).load():
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
                 logger.info('Renaming {} --> {}'.format(file['Key'], newfile))
                 s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
                                                                                       'Key': file['Key']})
@@ -287,13 +238,8 @@ def transformScan(scan):
                                                    str(scan.scanid)), dest])
 
     ## Add filenames column to CSV
-<<<<<<< HEAD
     logger.info('Filling in CSV columns. . . this can also take a while. . .')
     for csv in glob.glob(dest + '/{}*.csv'.format(scan.scanid)):
-=======
-    logger.info('Filling in CSV columns. . . this can take a while. . .')
-    for csv in glob.glob(dest + '/*.csv'):
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
         camera  = re.search(pattern_cam, csv).group()
         log     = pd.read_csv(csv)
         try:
@@ -312,10 +258,7 @@ def transformScan(scan):
             log['filename'] = names
             log.to_csv(csv)
         except Exception as e:
-<<<<<<< HEAD
             logger.error(traceback.print_exc())
-=======
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
             logger.error('\n *** Failed: {} {}'.format(camera, csv))
             continue
 
@@ -525,12 +468,6 @@ def identifyRole():
     # Windows box
     if os.name == 'nt':
         try:
-<<<<<<< HEAD
-=======
-            # Bring in MATLAB
-            import matlab.engine
-
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
             # Look for computer type (role)
             output = subprocess.check_output(["powershell.exe", "Get-ComputerInfo"], shell=True)
             instance_type = re.search('CsName[ ]+: [a-z]+', output).group().split(':')[-1].strip()
@@ -580,36 +517,22 @@ if __name__ == '__main__':
             try:
                 initiateScanProcess(scan)
             except Exception as e:
-<<<<<<< HEAD
                 logger.error(traceback.print_exc())
                 logger.info('An error has occured: {}'.format(e))
 
-    # Master daemon mode
-=======
-                logger.info('A fnord error has occured: {}'.format(e))
-
     # Daemon mode
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
     elif sys.argv[1] == 'poll':
         poll()
 
     # RVM Generation
-<<<<<<< HEAD
-    # This message will come from the rvm queue
-=======
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
     elif sys.argv[1] == 'rvm':
         task = {
            'clientid'    : '5953469d1fb359d2a7a66287',
            'scanid'      : '2017-07-01_15-42',
            'role'        : 'rvm',
         }
-<<<<<<< HEAD
         generateRVM(task)
-=======
         logger.info('Initializing with scan {}'.format(task['scanid']))
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
-
     # Preprocessing
     elif sys.argv[1] == 'preprocess':
         preprocess()
