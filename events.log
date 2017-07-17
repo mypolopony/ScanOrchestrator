@@ -1,0 +1,27 @@
+Sun, 16 Jul 2017 12:04:45 [INFO]: ***** Executing generateRVM *****
+Sun, 16 Jul 2017 12:04:46 [INFO]: ***** Executing matlabProcess *****
+Sun, 16 Jul 2017 12:04:46 [INFO]: Starting MATLAB. . .
+Sun, 16 Jul 2017 23:46:11 [INFO]: ***** Executing generateRVM *****
+Sun, 16 Jul 2017 23:46:12 [INFO]: ***** Executing matlabProcess *****
+Sun, 16 Jul 2017 23:46:12 [INFO]: Starting MATLAB. . .
+Sun, 16 Jul 2017 23:48:04 [INFO]: ***** Executing identifyRole *****
+Sun, 16 Jul 2017 23:48:07 [ERROR]: None
+Sun, 16 Jul 2017 23:48:07 [INFO]: ***** Executing generateRVM *****
+Sun, 16 Jul 2017 23:48:08 [INFO]: ***** Executing matlabProcess *****
+Sun, 16 Jul 2017 23:48:08 [INFO]: Starting MATLAB. . .
+Sun, 16 Jul 2017 23:49:48 [INFO]: ***** Executing identifyRole *****
+Sun, 16 Jul 2017 23:49:51 [ERROR]: None
+Sun, 16 Jul 2017 23:49:51 [INFO]: ***** Executing generateRVM *****
+Sun, 16 Jul 2017 23:49:52 [INFO]: ***** Executing matlabProcess *****
+Sun, 16 Jul 2017 23:49:52 [INFO]: Starting MATLAB. . .
+Sun, 16 Jul 2017 23:51:44 [ERROR]: None
+Sun, 16 Jul 2017 23:51:44 [INFO]: ***** Executing emitSNSMessage *****
+Sun, 16 Jul 2017 23:51:44 [WARNING]: Boringmachine not reachable: global name 'requests' is not defined
+Sun, 16 Jul 2017 23:58:33 [INFO]: ***** Executing identifyRole *****
+Sun, 16 Jul 2017 23:58:35 [ERROR]: None
+Sun, 16 Jul 2017 23:58:35 [INFO]: ***** Executing generateRVM *****
+Sun, 16 Jul 2017 23:58:36 [INFO]: ***** Executing matlabProcess *****
+Sun, 16 Jul 2017 23:58:36 [INFO]: Starting MATLAB. . .
+Mon, 17 Jul 2017 00:00:23 [ERROR]: None
+Mon, 17 Jul 2017 00:00:23 [INFO]: ***** Executing emitSNSMessage *****
+Mon, 17 Jul 2017 00:00:23 [WARNING]: Boringmachine not reachable: HTTPConnectionPool(host='%7b%7d', port=80): Max retries exceeded with url: /orchestrator (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x00000000081E2438>: Failed to establish a new connection: [Errno 11001] getaddrinfo failed',))
