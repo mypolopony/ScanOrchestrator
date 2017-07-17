@@ -12,12 +12,14 @@ import re
 import time
 import boto3
 import shutil
+import traceback
+import requests
 
 import pandas as pd
 import numpy as np
-import matlab.engine
 
 from bson.objectid import ObjectId
+import matlab.engine
 
 # AgriData
 from utils.models_min import *
@@ -65,36 +67,33 @@ bus_service = ServiceBusService(service_namespace='agridataqueues',
                                 shared_access_key_name='sharedaccess',
                                 shared_access_key_value='cWonhEE3LIQ2cqf49mAL2uIZPV/Ig85YnyBtdb1z+xo=')
 
-# Initializing logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
-                    datefmt='%a, %d %b %Y %H:%M:%S')
 
+# Initialize logging
+logger = logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
+                    datefmt='%a, %d %b %Y %H:%M:%S')
+logger = logging.getLogger('default')
+logger.setLevel(logging.DEBUG)
+# File Handler
+fh = logging.FileHandler('events.log')
+fh.setLevel(logging.INFO)
+# Console Handler
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+# Formatter
+formatter = logging.Formatter('%(asctime)s [%(levelname)s]: %(message)s', datefmt='%a, %d %b %Y %H:%M:%S')
+ch.setFormatter(formatter)
+fh.setFormatter(formatter)
+# Add handlers
+logger.addHandler(ch)
+logger.addHandler(fh)
 
 def announce(func, *args, **kwargs):
     def wrapper(*args, **kwargs):
-        logging.info('***** Executing {} *****'.format(func.func_name))
+        logger.info('***** Executing {} *****'.format(func.func_name))
         return func(*args, **kwargs)
 
     return wrapper
 
-@announce
-def report(args, results):
-    payload = list()
-
-    '''
-    for result in results:
-        item = {'instanceId': db.StringField(),
-                'tagIndex' : db.IntegerField(),
-                'tagName = db.StringField(),
-                progress = db.FloatField(),
-                status = db.StringField(),
-                startTime = db.DateTimeField(),
-                lastUpdatedAt = db.DateTimeField(),
-                lastStateChange = db.DateTiemfielde(),
-                task = db.StringField(),
-                subtask = db.StringField(),
-                currentCommandId = db.StringField()}
-    '''
 
 @announce
 def handleAWSMessage(result):
@@ -111,51 +110,47 @@ def handleAWSMessage(result):
     task = dict()
     task['clientid']    = obj['key'].split('/')[0]
     task['scanid']      = obj['key'].split('/')[1]
-    task['filename']    = obj['key'].split('/')[2]
-    task['size']        = float(obj['size']) / 1024.0
 
-    logging.info('\tWorking on {} ({} MB)'.format(task['filename'], task['size']))
-
-    for goodkey in ['clientid', 'scanid', 'filename', 'size']:
-        logging.info('\t{}\t{}'.format(goodkey.capitalize(), task[goodkey]))
-
-        # Delete task / Re-enque task on fail
-        # When tasks are received, they are temporarily marked as 'taken' but it is up to this process to actually
-        # delete them or, failing that, default to releasing them back to the queue
+    return task
 
 @announce
 def poll():
     start = datetime.datetime.now()
 
-    logging.info('Amazon AWS SQS Poller\n\n')
+    logger.info('Scan Detector Starting\n\n')
 
     # Poll messages
-    # while True:
-    try:
-        logging.info('Requesting tasks')
+    while True:
         try:
-            results = queue.receive_messages(MaxNumberOfMessages=NUM_MSGS, WaitTimeSeconds=WAIT_TIME)
-        except Exception as e:
-            logging.error('A problem occured: {}'.format(str(e)))
-            raise e
-
-        # For each result. . .
-        logging.info('Received {} tasks'.format(len(results)))
-        for ridx, result in enumerate(results):
+            logger.debug('Requesting tasks')
             try:
-                logging.info('Handling message {}/{}'.format(ridx, len(results)))
-                handleAWSMessage(result)
-            except:
-                logging.exception('Error while handling messge: {}'.format(result.body))
-                # can add dead letter queue for poisonous messages here
-        else:
-            logging.info('No tasks to do.')
+                results = queue.receive_messages(MaxNumberOfMessages=NUM_MSGS, WaitTimeSeconds=WAIT_TIME)
+            except Exception as e:
+                logger.error(traceback.print_exc())
+                logger.error('A problem occured: {}'.format(str(e)))
+                raise e
 
-    except Exception as e:
-        # General errors, with a retry delay
-        logging.exception('Unexpected error: {}. Sleeping for {} seconds'.format(str(e), RETRY_DELAY))
+            # For each result. . .
+            logger.info('Received {} tasks'.format(len(results)))
+            for ridx, result in enumerate(results):
+                try:
+                    logger.info('Queueing task {}/{}'.format(ridx, len(results)))
+                    task = handleAWSMessage(result)             # Parse clientid and scanid
+                    task['role'] = 'rvm'                        # Tag with the first task step
+                    sendtoServiceBus('rvm',json.dumps(task))    # Send to the RVM queue
+                except:
+                    logger.error(traceback.print_exc())
+                    logger.exception('Error while handling messge: {}'.format(result.body))
+                    # can add dead letter queue for poisonous messages here
+            else:
+                logger.debug('No tasks to do.')
 
-    logging.info('Sleeping for {} seconds'.format(RETRY_DELAY))
+        except Exception as e:
+            # General errors, with a retry delay
+            logger.error(traceback.print_exc())
+            logger.exception('Unexpected error: {}. Sleeping for {} seconds'.format(str(e), RETRY_DELAY))
+
+    logger.debug('Sleeping for {} seconds'.format(RETRY_DELAY))
     time.sleep(RETRY_DELAY)
 
 
@@ -175,7 +170,7 @@ def transformScan(scan):
         4) Re-upload
     '''
 
-    logging.info('Transforming Scan {} (client {})'.format(scan.client, scan.scanid))
+    logger.info('Transforming Scan {} (client {})'.format(scan.client, scan.scanid))
 
     ## Rename tars and csvs in place on S3
     # This can be done without downloading any of the .tar.gz files, although they will
@@ -184,7 +179,9 @@ def transformScan(scan):
     pattern_cam = re.compile('[0-9]{8}')
     for fidx, file in enumerate(s3.list_objects(Bucket=config.get('s3','bucket'),
                                                 Prefix='{}/{}'.format(scan.client, scan.scanid))['Contents']):
-        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)):     # Exclude the folder itself
+
+        # Exclude the folder itself
+        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)) and not file['Key'].startswith(scan.scanid):
             # Extract camera and timestamp for rearrangement
             camera = re.search(pattern_cam, file['Key']).group()
             time = '_'.join([file['Key'].split('_')[-2], file['Key'].split('_')[-1]])
@@ -197,10 +194,12 @@ def transformScan(scan):
             if '.csv' in file['Key']:
                 newfile = '{}/{}/{}_{}.csv'.format(str(scan.client), str(scan.scanid), str(scan.scanid), camera)
 
-            logging.info('Renaming {} --> {}'.format(file['Key'], newfile))
-
-            # Copy and Delete
-            s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
+            # Copy (unless the file exists already). Boto3 will error when loading a non-existent object
+            try:
+                s3r.Object(config.get('s3', 'bucket'), newfile).load()
+            except:
+                logger.info('Renaming {} --> {}'.format(file['Key'], newfile))
+                s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
                                                                                       'Key': file['Key']})
 
             # Tthe Great Rename Fiasco of 2017 was brought about by this line. As files in the old format were deleted,
@@ -208,24 +207,26 @@ def transformScan(scan):
             # here as an historical exhibit.
             # s3r.Object(config.get('s3', 'bucket'), file['Key']).delete()
 
-
-    ## Download files required for tar inspection and cv update
+    # Download files required for tar inspection and cv update
     # Temporary file destination
     dest = os.path.join(tmpdir, str(scan.client), str(scan.scanid))
     if not os.path.exists(dest):
         os.makedirs(dest)
 
     # Rsync scan to temporary folder
+    logger.info('Downloading scan files. . . this can take a while')
+    # Beware that if the goal is to finish a partially completed scan, this has the unintended consequence of also 
+    # downloading the old tars that have already been done
     subprocess.call(['rclone',
-                     '--config', '{}/.config/rclone/rclone.conf'.format(config.get('env','home')),
+                     '--config', '{}/.config/rclone/rclone.conf'.format(os.path.expanduser('~')),
                      'copy', '{}:{}/{}/{}'.format(config.get('rclone','profile'),
                                                    config.get('s3','bucket'),
                                                    str(scan.client),
                                                    str(scan.scanid)), dest])
 
     ## Add filenames column to CSV
-    logging.info('Filling in CSV columns. . . this can take a while. . .')
-    for csv in glob.glob(dest + '/*.csv'):
+    logger.info('Filling in CSV columns. . . this can also take a while. . .')
+    for csv in glob.glob(dest + '/{}*.csv'.format(scan.scanid)):
         camera  = re.search(pattern_cam, csv).group()
         log     = pd.read_csv(csv)
         try:
@@ -235,21 +236,22 @@ def transformScan(scan):
                     names.append(tf.split('/')[-1])
 
             if len(names) == len(log) + 1:
-                logging.info('Names == Log + 1: This is normal, shaving one from Names')
+                logger.info('Names == Log + 1: This is normal, shaving one from Names')
                 names = names[:-1]
             elif len(names) == len(log) - 1:
-                logging.info('Log == Names + 1: This is odd but still okay, adding one to Names')
+                logger.info('Log == Names + 1: This is odd but still okay, adding one to Names')
                 names.append(names[-1])
 
             log['filename'] = names
             log.to_csv(csv)
         except Exception as e:
-            logging.error('\n *** Failed: {} {}'.format(camera, csv))
+            logger.error(traceback.print_exc())
+            logger.error('\n *** Failed: {} {}'.format(camera, csv))
             continue
 
-    ## Upload and delete old (accomplished in one via rsync)
+    ## Upload
     subprocess.call(['rclone', '-v',
-                     '--config', '{}/.config/rclone/rclone.conf'.format(config.get('env', 'home')),
+                     '--config', '{}/.config/rclone/rclone.conf'.format(os.path.expanduser('~')),
                      'copy', dest,
                      '{}:{}/{}/{}/'.format(config.get('rclone', 'profile'),
                                                    config.get('s3', 'bucket'),
@@ -258,8 +260,10 @@ def transformScan(scan):
 
     ## Delete from local
     # Using 'dest' explicitly will delete the scan folder but not the client folder. Here, we
-    # recreate the base temporary directory
-    shutil.rmtree(os.path.join(tmpdir, str(scan.client)))
+    # recreate the base temporary directory.
+    # 
+    # Note! Great feature, execept when debugging!
+    # shutil.rmtree(os.path.join(tmpdir, str(scan.client)))
 
 
 @announce
@@ -275,8 +279,9 @@ def initiateScanProcess(scan):
     keys = [obj['Key'] for obj in s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=s3base)['Contents']]
 
     # If there are any files that don't start with a scanid, they must be of the old format, so format them.
-    if not len([k for k in keys if k.split('/')[-1].startswith(scan.scanid)]):
-        transformScan(scan)
+    # if not len([k for k in keys if k.split('/')[-1].startswith(scan.scanid)]):
+    transformScan(scan)
+    # print('This feature disabled; a more intelligent service is required to perform transformation')
 
     # The scan is uploaded and ready to be placed in the 'ready' or 'rvm' queue, where it
     # may be be evaluated for 'goodness'
@@ -323,6 +328,14 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
         Subject     =  '{} message'.format(topic)
     )
 
+    # Let's also send this message to the dashboard 
+    # TODO: Divorce this code, add IP to config
+    try:
+        boringmachine = '52.54.248.247'
+        r = requests.post('http://{}/orchestrator', data = {'key':'value'})
+    except Exception as e:
+        logger.warning('Boringmachine not reachable: {}'.format(e))
+
 
 @announce
 def generateRVM(task):
@@ -351,10 +364,10 @@ def generateRVM(task):
         try:
             block = Block.objects.get(id=scan.blocks[0])
             if rows_found < block.num_rows * 0.5:
-                logging.warning('RVM is not long enough! Saving to holding area')
+                logger.warning('RVM is not long enough! Saving to holding area')
                 # TODO: Emit message, insert into staging db
             if rows_found > block.num_rows:
-                logging.warning('Too many rows found!')
+                logger.warning('Too many rows found!')
                 # TODO: Emit message
         except:
             pass
@@ -365,8 +378,9 @@ def generateRVM(task):
             task['tarfiles'] = list(shard)
             sendtoServiceBus('preprocess', task)
 
-        emitSNSMessage('all is well!')
+        emitSNSMessage('== Task Complete: {}'.format(json.dumps(task)))
     except Exception as err:
+        logger.error(traceback.print_exc())
         task['message'] = str(err)
         emitSNSMessage('Failure on {}'.format(json.dumps(task)))
         # TODO: Re-enqueue message
@@ -394,7 +408,7 @@ def preprocess():
 
     while task:
         # Download the tarfiles
-        for tar in task['tarfiles']
+        for tar in task['tarfiles']:
             key = '{}/{}/{}'.format(task['clientid'], task['scanid'], tar)
             print(key)
             s3r.Bucket(config.get('s3','bucket').download_file(key, video_dir))
@@ -402,14 +416,21 @@ def preprocess():
         # Run
         ret = mlab.runTask('preprocess', task['clientid'], scans)
 
+    # What goes here? Hand-off to detection -- where are the .zip files? 
+    emitSNSMessage('== Task Complete: {}'.format(json.dumps(task)))
+
+
 @announce
 def detection(scan):
     '''
     Detection method
     '''
+    print('Koshyland')
 
-    # Start MATLAB
-    mlab = matlabProcess()
+    # Grab a task
+    task = receivefromServiceBus('detection')
+
+    emitSNSMessage('== Task Complete: {}'.format(json.dumps(task)))
 
 
 @announce
@@ -420,6 +441,8 @@ def process(scan):
 
     # Start MATLAB
     mlab = matlabProcess()
+
+    emitSNSMessage('== Task Complete: {}'.format(json.dumps(task)))
 
 
 @announce
@@ -432,11 +455,14 @@ def identifyRole():
     # Windows box
     if os.name == 'nt':
         try:
+            # Look for computer type (role)
             output = subprocess.check_output(["powershell.exe", "Get-ComputerInfo"], shell=True)
             instance_type = re.search('CsName[ ]+: [a-z]+', output).group().split(':')[-1].strip()
             return instance_type
         except Exception as e:
+            logger.error(traceback.print_exc())
             print('Error: {}'.format(e))
+
     # Linux box
     else:
         return os.name
@@ -449,7 +475,7 @@ def matlabProcess(startpath=r'E:\Projects'):
     my hope is that it becomes a pain to pass around. The Windows path is a safe default that probably should be offloaded
     elsewhere since it
     '''
-    logging.info('Starting MATLAB. . .')
+    logger.info('Starting MATLAB. . .')
     mlab = matlab.engine.start_matlab()
     mlab.addpath(mlab.genpath(startpath))
 
@@ -462,11 +488,14 @@ if __name__ == '__main__':
     # reason is that that task itself has the sole responsibility of knowing what it should or should not be doing and how
     # to handle adverse or successful events.
 
+    identifyRole()
+
     # Convert scan filenames and CSVs from old style to new style
-    if sys.args[1] == 'convert':
+    if sys.argv[1] == 'convert':
         # Scanid can be specified on the command line
-        if sys.argv == 3:
-            scans = [sys.args[2]]
+        if len(sys.argv) == 3:
+            scans = [Scan.objects.get(scanid=sys.argv[2])]
+
         # Or else we'll just run through all the scans
         else:
             scans = Scan.objects()
@@ -475,25 +504,27 @@ if __name__ == '__main__':
             try:
                 initiateScanProcess(scan)
             except Exception as e:
-                logging.info('A fnord error has occured: {}'.format(e))
+                logger.error(traceback.print_exc())
+                logger.info('An error has occured: {}'.format(e))
 
-    # Daemon mode
-    elif sys.args[1] == 'poll':
+    # Master daemon mode
+    elif sys.argv[1] == 'poll':
         poll()
 
     # RVM Generation
-    elif sys.args[1] == 'rvm':
+    # This message will come from the rvm queue
+    elif sys.argv[1] == 'rvm':
         task = {
            'clientid'    : '5953469d1fb359d2a7a66287',
-           'scanid'      : '2017-06-30_10-01',
+           'scanid'      : '2017-07-01_15-42',
            'role'        : 'rvm',
         }
-        logging.info('Initializing with scan {}'.format(task['scanid']))
+        generateRVM(task)
 
     # Preprocessing
-    elif sys.args[1] == 'preprocess':
+    elif sys.argv[1] == 'preprocess':
         preprocess()
 
     # Error
     else:
-        logging.error('Sorry, no arguments supplied')
+        logger.error('Sorry, no arguments supplied')
