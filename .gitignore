@@ -1,7 +1,1 @@
-# Pycharm
-.idea/
-
-*ipynb
-
-# Python
-*.pyc
+.idea*

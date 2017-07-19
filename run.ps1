@@ -3,7 +3,7 @@ cp E:\Projects\aws\credentials ~\.aws\
 
 mkdir ~\.config
 mkdir ~\.config\rclone
-cp E:\PRojects\.config\rclone\rclone.conf ~\.config\
+cp E:\Projects\.config\rclone\rclone.conf ~\.config\
 
 cp E:\Projects\git\* ~\
 
