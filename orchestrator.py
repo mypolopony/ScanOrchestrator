@@ -14,12 +14,12 @@ import boto3
 import shutil
 import traceback
 import requests
+import multiprocess
 
 import pandas as pd
 import numpy as np
 
 from bson.objectid import ObjectId
-import matlab.engine
 
 # AgriData
 from utils.models_min import *
@@ -33,6 +33,7 @@ RETRY_DELAY = 60  # Number of seconds to wait upon encountering an error
 # Load config file
 config = ConfigParser.ConfigParser()
 if os.name == 'nt':
+    import matlab.engine
     config.read('E:\\Projects\\ScanOrchestrator\\utils\\poller.conf')
 else:
     config.read('utils/poller.conf')
@@ -75,17 +76,10 @@ logger = logging.getLogger('default')
 logger.setLevel(logging.DEBUG)
 # File Handler
 fh = logging.FileHandler('events.log')
-<<<<<<< HEAD
 fh.setLevel(logging.INFO)
 # Console Handler
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
-=======
-fh.setLevel(logging.DEBUG)
-# Console Handler
-ch = logging.StreamHandler()
-ch.setLevel(logging.ERROR)
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
 # Formatter
 formatter = logging.Formatter('%(asctime)s [%(levelname)s]: %(message)s', datefmt='%a, %d %b %Y %H:%M:%S')
 ch.setFormatter(formatter)
@@ -117,10 +111,6 @@ def handleAWSMessage(result):
     task = dict()
     task['clientid']    = obj['key'].split('/')[0]
     task['scanid']      = obj['key'].split('/')[1]
-<<<<<<< HEAD
-
-    return task
-=======
     task['filename']    = obj['key'].split('/')[2]
     task['size']        = float(obj['size']) / 1024.0
 
@@ -132,13 +122,11 @@ def handleAWSMessage(result):
         # Delete task / Re-enque task on fail
         # When tasks are received, they are temporarily marked as 'taken' but it is up to this process to actually
         # delete them or, failing that, default to releasing them back to the queue
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
 
 @announce
 def poll():
     start = datetime.datetime.now()
 
-<<<<<<< HEAD
     logger.info('Scan Detector Starting\n\n')
 
     # Poll messages
@@ -173,37 +161,6 @@ def poll():
             logger.exception('Unexpected error: {}. Sleeping for {} seconds'.format(str(e), RETRY_DELAY))
 
     logger.debug('Sleeping for {} seconds'.format(RETRY_DELAY))
-=======
-    logger.info('Amazon AWS SQS Poller\n\n')
-
-    # Poll messages
-    # while True:
-    try:
-        logger.info('Requesting tasks')
-        try:
-            results = queue.receive_messages(MaxNumberOfMessages=NUM_MSGS, WaitTimeSeconds=WAIT_TIME)
-        except Exception as e:
-            logger.error('A problem occured: {}'.format(str(e)))
-            raise e
-
-        # For each result. . .
-        logger.info('Received {} tasks'.format(len(results)))
-        for ridx, result in enumerate(results):
-            try:
-                logger.info('Handling message {}/{}'.format(ridx, len(results)))
-                handleAWSMessage(result)
-            except:
-                logger.exception('Error while handling messge: {}'.format(result.body))
-                # can add dead letter queue for poisonous messages here
-        else:
-            logger.info('No tasks to do.')
-
-    except Exception as e:
-        # General errors, with a retry delay
-        logger.exception('Unexpected error: {}. Sleeping for {} seconds'.format(str(e), RETRY_DELAY))
-
-    logger.info('Sleeping for {} seconds'.format(RETRY_DELAY))
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
     time.sleep(RETRY_DELAY)
 
 
@@ -213,7 +170,6 @@ def transformScan(scan):
     This is a method for changing old-style scanids into new-style scanids. This will eventually become
     deprecated as we switch (on the boxes) to the new format. It is called for old-style scans before
     they are processed.
-
     To do this:
         1) Add the scan ID to the .tar.gz file (this is useful when working with multiple scans)
             - Rename the files on S3 by moving the originals to the new style with formatting change
@@ -231,11 +187,7 @@ def transformScan(scan):
     # cannot be moved but must be copied.
     pattern_cam = re.compile('[0-9]{8}')
     for fidx, file in enumerate(s3.list_objects(Bucket=config.get('s3','bucket'),
-<<<<<<< HEAD
                                                 Prefix='{}/{}'.format(scan.client, scan.scanid))['Contents']):
-=======
-                                                Prefix='{}/{}/{}'.format(scan.client, scan.scanid))['Contents']):
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
 
         # Exclude the folder itself
         if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)) and not file['Key'].startswith(scan.scanid):
@@ -251,15 +203,14 @@ def transformScan(scan):
             if '.csv' in file['Key']:
                 newfile = '{}/{}/{}_{}.csv'.format(str(scan.client), str(scan.scanid), str(scan.scanid), camera)
 
-<<<<<<< HEAD
             # Copy (unless the file exists already). Boto3 will error when loading a non-existent object
             try:
                 s3r.Object(config.get('s3', 'bucket'), newfile).load()
             except:
-=======
+                pass
+
             # Copy (unless the file exists already)
             if not s3r.Object(config.get('s3', 'bucket'), newfile).load():
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
                 logger.info('Renaming {} --> {}'.format(file['Key'], newfile))
                 s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
                                                                                       'Key': file['Key']})
@@ -287,13 +238,8 @@ def transformScan(scan):
                                                    str(scan.scanid)), dest])
 
     ## Add filenames column to CSV
-<<<<<<< HEAD
     logger.info('Filling in CSV columns. . . this can also take a while. . .')
     for csv in glob.glob(dest + '/{}*.csv'.format(scan.scanid)):
-=======
-    logger.info('Filling in CSV columns. . . this can take a while. . .')
-    for csv in glob.glob(dest + '/*.csv'):
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
         camera  = re.search(pattern_cam, csv).group()
         log     = pd.read_csv(csv)
         try:
@@ -312,10 +258,7 @@ def transformScan(scan):
             log['filename'] = names
             log.to_csv(csv)
         except Exception as e:
-<<<<<<< HEAD
             logger.error(traceback.print_exc())
-=======
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
             logger.error('\n *** Failed: {} {}'.format(camera, csv))
             continue
 
@@ -378,7 +321,7 @@ def receivefromServiceBus(queue, lock=False):
     try:
         msg = json.loads(incoming.body)
     except:
-        msg = json.loads(incoming.body.replace("'",'"'))
+        msg = json.loads(incoming.body.replace("'",'"').replace('u"','"'))
 
     return msg
 
@@ -401,8 +344,8 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
     # Let's also send this message to the dashboard 
     # TODO: Divorce this code, add IP to config
     try:
-        boringmachine = '52.54.248.247'
-        r = requests.post('http://{}/orchestrator', data = {'key':'value'})
+        boringmachine = '54.164.89.210'
+        r = requests.post('http://{}/orchestrator'.format(boringmachine), data = {'key':'value'})
     except Exception as e:
         logger.warning('Boringmachine not reachable: {}'.format(e))
 
@@ -414,25 +357,28 @@ def generateRVM(task):
     '''
 
     # Obtain the scan
-    scan = Scan.objects.get(client=ObjectId(task['clientid']), scanid=task['scanid'])
-    scans = [str(scan.scanid)]
+    scan = Scan.objects.get(client=ObjectId(task['clientid']), scanid=task['scanids'][0])
+    block = Block.objects.get(id=scan.blocks[0])
+    task['blockid']     = str(block.id)
+    task['blockname']   = block.name
+    task['farmid']      = str(block.farm)
+    task['farmname']    = Farm.objects.get(id=block.farm).name.replace(' ','')
 
     # Check staging database for previous scans of this block
     staged = db.staging.find({'block': scan.blocks[0]})
     if staged:
-        scans = scans + [s['_id'] for s in staged]
+        scans = task['scanids'] + [s['_id'] for s in staged]
 
     # Start MATLAB
     mlab = matlabProcess()
     try:
         # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
-        s3uri, localuri = mlab.runTask('rvm', task['clientid'], scans)
+        s3uri, localuri = mlab.runTask('rvm', task['clientid'], task['scanids'])
         data = pd.read_csv(localuri, header=0)
         rows_found = len(set([(r, d) for r,d in zip(data['rows'],data['direction'])])) / 2
 
         # Check for completeness
         try:
-            block = Block.objects.get(id=scan.blocks[0])
             if rows_found < block.num_rows * 0.5:
                 logger.warning('RVM is not long enough! Saving to holding area')
                 # TODO: Emit message, insert into staging db
@@ -466,28 +412,75 @@ def preprocess():
     '''
     Preprocessing method
     '''
-    # Start MATLAB
-    mlab = matlabProcess()
+    # Here is the number of children to spawn
+    NUM_MATLAB_INSTANCES = 4
 
-    # Grab a task
     task = receivefromServiceBus('preprocess')
-    print(task)
 
     # Canonical filepath
     video_dir = r'E:\Projects\videos'
+    if not os.path.exists(video_dir):
+        os.mkdir(video_dir)
 
     while task:
-        # Download the tarfiles
-        for tar in task['tarfiles']:
-            key = '{}/{}/{}'.format(task['clientid'], task['scanid'], tar)
-            print(key)
-            s3r.Bucket(config.get('s3','bucket').download_file(key, video_dir))
+        try:
+            # Download the tarfiles
+            for tar in task['tarfiles']:
+                scanid = '_'.join(tar.split('_')[0:2])
+                key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
+                logger.info('Downloading {}'.format(key))
+                try:
+                    s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join('E:', os.sep, 'Projects', 'videos', tar))
+                except Exception as e:
+                    logging.warning('Download of {} has resulted in an error: {}'.format(key, e))
 
-        # Run
-        ret = mlab.runTask('preprocess', task['clientid'], scans)
+            # Only need one matlab process to untar
+            mlab = matlabProcess()
+            mlab.my_untar(video_dir)
+            mlab.quit()
 
-    # What goes here? Hand-off to detection -- where are the .zip files? 
-    emitSNSMessage('== Task Complete: {}'.format(json.dumps(task)))
+            # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
+            # because the multiprocessing library could not directly be called as some of the objects were
+            # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
+            # the function wrapper is necessary anymore
+            workers = list()
+            for instance in range(NUM_MATLAB_INSTANCES):
+                worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocessing', task])
+                worker.start()
+                workers.append(worker)
+
+            for worker in workers:
+                worker.join()
+
+            logger.info('All MATLAB instances have finished. . . Uploading zip files')
+
+            # Pre file upload, recreate relevant parts of analysis_struct
+            analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
+            analysis_struct['video_folder'] = video_dir
+
+            # S3 results path
+            # TODO: Replace with last directory based on environment (local / temp / selly)
+            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}/selly'.format(task['clientid'], task['farmname'], task['blockname'])
+            
+            mlab = matlabProcess()
+            mlab.upload_logs(analysis_struct, 1, nargout=0)
+            mlab.quit()
+
+            # What goes here? Hand-off to detection -- where are the .zip files? 
+            emitSNSMessage('Task COMPLETE: {}'.format(task))
+        except Exception as e:
+            task['message'] = e
+            emitSNSMessage('Task FAILED: {}'.format(task))
+
+@announce 
+def launchMatlabTasks(taskname, task):
+    '''
+    A separate wrapper for multiple matlabs. It is called by multiprocess, which has the capability to
+    pickle (actually, dill) a wider range of objects (like function wrappers)
+    '''
+    mlab = matlabProcess()
+    mlab.runTask(taskname, task['clientid'], task['scanids'])
+    mlab.quit()
 
 
 @announce
@@ -499,6 +492,10 @@ def detection(scan):
 
     # Grab a task
     task = receivefromServiceBus('detection')
+
+    while task:
+        # Do things
+        x = 0
 
     emitSNSMessage('== Task Complete: {}'.format(json.dumps(task)))
 
@@ -525,19 +522,13 @@ def identifyRole():
     # Windows box
     if os.name == 'nt':
         try:
-<<<<<<< HEAD
-=======
-            # Bring in MATLAB
-            import matlab.engine
-
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
             # Look for computer type (role)
             output = subprocess.check_output(["powershell.exe", "Get-ComputerInfo"], shell=True)
-            instance_type = re.search('CsName[ ]+: [a-z]+', output).group().split(':')[-1].strip()
+            instance_type = re.search('CsName[ ]+: \w+', output).group().split(':')[-1].strip()
             return instance_type
         except Exception as e:
             logger.error(traceback.print_exc())
-            print('Error: {}'.format(e))
+            logging.error('Error: {}'.format(e))
 
     # Linux box
     else:
@@ -554,6 +545,7 @@ def matlabProcess(startpath=r'E:\Projects'):
     logger.info('Starting MATLAB. . .')
     mlab = matlab.engine.start_matlab()
     mlab.addpath(mlab.genpath(startpath))
+    #  mlab.javaaddpath(r'E:\Projects\MatlabCore\extern\mongo\mongo-java-driver-3.4.2.jar');  
 
     return mlab
 
@@ -564,56 +556,50 @@ if __name__ == '__main__':
     # reason is that that task itself has the sole responsibility of knowing what it should or should not be doing and how
     # to handle adverse or successful events.
 
-    identifyRole()
+    # What task are we meant to do? This is based on instance names
+    roletype = identifyRole()
 
     # Convert scan filenames and CSVs from old style to new style
-    if sys.argv[1] == 'convert':
+    if roletype == 'rvm':
         # Scanid can be specified on the command line
-        if len(sys.argv) == 3:
-            scans = [Scan.objects.get(scanid=sys.argv[2])]
+        # if len(sys.argv) == 3:
+        #     scans = [Scan.objects.get(scanid=sys.argv[2])]
 
         # Or else we'll just run through all the scans
-        else:
-            scans = Scan.objects()
+        #   else:
+        scans = Scan.objects()
 
-        for scan in scans:
-            try:
-                initiateScanProcess(scan)
-            except Exception as e:
-<<<<<<< HEAD
-                logger.error(traceback.print_exc())
-                logger.info('An error has occured: {}'.format(e))
-
-    # Master daemon mode
-=======
-                logger.info('A fnord error has occured: {}'.format(e))
+    for scan in scans:
+        try:
+            initiateScanProcess(scan)
+        except Exception as e:
+            logger.error(traceback.print_exc())
+            logger.info('An error has occured: {}'.format(e))
 
     # Daemon mode
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
     elif sys.argv[1] == 'poll':
         poll()
 
     # RVM Generation
-<<<<<<< HEAD
-    # This message will come from the rvm queue
-=======
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
     elif sys.argv[1] == 'rvm':
         task = {
-           'clientid'    : '5953469d1fb359d2a7a66287',
-           'scanid'      : '2017-07-01_15-42',
-           'role'        : 'rvm',
+           'clientid'     : '5953469d1fb359d2a7a66287',
+           'scanids'      : ['2017-07-01_15-42'],
+           'role'         : 'rvm',
         }
-<<<<<<< HEAD
         generateRVM(task)
-=======
-        logger.info('Initializing with scan {}'.format(task['scanid']))
->>>>>>> 45543e491474dd03c17539dcc51458a3935a33f0
+        logger.info('Initializing with scan {}'.format(task['scanids']))
 
     # Preprocessing
     elif sys.argv[1] == 'preprocess':
         preprocess()
 
+    # Detection
+    elif sys.argv[1] == 'detection':
+        detection()
+
     # Error
     else:
         logger.error('Sorry, no arguments supplied')
+
+    logger.info('No more tasks; hibernating now.')
