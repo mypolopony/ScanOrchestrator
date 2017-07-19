@@ -85,8 +85,8 @@ formatter = logging.Formatter('%(asctime)s [%(levelname)s]: %(message)s', datefm
 ch.setFormatter(formatter)
 fh.setFormatter(formatter)
 # Add handlers
-logger.addHandler(ch)
-logger.addHandler(fh)
+# logger.addHandler(ch)         # For sanity's sake, toggle console-handler and file-handler, but not both
+
 
 def announce(func, *args, **kwargs):
     def wrapper(*args, **kwargs):
@@ -569,12 +569,12 @@ if __name__ == '__main__':
         #   else:
         scans = Scan.objects()
 
-    for scan in scans:
-        try:
-            initiateScanProcess(scan)
-        except Exception as e:
-            logger.error(traceback.print_exc())
-            logger.info('An error has occured: {}'.format(e))
+        for scan in scans:
+            try:
+                initiateScanProcess(scan)
+            except Exception as e:
+                logger.error(traceback.print_exc())
+                logger.info('An error has occured: {}'.format(e))
 
     # Daemon mode
     elif sys.argv[1] == 'poll':
