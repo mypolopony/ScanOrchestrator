@@ -1,13 +1,13 @@
-<#
-    .SYNOPSIS
-        Initiates the correct processing step upon startup
-#>
+mkdir ~\.aws
+cp E:\Projects\aws\credentials ~\.aws\
 
-python S:\Projects\ScanOrchestrator\orchestrator.py
+mkdir ~\.config
+mkdir ~\.config\rclone
+cp E:\PRojects\.config\rclone\rclone.conf ~\.config\
 
+cp E:\Projects\git\* ~\
 
-Set-AzureRmVMCustomScriptExtension -ResourceGroupName compute `
-    -VMName base-selwyn `
-    -Location 'US WEST 2' `
-    -Run 'python S:\Projects\ScanOrchestrator\orchestrator.py' `
-    -Name StartOrchestrator
+git pull -C E:\Projects\ScanOrchestrator
+git pull -C E:\Projects\MatlabCore
+
+# python E:\Projects\ScanOrchestrator\orchestrator.py
