@@ -26,9 +26,9 @@ from utils.models_min import *
 from utils.connection import *
 
 # Operational parameters
-WAIT_TIME = 20  # AWS wait time for messages
-NUM_MSGS = 10  # Number of messages to grab at a time
-RETRY_DELAY = 60  # Number of seconds to wait upon encountering an error
+WAIT_TIME = 20      # AWS wait time for messages
+NUM_MSGS = 10       # Number of messages to grab at a time
+RETRY_DELAY = 60    # Number of seconds to wait upon encountering an error
 
 # Load config file
 config = ConfigParser.ConfigParser()
