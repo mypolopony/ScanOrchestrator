@@ -34,7 +34,7 @@ RETRY_DELAY = 60  # Number of seconds to wait upon encountering an error
 config = ConfigParser.ConfigParser()
 if os.name == 'nt':
     import matlab.engine
-    config.read('E:\\Projects\\ScanOrchestrator\\utils\\poller.conf')
+    config.read(r'C:\AgriData\Projects\ScanOrchestrator\utils\poller.conf')
 else:
     config.read('utils/poller.conf')
 
@@ -418,7 +418,7 @@ def preprocess():
     task = receivefromServiceBus('preprocess')
 
     # Canonical filepath
-    video_dir = r'E:\Projects\videos'
+    video_dir = r'C:\AgriData\Projects\videos'
     if not os.path.exists(video_dir):
         os.mkdir(video_dir)
 
@@ -536,7 +536,7 @@ def identifyRole():
 
 
 @announce
-def matlabProcess(startpath=r'E:\Projects'):
+def matlabProcess(startpath=r'C:\AgriData\Projects'):
     '''
     Start MATLAB engine. This should not be global because it does not apply to all users of the script. Having said that,
     my hope is that it becomes a pain to pass around. The Windows path is a safe default that probably should be offloaded
@@ -545,7 +545,7 @@ def matlabProcess(startpath=r'E:\Projects'):
     logger.info('Starting MATLAB. . .')
     mlab = matlab.engine.start_matlab()
     mlab.addpath(mlab.genpath(startpath))
-    #  mlab.javaaddpath(r'E:\Projects\MatlabCore\extern\mongo\mongo-java-driver-3.4.2.jar');  
+    #  mlab.javaaddpath(r'C:\AgriData\Projects\MatlabCore\extern\mongo\mongo-java-driver-3.4.2.jar');
 
     return mlab
 

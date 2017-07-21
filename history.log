@@ -1,5 +1,0 @@
-Sun, 16 Jul 2017 01:21:33 [INFO]: ***** Executing initiateScanProcess *****
-Sun, 16 Jul 2017 01:21:33 [INFO]: ***** Executing transformScan *****
-Sun, 16 Jul 2017 01:21:33 [INFO]: Transforming Scan 5953469d1fb359d2a7a66287 (client 2017-07-01_13-28)
-Sun, 16 Jul 2017 01:21:34 [INFO]: Renaming 5953469d1fb359d2a7a66287/2017-07-01_13-28/2017-07-01_13-28_22179657.csv --> 5953469d1fb359d2a7a66287/2017-07-01_13-28/2017-07-01_13-28_22179657.csv
-Sun, 16 Jul 2017 01:21:34 [INFO]: A fnord error has occured: An error occurred (InvalidRequest) when calling the CopyObject operation: This copy request is illegal because it is trying to copy an object to itself without changing the object's metadata, storage class, website redirect location or encryption attributes.
