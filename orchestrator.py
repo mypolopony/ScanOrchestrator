@@ -524,7 +524,7 @@ def identifyRole():
         try:
             # Look for computer type (role)
             output = subprocess.check_output(["powershell.exe", "Get-ComputerInfo"], shell=True)
-            instance_type = re.search('CsName[ ]+: \w+', output).group().split(':')[-1].strip()
+            instance_type = re.search('CsName[ ]+: \w+', output).group().split(':')[-1].strip().lower()
             return instance_type
         except Exception as e:
             logger.error(traceback.print_exc())
@@ -552,15 +552,19 @@ def matlabProcess(startpath=r'C:\AgriData\Projects'):
 
 if __name__ == '__main__':
     # Initial decision points. It is important that these do not return anything. This requires that each task stream
-    # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. THe
+    # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. The
     # reason is that that task itself has the sole responsibility of knowing what it should or should not be doing and how
     # to handle adverse or successful events.
 
     # What task are we meant to do? This is based on instance names
     roletype = identifyRole()
 
+    # Debugging
+    if roletype == 'preproc':
+        emitSNSMessage('Success')
+
     # Convert scan filenames and CSVs from old style to new style
-    if roletype == 'rvm':
+    elif roletype == 'rvm':
         # Scanid can be specified on the command line
         # if len(sys.argv) == 3:
         #     scans = [Scan.objects.get(scanid=sys.argv[2])]
@@ -601,5 +605,3 @@ if __name__ == '__main__':
     # Error
     else:
         logger.error('Sorry, no arguments supplied')
-
-    logger.info('No more tasks; hibernating now.')
