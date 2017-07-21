@@ -559,49 +559,52 @@ if __name__ == '__main__':
     # What task are we meant to do? This is based on instance names
     roletype = identifyRole()
 
-    # Debugging
-    if roletype == 'preproc' or roletype == 'compute':
-        emitSNSMessage('Success')
+    try:
+        # Debugging
+        if roletype == 'preproc' or roletype == 'compute':
+            emitSNSMessage('Success')
 
-    # Convert scan filenames and CSVs from old style to new style
-    elif roletype == 'rvm':
-        # Scanid can be specified on the command line
-        # if len(sys.argv) == 3:
-        #     scans = [Scan.objects.get(scanid=sys.argv[2])]
+        # Convert scan filenames and CSVs from old style to new style
+        elif roletype == 'rvm':
+            # Scanid can be specified on the command line
+            # if len(sys.argv) == 3:
+            #     scans = [Scan.objects.get(scanid=sys.argv[2])]
 
-        # Or else we'll just run through all the scans
-        #   else:
-        scans = Scan.objects()
+            # Or else we'll just run through all the scans
+            #   else:
+            scans = Scan.objects()
 
-        for scan in scans:
-            try:
-                initiateScanProcess(scan)
-            except Exception as e:
-                logger.error(traceback.print_exc())
-                logger.info('An error has occured: {}'.format(e))
+            for scan in scans:
+                try:
+                    initiateScanProcess(scan)
+                except Exception as e:
+                    logger.error(traceback.print_exc())
+                    logger.info('An error has occured: {}'.format(e))
 
-    # Daemon mode
-    elif sys.argv[1] == 'poll':
-        poll()
+        # Daemon mode
+        elif sys.argv[1] == 'poll':
+            poll()
 
-    # RVM Generation
-    elif sys.argv[1] == 'rvm':
-        task = {
-           'clientid'     : '5953469d1fb359d2a7a66287',
-           'scanids'      : ['2017-07-01_15-42'],
-           'role'         : 'rvm',
-        }
-        generateRVM(task)
-        logger.info('Initializing with scan {}'.format(task['scanids']))
+        # RVM Generation
+        elif sys.argv[1] == 'rvm':
+            task = {
+               'clientid'     : '5953469d1fb359d2a7a66287',
+               'scanids'      : ['2017-07-01_15-42'],
+               'role'         : 'rvm',
+            }
+            generateRVM(task)
+            logger.info('Initializing with scan {}'.format(task['scanids']))
 
-    # Preprocessing
-    elif sys.argv[1] == 'preprocess':
-        preprocess()
+        # Preprocessing
+        elif sys.argv[1] == 'preprocess':
+            preprocess()
 
-    # Detection
-    elif sys.argv[1] == 'detection':
-        detection()
+        # Detection
+        elif sys.argv[1] == 'detection':
+            detection()
 
-    # Error
-    else:
-        logger.error('Sorry, no arguments supplied')
+        # Error
+        else:
+            logger.error('Sorry, no arguments supplied')
+    except Exception as e:
+        emitSMSMessage(e)
