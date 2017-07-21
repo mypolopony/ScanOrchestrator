@@ -1,13 +1,13 @@
 mkdir ~\.aws
-cp E:\Projects\aws\credentials ~\.aws\
+cp C:\AgriData\Projects\aws\credentials ~\.aws\
 
 mkdir ~\.config
 mkdir ~\.config\rclone
-cp E:\Projects\.config\rclone\rclone.conf ~\.config\
+cp C:\AgriData\Projects\.config\rclone\rclone.conf ~\.config\
 
-cp E:\Projects\git\* ~\
+cp C:\AgriData\Projects\git\* ~\
 
-git -C E:\Projects\ScanOrchestrator pull
-git -C E:\Projects\MatlabCore pull
+git -C C:\AgriData\Projects\ScanOrchestrator pull
+git -C C:\AgriData\Projects\MatlabCore pull
 
-# python E:\Projects\ScanOrchestrator\orchestrator.py
+python C:\AgriData\Projects\ScanOrchestrator\orchestrator.py
