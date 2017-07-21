@@ -430,7 +430,7 @@ def preprocess():
                 key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
                 logger.info('Downloading {}'.format(key))
                 try:
-                    s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join('E:', os.sep, 'Projects', 'videos', tar))
+                    s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join('C:', os.sep, 'AgriData', 'Projects', 'videos', tar))
                 except Exception as e:
                     logging.warning('Download of {} has resulted in an error: {}'.format(key, e))
 
