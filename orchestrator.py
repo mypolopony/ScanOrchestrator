@@ -560,7 +560,7 @@ if __name__ == '__main__':
     roletype = identifyRole()
 
     # Debugging
-    if roletype == 'preproc':
+    if roletype == 'preproc' or roletype == 'compute':
         emitSNSMessage('Success')
 
     # Convert scan filenames and CSVs from old style to new style
