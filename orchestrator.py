@@ -542,7 +542,7 @@ def matlabProcess(startpath=r'C:\AgriData\Projects'):
     my hope is that it becomes a pain to pass around. The Windows path is a safe default that probably should be offloaded
     elsewhere since it
     '''
-    logger.info('Starting MATLAB. . .')
+    logger.info('[fnord] Starting MATLAB. . .')
     mlab = matlab.engine.start_matlab()
     mlab.addpath(mlab.genpath(startpath))
     #  mlab.javaaddpath(r'C:\AgriData\Projects\MatlabCore\extern\mongo\mongo-java-driver-3.4.2.jar');
