@@ -561,7 +561,7 @@ if __name__ == '__main__':
 
     try:
         # Debugging
-        if roletype == 'preproc' or roletype == 'compute':
+        if roletype == 'preproc' or roletype == 'temp':
             emitSNSMessage('Success')
             print('hi')
 
