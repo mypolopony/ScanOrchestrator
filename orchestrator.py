@@ -607,4 +607,4 @@ if __name__ == '__main__':
         else:
             logger.error('Sorry, no arguments supplied')
     except Exception as e:
-        emitSNSMessage(e)
+        emitSNSMessage(str(e))
