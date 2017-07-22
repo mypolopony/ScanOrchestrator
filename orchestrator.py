@@ -561,7 +561,7 @@ if __name__ == '__main__':
 
     try:
         # Debugging
-        if roletype == 'preproc' or roletype == 'compute':
+        if roletype == 'preproc' or roletype == 'temp':
             emitSNSMessage('Success')
 
         # Convert scan filenames and CSVs from old style to new style
@@ -582,11 +582,11 @@ if __name__ == '__main__':
                     logger.info('An error has occured: {}'.format(e))
 
         # Daemon mode
-        elif sys.argv[1] == 'poll':
+        elif roletype == 'poll':
             poll()
 
         # RVM Generation
-        elif sys.argv[1] == 'rvm':
+        elif roletype == 'rvm':
             task = {
                'clientid'     : '5953469d1fb359d2a7a66287',
                'scanids'      : ['2017-07-01_15-42'],
@@ -596,11 +596,11 @@ if __name__ == '__main__':
             logger.info('Initializing with scan {}'.format(task['scanids']))
 
         # Preprocessing
-        elif sys.argv[1] == 'preprocess':
+        elif roletype == 'preprocess':
             preprocess()
 
         # Detection
-        elif sys.argv[1] == 'detection':
+        elif roletype == 'detection':
             detection()
 
         # Error
