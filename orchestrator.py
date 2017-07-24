@@ -329,6 +329,13 @@ def receivefromServiceBus(queue, lock=False):
 @announce
 def emitSNSMessage(message, context=None, topic='statuslog'):
     # A simple notification payload, sent to all of a topic's subscribed endpoints
+
+    # Ensure type (change to JSON)
+    if type(message) == str:
+    	info = dict()
+    	info = {'info': message}
+
+    # Main payload
     payload = {
         'message'   : message,
         'topic_arn' : aws_arns[topic],
