@@ -562,7 +562,7 @@ if __name__ == '__main__':
 
     try:
         # Debugging
-        if 'PREPROC' in roletype:
+        if 'preproc' in roletype:
             emitSNSMessage('Success')
 
         # Convert scan filenames and CSVs from old style to new style
