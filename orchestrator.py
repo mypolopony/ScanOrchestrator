@@ -550,6 +550,18 @@ def matlabProcess(startpath=r'C:\AgriData\Projects'):
 
     return mlab
 
+@announce
+def getComputerInfoString():
+	# Grab
+	ret = subprocess.check_output('ipconfig')
+
+	# FOrmat
+	ignore = [' . ','\r','\n']
+	for i in ignore:
+		ret = ret.replace(i,'')
+
+	return ret
+
 
 if __name__ == '__main__':
     # Initial decision points. It is important that these do not return anything. This requires that each task stream
