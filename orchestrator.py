@@ -583,7 +583,7 @@ if __name__ == '__main__':
     try:
         # Debugging
         if 'preproc' in roletype:
-            emitSNSMessage(getComputerInfoString)
+            preprocess()
 
         # Convert scan filenames and CSVs from old style to new style
         elif roletype == 'convert':
