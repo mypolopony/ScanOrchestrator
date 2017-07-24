@@ -1,5 +1,5 @@
 New-Item -ItemType Directory -Force -Path C:\Users\agridata\.aws
-cp C:\AgriData\Projects\aws\credentialsC:\Users\agridata\.aws\ 
+cp C:\AgriData\Projects\aws\credentials C:\Users\agridata\.aws\ 
 
 New-Item -ItemType Directory -Force -Path C:\Users\agridata\.config 
 New-Item -ItemType Directory -Force -Path C:\Users\agridata\.config\rclone 
