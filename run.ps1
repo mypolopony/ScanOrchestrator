@@ -1,14 +1,16 @@
-New-Item -ItemType Directory -Force -Path ~\.aws
-cp C:\AgriData\Projects\aws\credentials ~\.aws\
+New-Item -ItemType Directory -Force -Path C:\Users\agridata\.aws > C:\Users\agridata\status.log
+cp C:\AgriData\Projects\aws\credentialsC:\Users\agridata\.aws\ >> C:\Users\agridata\status.log
 
-New-Item -ItemType Directory -Force -Path ~\.config
-New-Item -ItemType Directory -Force -Path ~\.config\rclone
-cp C:\AgriData\Projects\.config\rclone\rclone.conf C:\Users\agridata\.config\rclone\
+New-Item -ItemType Directory -Force -Path C:\Users\agridata\.config >> C:\Users\agridata\status.log
+New-Item -ItemType Directory -Force -Path C:\Users\agridata\.config\rclone >> C:\Users\agridata\status.log
+cp C:\AgriData\Projects\.config\rclone\rclone.conf C:\Users\agridata\.config\rclone\ >> C:\Users\agridata\status.log
 
-cp C:\AgriData\Projects\git\* ~\
+cp C:\AgriData\Projects\git\* C:\Users\agridata\ >> C:\Users\agridata\status.log
 
-git -C C:\AgriData\Projects\ScanOrchestrator pull
-git -C C:\AgriData\Projects\MatlabCore pull
+git -C C:\AgriData\Projects\ScanOrchestrator pull >> C:\Users\agridata\status.log
+git -C C:\AgriData\Projects\MatlabCore pull >> C:\Users\agridata\status.log
 
-pythonw C:\test.py
-pythonw C:\AgriData\Projects\ScanOrchestrator\orchestrator.py
+pythonw C:\AgriData\Projects\ScanOrchestrator\orchestrator.py  >> C:\Users\agridata\status.log 
+echo "Done!" >> C:\Users\agridata\status.log
+
+exit

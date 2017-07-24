@@ -179,7 +179,7 @@ def transformScan(scan):
         4) Re-upload
     '''
 
-    logger.info('Transforming Scan {} (client {})'.format(scan.client, scan.scanid))
+    logger.info('Transforming Scan {} (client {})'.format(scan.scanid, scan.client))
 
     ## Rename tars and csvs in place on S3
     # This can be done without downloading any of the .tar.gz files, although they will
@@ -210,7 +210,9 @@ def transformScan(scan):
                 pass
 
             # Copy (unless the file exists already)
-            if not s3r.Object(config.get('s3', 'bucket'), newfile).load():
+            try:
+                s3r.Object(config.get('s3', 'bucket'), newfile).load()
+            except:
                 logger.info('Renaming {} --> {}'.format(file['Key'], newfile))
                 s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
                                                                                       'Key': file['Key']})
@@ -228,9 +230,10 @@ def transformScan(scan):
 
     # Rsync scan to temporary folder
     logger.info('Downloading scan files. . . this can take a while')
-    # Beware that if the goal is to finish a partially completed scan, this has the unintended consequence of also 
-    # downloading the old tars that have already been done
+    
+    # Download only the tars and csvs that have been renamed
     subprocess.call(['rclone',
+                    '--include', '{}*'.format(scan.scanid),
                      '--config', '{}/.config/rclone/rclone.conf'.format(os.path.expanduser('~')),
                      'copy', '{}:{}/{}/{}'.format(config.get('rclone','profile'),
                                                    config.get('s3','bucket'),
@@ -274,9 +277,7 @@ def transformScan(scan):
     ## Delete from local
     # Using 'dest' explicitly will delete the scan folder but not the client folder. Here, we
     # recreate the base temporary directory.
-    # 
-    # Note! Great feature, execept when debugging!
-    # shutil.rmtree(os.path.join(tmpdir, str(scan.client)))
+    shutil.rmtree(dest)
 
 
 @announce
@@ -291,9 +292,9 @@ def initiateScanProcess(scan):
     s3base = '{}/{}'.format(str(scan.client), str(scan.scanid))
     keys = [obj['Key'] for obj in s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=s3base)['Contents']]
 
-    # If there are any files that don't start with a scanid, they must be of the old format, so format them.
-    # if not len([k for k in keys if k.split('/')[-1].startswith(scan.scanid)]):
-    transformScan(scan)
+    # IF there are no files that start with scanid, then we should convert!
+    if not len([k for k in keys if k.split('/')[-1].startswith(scan.scanid)]):
+        transformScan(scan)
     # print('This feature disabled; a more intelligent service is required to perform transformation')
 
     # The scan is uploaded and ready to be placed in the 'ready' or 'rvm' queue, where it
@@ -565,7 +566,7 @@ if __name__ == '__main__':
             emitSNSMessage('Success')
 
         # Convert scan filenames and CSVs from old style to new style
-        elif roletype == 'rvm':
+        elif roletype == 'convert':
             # Scanid can be specified on the command line
             # if len(sys.argv) == 3:
             #     scans = [Scan.objects.get(scanid=sys.argv[2])]
@@ -605,6 +606,6 @@ if __name__ == '__main__':
 
         # Error
         else:
-            emitSNSMessage('Sorry, role could not be found')
+            emitSNSMessage('Could not determine role type!')
     except Exception as e:
         emitSNSMessage(str(e))
