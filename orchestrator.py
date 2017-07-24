@@ -332,8 +332,9 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
 
     # Ensure type (change to JSON)
     if type(message) == str:
-    	info = dict()
-    	info = {'info': message}
+    	_message = dict()				# Save as temp variable
+    	_message = {'info': message}
+    	message = _message				# Unwrap
 
     # Main payload
     payload = {
