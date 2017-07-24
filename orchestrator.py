@@ -566,7 +566,7 @@ if __name__ == '__main__':
             emitSNSMessage('Success')
 
         # Convert scan filenames and CSVs from old style to new style
-        elif roletype == 'rvm':
+        elif roletype == 'convert':
             # Scanid can be specified on the command line
             # if len(sys.argv) == 3:
             #     scans = [Scan.objects.get(scanid=sys.argv[2])]
