@@ -561,9 +561,8 @@ if __name__ == '__main__':
 
     try:
         # Debugging
-        if roletype == 'preproc' or roletype == 'temp':
+        if 'PREPROC' in roletype:
             emitSNSMessage('Success')
-            print('hi')
 
         # Convert scan filenames and CSVs from old style to new style
         elif roletype == 'rvm':
@@ -606,6 +605,6 @@ if __name__ == '__main__':
 
         # Error
         else:
-            logger.error('Sorry, no arguments supplied')
+            emitSNSMessage('Sorry, role could not be found')
     except Exception as e:
         emitSNSMessage(str(e))
