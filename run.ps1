@@ -7,7 +7,7 @@ New-Item -ItemType Directory -Force -Path C:\Users\agridata\.config
 New-Item -ItemType Directory -Force -Path C:\Users\agridata\.config\rclone 
 cp C:\AgriData\Projects\.config\rclone\rclone.conf C:\Users\agridata\.config\rclone\ 
 
-git config --global credential.helper 'store --file C:\AgriData\git\.git-credentials'
+git config --global credential.helper 'store --file C:\AgriData\Projects\git\.git-credentials'
 # cp C:\AgriData\Projects\git\* C:\Users\agridata\ 
 
 cd C:\AgriData\Projects\ScanOrchestrator
