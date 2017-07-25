@@ -310,20 +310,22 @@ def sendtoServiceBus(queue, msg):
 
 
 @announce
-def receivefromServiceBus(queue, lock=False):
+def receivefromServiceBus(queue, lock=False, blocking=True):
     '''
     A generic way of asking for work to do, based on the task. The default behavior, for longer running processes,
     is for peek_lock to be False, which means deleting the message when it is received. This means that the
-    task process is responsible for re-enqueing the task if it fails.
+    task process is responsible for re-enqueing the task if it fails. This 
     '''
-    incoming = bus_service.receive_queue_message(queue, peek_lock=lock)
+    incoming = None
+    while not incoming:
+    	incoming = bus_service.receive_queue_message(queue, peek_lock=lock).body
 
     # Here, we can accept either properly formatted JSON strings or, if necessary, convert the
     # quotes to make them compliant.
     try:
-        msg = json.loads(incoming.body)
+        msg = json.loads(incoming)
     except:
-        msg = json.loads(incoming.body.replace("'",'"').replace('u"','"'))
+        msg = json.loads(incoming.replace("'",'"').replace('u"','"'))
 
     return msg
 
@@ -356,7 +358,7 @@ def log(message):
     # Let's send this message to the dashboard 
     payload = dict()
     payload['hostname'] = socket.gethostname()
-    payload['ip'] = socket.gethostbyname(hostname)
+    payload['ip'] = socket.gethostbyname(payload['hostname'])
     payload['message'] = message
 
     try:
@@ -439,7 +441,7 @@ def preprocess():
     if not os.path.exists(video_dir):
         os.mkdir(video_dir)
 
-    while true:
+    while True:
         try:
             log('Waiting for task')
             task = receivefromServiceBus('preprocess')
