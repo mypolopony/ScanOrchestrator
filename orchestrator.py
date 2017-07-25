@@ -366,7 +366,11 @@ def generateRVM(task):
     '''
 
     # Obtain the scan
-    scan = Scan.objects.get(client=ObjectId(task['clientid']), scanid=task['scanids'][0])
+    try:
+        scan = Scan.objects.get(client=task['clientid'], scanid=task['scanids'][0])
+    except:
+        scan = Scan.objects.get(client=ObjectId(task['clientid']), scanid=task['scanids'][0])
+
     block = Block.objects.get(id=scan.blocks[0])
     task['blockid']     = str(block.id)
     task['blockname']   = block.name
@@ -579,6 +583,7 @@ if __name__ == '__main__':
 
     # What task are we meant to do? This is based on instance names
     roletype = identifyRole()
+    roletype = 'rvm'
 
     try:
         # Debugging
@@ -610,7 +615,7 @@ if __name__ == '__main__':
         elif roletype == 'rvm':
             task = {
                'clientid'     : '5953469d1fb359d2a7a66287',
-               'scanids'      : ['2017-07-01_15-42'],
+               'scanids'      : ['2017-07-11_09-57', '2017-07-11_11-37', '2017-07-11_13-59', '2017-07-12_08-19', '2017-07-12_09-04'],
                'role'         : 'rvm',
             }
             generateRVM(task)
