@@ -626,6 +626,6 @@ if __name__ == '__main__':
 
         # Error
         else:
-            emitSNSMessage('Could not determine role type!\n'.format(getComputerInfoString))
+            emitSNSMessage('Could not determine role type, {}!\n'.format(getComputerInfoString))
     except Exception as e:
         emitSNSMessage(str(e))
