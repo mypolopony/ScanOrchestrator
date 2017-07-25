@@ -588,7 +588,7 @@ if __name__ == '__main__':
     try:
         # Debugging
         if 'preproc' in roletype:
-            emitSNSMessage(getComputerInfoString)
+            preprocess()
 
         # Convert scan filenames and CSVs from old style to new style
         elif roletype == 'convert':
@@ -631,6 +631,6 @@ if __name__ == '__main__':
 
         # Error
         else:
-            emitSNSMessage('Could not determine role type!\n'.format(getComputerInfoString))
+            emitSNSMessage('Could not determine role type, {}!\n'.format(getComputerInfoString))
     except Exception as e:
         emitSNSMessage(str(e))
