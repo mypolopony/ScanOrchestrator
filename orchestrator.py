@@ -12,6 +12,7 @@ import re
 import time
 import boto3
 import shutil
+import socket
 import traceback
 import requests
 import multiprocess
@@ -350,14 +351,19 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
         Subject     =  '{} message'.format(topic)
     )
 
-    # Let's also send this message to the dashboard 
-    # TODO: Divorce this code, add IP to config
+@announce
+def log(message)
+    # Let's send this message to the dashboard 
+    payload = dict()
+    payload['hostname'] = socket.gethostname()
+    payload['ip'] = socket.gethostbyname(hostname)
+    payload['message'] = message
+
     try:
         boringmachine = '54.164.89.210'
-        r = requests.post('http://{}/orchestrator'.format(boringmachine), data = {'key':'value'})
+        r = requests.post('http://{}:5000/orchestrator'.format(boringmachine), json = payload)
     except Exception as e:
         logger.warning('Boringmachine not reachable: {}'.format(e))
-
 
 @announce
 def generateRVM(task):
@@ -428,24 +434,26 @@ def preprocess():
     # Here is the number of children to spawn
     NUM_MATLAB_INSTANCES = 4
 
-    task = receivefromServiceBus('preprocess')
-
     # Canonical filepath
     video_dir = r'C:\AgriData\Projects\videos'
     if not os.path.exists(video_dir):
         os.mkdir(video_dir)
 
-    while task:
+    while true:
         try:
+            log('Waiting for task')
+            task = receivefromServiceBus('preprocess')
+            log('Received task')
+
             # Download the tarfiles
             for tar in task['tarfiles']:
                 scanid = '_'.join(tar.split('_')[0:2])
                 key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
-                logger.info('Downloading {}'.format(key))
+                log('Downloading {}'.format(key))
                 try:
                     s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join('C:', os.sep, 'AgriData', 'Projects', 'videos', tar))
                 except Exception as e:
-                    logging.warning('Download of {} has resulted in an error: {}'.format(key, e))
+                    log('Download of {} has resulted in an error: {}'.format(key, e))
 
             # Only need one matlab process to untar
             mlab = matlabProcess()
@@ -456,6 +464,7 @@ def preprocess():
             # because the multiprocessing library could not directly be called as some of the objects were
             # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
             # the function wrapper is necessary anymore
+            log('Starting work')
             workers = list()
             for instance in range(NUM_MATLAB_INSTANCES):
                 worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocessing', task])
@@ -465,7 +474,7 @@ def preprocess():
             for worker in workers:
                 worker.join()
 
-            logger.info('All MATLAB instances have finished. . . Uploading zip files')
+            log('All MATLAB instances have finished. . . Uploading zip files')
 
             # Pre file upload, recreate relevant parts of analysis_struct
             analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
@@ -479,8 +488,8 @@ def preprocess():
             mlab.upload_logs(analysis_struct, 1, nargout=0)
             mlab.quit()
 
-            # What goes here? Hand-off to detection -- where are the .zip files? 
-            emitSNSMessage('Task COMPLETE: {}'.format(task))
+            # What goes here? Hand-off to detection -- where are the .zip files?
+            log('Success')
         except Exception as e:
             task['message'] = e
             emitSNSMessage('Task FAILED: {}'.format(task))
@@ -583,21 +592,14 @@ if __name__ == '__main__':
 
     # What task are we meant to do? This is based on instance names
     roletype = identifyRole()
-    roletype = 'rvm'
+    log('I''m awake! Roletype is {}'.format(roletype))
 
     try:
-        # Debugging
         if 'preproc' in roletype:
             preprocess()
 
         # Convert scan filenames and CSVs from old style to new style
         elif roletype == 'convert':
-            # Scanid can be specified on the command line
-            # if len(sys.argv) == 3:
-            #     scans = [Scan.objects.get(scanid=sys.argv[2])]
-
-            # Or else we'll just run through all the scans
-            #   else:
             scans = Scan.objects()
 
             for scan in scans:
@@ -631,6 +633,6 @@ if __name__ == '__main__':
 
         # Error
         else:
-            emitSNSMessage('Could not determine role type, {}!\n'.format(getComputerInfoString))
+            emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
     except Exception as e:
         emitSNSMessage(str(e))
