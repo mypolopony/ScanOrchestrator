@@ -352,7 +352,7 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
     )
 
 @announce
-def log(message)
+def log(message):
     # Let's send this message to the dashboard 
     payload = dict()
     payload['hostname'] = socket.gethostname()
@@ -490,6 +490,22 @@ def preprocess():
 
             # What goes here? Hand-off to detection -- where are the .zip files?
             log('Success')
+            print(task)
+            for zipfile in glob.glob(analysis_struct['video_folder'] + '/*.zip'):
+                detectiontask = task
+                detectiontask['detection_params'] =  dict(
+                    bucket='deeplearning_data',
+                    base_url_path='{}/results/{}/block_{}/temp'.format(task['clientid'],task['farmname'].replace(' ',''), task['blockname']),
+                    input_path='preprocess-frames',
+                    output_path='detection',
+                    caffemodel_s3_url_cluster='s3://deeplearning_data/models/best/post-bloom_july_13_2017_224000.caffemodel',
+                    caffemodel_s3_url_trunk='s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel',
+                    s3_aws_access_key_id='AKIAJC7XVEAQELBKAANQ',
+                    s3_aws_secret_access_key='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',
+                    session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S'),
+                    folders=[ zipfile ]
+                    )
+                sendtoServiceBus('detection', detectiontask)
         except Exception as e:
             task['message'] = e
             emitSNSMessage('Task FAILED: {}'.format(task))
@@ -595,6 +611,7 @@ if __name__ == '__main__':
     log('I''m awake! Roletype is {}'.format(roletype))
 
     try:
+        # Preprocessing
         if 'preproc' in roletype:
             preprocess()
 
@@ -622,10 +639,6 @@ if __name__ == '__main__':
             }
             generateRVM(task)
             logger.info('Initializing with scan {}'.format(task['scanids']))
-
-        # Preprocessing
-        elif roletype == 'preprocess':
-            preprocess()
 
         # Detection
         elif roletype == 'detection':
