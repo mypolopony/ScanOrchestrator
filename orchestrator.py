@@ -432,9 +432,10 @@ def preprocess():
     NUM_MATLAB_INSTANCES = 4
 
     # Canonical filepath
-    video_dir = r'C:\AgriData\Projects\videos'
-    if not os.path.exists(video_dir):
-        os.mkdir(video_dir)
+    video_dir = r'C:\Users\Administrator\Desktop\videos'
+    if os.path.exists(video_dir):
+        shutil.rmtree(video_dir)
+    os.makedirs(video_dir)
 
     while True:
         try:
@@ -448,7 +449,7 @@ def preprocess():
                 key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
                 log('Downloading {}'.format(key))
                 try:
-                    s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join('C:', os.sep, 'AgriData', 'Projects', 'videos', tar))
+                    s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
                 except Exception as e:
                     log('Download of {} has resulted in an error: {}'.format(key, e))
 
