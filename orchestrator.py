@@ -484,8 +484,7 @@ def preprocess():
             analysis_struct['video_folder'] = video_dir
 
             # S3 results path
-            # TODO: Replace with last directory based on environment (local / temp / selly)
-            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}/selly'.format(task['clientid'], task['farmname'], task['blockname'])
+            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'], task['blockname'])
             
             mlab = matlabProcess()
             mlab.upload_logs(analysis_struct, 1, nargout=0)
@@ -493,11 +492,10 @@ def preprocess():
 
             # What goes here? Hand-off to detection -- where are the .zip files?
             log('Success')
-            print(task)
             for zipfile in glob.glob(analysis_struct['video_folder'] + '/*.zip'):
                 detectiontask = task
                 detectiontask['detection_params'] =  dict(
-                    bucket='deeplearning_data',
+                    bucket='agridatadepot',
                     base_url_path='{}/results/{}/block_{}/temp'.format(task['clientid'],task['farmname'].replace(' ',''), task['blockname']),
                     input_path='preprocess-frames',
                     output_path='detection',
@@ -506,7 +504,7 @@ def preprocess():
                     s3_aws_access_key_id='AKIAJC7XVEAQELBKAANQ',
                     s3_aws_secret_access_key='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',
                     session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S'),
-                    folders=[ zipfile ]
+                    folders=[ analysis_struct['s3_result_path'] + os.path.basename(zipfile) ]
                     )
                 sendtoServiceBus('detection', detectiontask)
         except Exception as e:

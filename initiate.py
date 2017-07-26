@@ -12,3 +12,6 @@ task = {
 
 # Send to RVM Queue
 bus_service = bus_service.send_queue_message(task['role'], Message(task))
+print('Initiated Task {}'.format(task))
+print('It is now being sent to be RVM''d. Afterwards, if it passes a sanity check\n \
+    currently at least 50% of expected rows and it will be preprocessed and )
