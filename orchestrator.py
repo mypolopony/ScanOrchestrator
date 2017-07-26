@@ -409,7 +409,7 @@ def generateRVM():
             if rows_found < block.num_rows * 0.5:
                 emitSNSMessage('RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
             elif rows_found > block.num_rows:
-                emitSNSMessage('Too many rows found (found {}, expected {})! [{}]'.format(task))
+                emitSNSMessage('Too many rows found (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
             else:
                 # Split tarfiles
                 tarfiles = pd.Series.unique(data['file'])
@@ -460,7 +460,8 @@ def preprocess():
             mlab.quit()
 
             # Download the RVM
-            print('downloadrvm')
+            key = '/'.join(task['rvm_uri'].split('/')[3:])
+            s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
 
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
@@ -510,7 +511,8 @@ def preprocess():
                 sendtoServiceBus('detection', detectiontask)
         except Exception as e:
             task['message'] = e
-            emitSNSMessage('Task FAILED: {}'.format(task))
+            log('Task FAILED: {}'.format(task))
+            pass
 
 @announce 
 def launchMatlabTasks(taskname, task):
