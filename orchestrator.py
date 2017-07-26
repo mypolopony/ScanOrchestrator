@@ -372,6 +372,10 @@ def generateRVM(task):
     '''
     Given a set of scans (or one scan), generate a row video map.
     '''
+    
+    # Start MATLAB
+    mlab = matlabProcess()
+
     while True:
         try:
             log('Waiting for task')
@@ -393,45 +397,29 @@ def generateRVM(task):
             # Check staging database for previous scans of this block
             staged = db.staging.find({'block': scan.blocks[0]})
             if staged:
-                scans = task['scanids'] + [s['_id'] for s in staged]
+                task['scanids'] = task['scanids'] + [s['_id'] for s in staged]
 
-            # Start MATLAB
-            mlab = matlabProcess()
-            try:
-                # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
-                s3uri, localuri = mlab.runTask('rvm', task['clientid'], task['scanids'])
-                data = pd.read_csv(localuri, header=0)
-                rows_found = len(set([(r, d) for r,d in zip(data['rows'],data['direction'])])) / 2
+            # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
+            s3uri, localuri = mlab.runTask('rvm', task['clientid'], task['scanids'])
+            data = pd.read_csv(localuri, header=0)
+            rows_found = len(set([(r, d) for r,d in zip(data['rows'],data['direction'])])) / 2
 
-                # Check for completeness
-                try:
-                    if rows_found < block.num_rows * 0.5:
-                        logger.warning('RVM is not long enough! Saving to holding area')
-                        # TODO: Emit message, insert into staging db
-                    if rows_found > block.num_rows:
-                        logger.warning('Too many rows found!')
-                        # TODO: Emit message
-                except:
-                    pass
-
+            # Check for completeness
+            if rows_found < block.num_rows * 0.5:
+                emitSNSMessage('RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
+            elif rows_found > block.num_rows:
+                emitSNSMessage('Too many rows found (found {}, expected {})! [{}]'.format(task))
+            else:
                 # Split tarfiles
                 tarfiles = pd.Series.unique(data['file'])
                 for shard in np.array_split(tarfiles, int(len(tarfiles)/6)):
                     task['tarfiles'] = list(shard)
                     sendtoServiceBus('preprocess', task)
 
-                emitSNSMessage('== Task Complete: {}'.format(json.dumps(task)))
-            except Exception as err:
-                logger.error(traceback.print_exc())
-                task['message'] = str(err)
-                emitSNSMessage('Failure on {}'.format(json.dumps(task)))
-                # TODO: Re-enqueue message
-                # TODO: Place scans into staging
-                return
+                log('Task Complete: {}'.format(json.dumps(task)))
 
-            # Return characteristics of RVM, like goodness for example
-            return None
-        except:
+        except Exception as err:
+            emitSNSMessage('Failure on {}'.format(str(err)))
             pass
 
 
