@@ -310,7 +310,7 @@ def sendtoServiceBus(queue, msg):
 
 
 @announce
-def receivefromServiceBus(queue, lock=False, blocking=True):
+def receivefromServiceBus(queue, lock=False):
     '''
     A generic way of asking for work to do, based on the task. The default behavior, for longer running processes,
     is for peek_lock to be False, which means deleting the message when it is received. This means that the
@@ -401,10 +401,11 @@ def generateRVM():
 
             # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
             s3uri, localuri = mlab.runTask('rvm', task['clientid'], task['scanids'])
-            data = pd.read_csv(localuri, header=0)
-            rows_found = len(set([(r, d) for r,d in zip(data['rows'],data['direction'])])) / 2
+            task['rvm_uri'] = s3uri
 
             # Check for completeness
+            data = pd.read_csv(localuri, header=0)
+            rows_found = len(set([(r, d) for r,d in zip(data['rows'],data['direction'])])) / 2
             if rows_found < block.num_rows * 0.5:
                 emitSNSMessage('RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
             elif rows_found > block.num_rows:
@@ -432,7 +433,7 @@ def preprocess():
     NUM_MATLAB_INSTANCES = 4
 
     # Canonical filepath
-    video_dir = r'C:\Users\Administrator\Desktop\videos'
+    video_dir = r'C:\AgriData\Projects\videos'
     if os.path.exists(video_dir):
         shutil.rmtree(video_dir)
     os.makedirs(video_dir)
@@ -458,6 +459,9 @@ def preprocess():
             mlab.my_untar(video_dir,  nargout=0)
             mlab.quit()
 
+            # Download the RVM
+            print('downloadrvm')
+
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
             # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
@@ -465,7 +469,7 @@ def preprocess():
             log('Starting work')
             workers = list()
             for instance in range(NUM_MATLAB_INSTANCES):
-                worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocessing', task])
+                worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocess', task])
                 worker.start()
                 workers.append(worker)
 
