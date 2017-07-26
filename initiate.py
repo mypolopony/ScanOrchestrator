@@ -6,9 +6,9 @@ bus_service = ServiceBusService(service_namespace='agridataqueues',
 # Task definition
 task = {
    'clientid'     : '5953469d1fb359d2a7a66287',
-   'scanids'      : ['2017-07-11_09-57', '2017-07-11_11-37', '2017-07-11_13-59', '2017-07-12_08-19', '2017-07-12_09-04'],
+   'scanids'      : ['2017-06-30_10-01'],
    'role'         : 'rvm',
 }
 
 # Send to RVM Queue
-bus_service = bus_service.send_queue_message(queue, Message(task))
+bus_service = bus_service.send_queue_message(task['role'], Message(task))

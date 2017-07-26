@@ -310,7 +310,7 @@ def sendtoServiceBus(queue, msg):
 
 
 @announce
-def receivefromServiceBus(queue, lock=False, blocking=True):
+def receivefromServiceBus(queue, lock=False):
     '''
     A generic way of asking for work to do, based on the task. The default behavior, for longer running processes,
     is for peek_lock to be False, which means deleting the message when it is received. This means that the
