@@ -408,7 +408,7 @@ def generateRVM():
             if rows_found < block.num_rows * 0.5:
                 emitSNSMessage('RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
             elif rows_found > block.num_rows:
-                emitSNSMessage('Too many rows found (found {}, expected {})! [{}]'.format(task))
+                emitSNSMessage('Too many rows found (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
             else:
                 # Split tarfiles
                 tarfiles = pd.Series.unique(data['file'])
