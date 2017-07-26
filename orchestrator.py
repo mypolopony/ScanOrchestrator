@@ -335,9 +335,9 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
 
     # Ensure type (change to JSON)
     if type(message) == str:
-    	_message = dict()				# Save as temp variable
-    	_message = {'info': message}
-    	message = _message				# Unwrap
+        _message = dict()				# Save as temp variable
+        _message = {'info': message}
+        message = _message				# Unwrap
 
     # Main payload
     payload = {
@@ -368,7 +368,7 @@ def log(message):
         logger.warning('Boringmachine not reachable: {}'.format(e))
 
 @announce
-def generateRVM(task):
+def generateRVM():
     '''
     Given a set of scans (or one scan), generate a row video map.
     '''
@@ -640,14 +640,8 @@ if __name__ == '__main__':
             poll()
 
         # RVM Generation
-        elif roletype == 'rvm':
-            task = {
-               'clientid'     : '5953469d1fb359d2a7a66287',
-               'scanids'      : ['2017-07-11_09-57', '2017-07-11_11-37', '2017-07-11_13-59', '2017-07-12_08-19', '2017-07-12_09-04'],
-               'role'         : 'rvm',
-            }
-            generateRVM(task)
-            logger.info('Initializing with scan {}'.format(task['scanids']))
+        elif 'rvm' in roletype or 'jumpbox' in roletype:
+            generateRVM()
 
         # Detection
         elif roletype == 'detection':
