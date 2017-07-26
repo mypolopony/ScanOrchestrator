@@ -512,6 +512,7 @@ def preprocess():
         except Exception as e:
             task['message'] = e
             emitSNSMessage('Task FAILED: {}'.format(task))
+            pass
 
 @announce 
 def launchMatlabTasks(taskname, task):
