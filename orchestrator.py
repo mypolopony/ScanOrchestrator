@@ -432,7 +432,7 @@ def preprocess():
     NUM_MATLAB_INSTANCES = 4
 
     # Canonical filepath
-    video_dir = r'C:\Users\Administrator\Desktop\videos'
+    video_dir = r'C:\AgriData\Projects\videos\'
     if os.path.exists(video_dir):
         shutil.rmtree(video_dir)
     os.makedirs(video_dir)
