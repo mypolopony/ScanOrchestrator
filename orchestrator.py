@@ -456,11 +456,13 @@ def preprocess():
 
             # Only need one matlab process to untar
             mlab = matlabProcess()
-            mlab.my_untar(video_dir,  nargout=0)
+            mlab.my_untar(video_dir, nargout=0)
             mlab.quit()
 
-            # Download the RVM
+            # Download the RVM and VPR
             key = '/'.join(task['rvm_uri'].split('/')[3:])
+            s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
+            key = key.replace('rvm.csv','vpr.csv')
             s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
 
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
@@ -548,6 +550,17 @@ def process(scan):
 
     # Start MATLAB
     mlab = matlabProcess()
+
+    # remove exist([analysis_struct.video_folder '\process-' mac '.log'], 'file')
+    # rm results_folder
+
+    # Download the RVM
+
+    # Download the VPR (it's in the same place as rvm)
+
+    # Spawn N matlab instances
+
+
 
     emitSNSMessage('== Task Complete: {}'.format(json.dumps(task)))
 
