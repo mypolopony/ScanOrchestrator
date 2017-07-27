@@ -491,7 +491,7 @@ def preprocess():
             for worker in workers:
                 worker.join()
 
-            log('All MATLAB instances have finished. . . Uploading zip files')
+            log('All MATLAB instances have finished')
 
             # Pre file upload, recreate relevant parts of analysis_struct
             analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
