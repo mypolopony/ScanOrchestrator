@@ -705,7 +705,7 @@ if __name__ == '__main__':
 
     # What task are we meant to do? This is based on instance names
 
-    args=parse_args()
+    args = parse_args()
     roletype = identifyRole()
     log('I\'m awake! Role type is {}'.format(roletype))
 
@@ -713,6 +713,18 @@ if __name__ == '__main__':
         # Preprocessing
         if 'preproc' in roletype:
             preprocess(args)
+
+        # RVM Generation
+        elif 'rvm' in roletype or 'jumpbox' in roletype:
+            generateRVM(args)
+
+        # Detection
+        elif roletype == 'detection':
+            detection(args)
+
+        # Process
+        elif 'process' in roletype:
+            process(args)
 
         # Convert scan filenames and CSVs from old style to new style
         elif roletype == 'convert':
@@ -725,17 +737,9 @@ if __name__ == '__main__':
                     logger.error(traceback.print_exc())
                     logger.info('An error has occured: {}'.format(e))
 
-        # Daemon mode
+        # AWS daemon mode
         elif roletype == 'poll':
             poll(args)
-
-        # RVM Generation
-        elif 'rvm' in roletype or 'jumpbox' in roletype:
-            generateRVM(args)
-
-        # Detection
-        elif roletype == 'detection':
-            detection(args)
 
         # Error
         else:
