@@ -465,12 +465,6 @@ def preprocess():
                     if 'csv' in key and key.startswith(scan):
                         s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'], os.path.join(video_dir, 'imu_basler', key))
 
-            # Only need one matlab process to untar
-            log('Untarring blobs of semi-solid oil found on or near the ocean')
-            mlab = matlabProcess()
-            mlab.my_untar(video_dir, nargout=0)
-            mlab.quit()
-
             # Download the RVM, VPR
             key = '/'.join(task['rvm_uri'].split('/')[3:])
             s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
@@ -499,14 +493,10 @@ def preprocess():
 
             # S3 results path
             analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'], task['blockname'])
-            
-            mlab = matlabProcess()
-            mlab.upload_logs(analysis_struct, 1, nargout=0)
-            mlab.quit()
 
-            # What goes here? Hand-off to detection -- where are the .zip files?
+            # Hand-off to detection
             zips = glob.glob(analysis_struct['video_folder'] + '/*.zip')
-            log('Success. Uploading {} zip files'.format(len(zips)))
+            log('Success, found {} zip files. Creating Detection tasks.'.format(len(zips)))
             for zipfile in zips:
                 detectiontask = task
                 detectiontask['detection_params'] =  dict(
@@ -636,7 +626,7 @@ if __name__ == '__main__':
 
     # What task are we meant to do? This is based on instance names
     roletype = identifyRole()
-    log('I''m awake! Roletype is {}'.format(roletype))
+    log('I\'m awake! Role type is {}'.format(roletype))
 
     try:
         # Preprocessing
