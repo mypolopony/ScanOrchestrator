@@ -426,6 +426,27 @@ def generateRVM():
             emitSNSMessage('Failure on {}'.format(str(err)))
             pass
 
+@announce
+def rebuildScanInfo(target_dir):
+    # Canonical filepath
+    video_dir = r'C:\AgriData\Projects\videos'
+    if os.path.exists(video_dir):
+        shutil.rmtree(video_dir)
+    os.makedirs(video_dir)
+    os.makedirs(video_dir + '\imu_basler')
+
+    # Download log files
+    for scan in task['scanids']:
+        for file in s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
+            key = file['Key'].split('/')[-1]
+            if 'csv' in key and key.startswith(scan):
+                s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'], os.path.join(target_dir, 'imu_basler', key))
+
+    # Download the RVM, VPR
+    key = '/'.join(task['rvm_uri'].split('/')[3:])
+    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(target_dir, key.split('/')[-1]))
+    key = key.replace('rvm.csv','vpr.csv')
+    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(target_dir, key.split('/')[-1]))
 
 @announce
 def preprocess():
@@ -435,18 +456,14 @@ def preprocess():
     # Here is the number of children to spawn
     NUM_MATLAB_INSTANCES = 4
 
-    # Canonical filepath
-    video_dir = r'C:\AgriData\Projects\videos'
-    if os.path.exists(video_dir):
-        shutil.rmtree(video_dir)
-    os.makedirs(video_dir)
-    os.makedirs(video_dir + '\imu_basler')
-
     while True:
         try:
             log('Waiting for task')
             task = receivefromServiceBus('preprocess')
             log('Received preprocessing task')
+
+            # Rebuild base scan info
+            rebuildScanInfo()
 
             # Download the tarfiles
             for tar in task['tarfiles']:
@@ -457,19 +474,6 @@ def preprocess():
                     s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
                 except Exception as e:
                     log('Download of {} has resulted in an error: {}'.format(key, e))
-
-            # Download log files
-            for scan in task['scanids']:
-                for file in s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
-                    key = file['Key'].split('/')[-1]
-                    if 'csv' in key and key.startswith(scan):
-                        s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'], os.path.join(video_dir, 'imu_basler', key))
-
-            # Download the RVM, VPR
-            key = '/'.join(task['rvm_uri'].split('/')[3:])
-            s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
-            key = key.replace('rvm.csv','vpr.csv')
-            s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
 
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
@@ -550,6 +554,75 @@ def process(scan):
     '''
     Processing method
     '''
+
+    # Here is the number of children to spawn
+    NUM_MATLAB_INSTANCES = 4
+
+    # A collection of tasks
+    multi_task = list()
+
+    while True:
+        try:
+            log('Waiting for task')
+            multi_task.append(receivefromServiceBus('process'))
+            log('Received preprocessing task')
+
+            # Rebuild base scan info
+            rebuildScanInfo()
+
+            # Wait for a group of scans equal to the number of MATLAB instances
+            while len(multi_task) <= NUM_MATLAB_INSTANCES and service_bus.get_queue('process').message_count > 0:
+                multi_task.append(receiveFromServiceBus('process'))
+
+            # Download the tarfiles
+            for tar in task['tarfiles']:
+                scanid = '_'.join(tar.split('_')[0:2])
+                key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
+                log('Downloading {}'.format(key))
+                try:
+                    s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
+                except Exception as e:
+                    log('Download of {} has resulted in an error: {}'.format(key, e))
+
+            # Launch tasks
+            log('Processing group of {} archives'.format(len(multi_task)))
+            workers = list()
+            for task in multi_task:
+                worker = multiprocess.Process(target=launchMatlabTasks, args=['process', task])
+                worker.start()
+                workers.append(worker)
+
+            for worker in workers:
+                worker.join()
+
+            '''
+            # Postprocessing
+            log('Postprocessing group of {} archives'.format(len(multi_task)))
+            workers = list()
+            for task in multi_task:
+                worker = multiprocess.Process(target=launchMatlabTasks, args=['postprocess', task])
+                worker.start()
+                workers.append(worker)
+
+            for worker in workers:
+                worker.join()
+
+            '''
+
+            log('All MATLAB instances have finished')
+
+            # Pre file upload, recreate relevant parts of analysis_struct
+            analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
+            analysis_struct['video_folder'] = video_dir
+
+            # S3 results path
+            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'], task['blockname'])
+
+            # Now what?
+        except Exception as e:
+            task['message'] = e
+            log('Task FAILED: {}'.format(task))
+            pass
 
     # Start MATLAB
     mlab = matlabProcess()
