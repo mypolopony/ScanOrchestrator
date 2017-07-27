@@ -437,6 +437,7 @@ def preprocess():
     if os.path.exists(video_dir):
         shutil.rmtree(video_dir)
     os.makedirs(video_dir)
+    os.makedirs(video_dir + '\imu_basler')
 
     while True:
         try:
@@ -455,9 +456,11 @@ def preprocess():
                     log('Download of {} has resulted in an error: {}'.format(key, e))
 
             # Download log files
-            for file in s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/{}'.format(task['clientid'], task['scanid']))['Contents']:
-                if 'csv' in file['key'] and file['key'].startswith(task['scanid']):
-                    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, 'imu_baseler', key.split('/')[-1]))
+            for scan in task['scanids']:
+                for file in s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
+                    key = file['Key'].split('/')[-1]
+                    if 'csv' in key and key.startswith(scan):
+                        s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'], os.path.join(video_dir, 'imu_basler', key))
 
             # Only need one matlab process to untar
             mlab = matlabProcess()
@@ -470,12 +473,11 @@ def preprocess():
             key = key.replace('rvm.csv','vpr.csv')
             s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
 
-
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
             # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
             # the function wrapper is necessary anymore
-            log('Starting work')
+            log('Starting work on ')
             workers = list()
             for instance in range(NUM_MATLAB_INSTANCES):
                 worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocess', task])
