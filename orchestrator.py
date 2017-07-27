@@ -454,16 +454,22 @@ def preprocess():
                 except Exception as e:
                     log('Download of {} has resulted in an error: {}'.format(key, e))
 
+            # Download log files
+            for file in s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/{}'.format(task['clientid'], task['scanid']))['Contents']:
+                if 'csv' in file['key'] and file['key'].startswith(task['scanid']):
+                    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, 'imu_baseler', key.split('/')[-1]))
+
             # Only need one matlab process to untar
             mlab = matlabProcess()
             mlab.my_untar(video_dir, nargout=0)
             mlab.quit()
 
-            # Download the RVM and VPR
+            # Download the RVM, VPR
             key = '/'.join(task['rvm_uri'].split('/')[3:])
             s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
             key = key.replace('rvm.csv','vpr.csv')
             s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
+
 
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
