@@ -372,7 +372,9 @@ def generateRVM():
     '''
     Given a set of scans (or one scan), generate a row video map.
     '''
-    
+    # Parameters                # To calculate the number of separate tasks, 
+    SHARD_FACTOR = 3            # divide the number of rows by this factor
+
     # Start MATLAB
     mlab = matlabProcess()
 
@@ -400,6 +402,7 @@ def generateRVM():
                 task['scanids'] = task['scanids'] + [s['_id'] for s in staged]
 
             # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
+            log('Calculating RVM')
             s3uri, localuri = mlab.runTask('rvm', task['clientid'], task['scanids'])
             task['rvm_uri'] = s3uri
 
@@ -413,7 +416,7 @@ def generateRVM():
             else:
                 # Split tarfiles
                 tarfiles = pd.Series.unique(data['file'])
-                for shard in np.array_split(tarfiles, int(len(tarfiles)/6)):
+                for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
                     task['tarfiles'] = list(shard)
                     sendtoServiceBus('preprocess', task)
 
@@ -502,8 +505,9 @@ def preprocess():
             mlab.quit()
 
             # What goes here? Hand-off to detection -- where are the .zip files?
-            log('Success')
-            for zipfile in glob.glob(analysis_struct['video_folder'] + '/*.zip'):
+            zips = glob.glob(analysis_struct['video_folder'] + '/*.zip')
+            log('Success. Uploading {} zip files'.format(len(zips)))
+            for zipfile in zips:
                 detectiontask = task
                 detectiontask['detection_params'] =  dict(
                     bucket='agridatadepot',
