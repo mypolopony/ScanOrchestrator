@@ -463,6 +463,7 @@ def preprocess():
                         s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'], os.path.join(video_dir, 'imu_basler', key))
 
             # Only need one matlab process to untar
+            log('Untarring blobs of semi-solid oil found on or near the ocean')
             mlab = matlabProcess()
             mlab.my_untar(video_dir, nargout=0)
             mlab.quit()
