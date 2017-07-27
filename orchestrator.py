@@ -553,7 +553,7 @@ def detection(args):
 
 
 @announce
-def process(scan):
+def process(args):
     '''
     Processing method
     '''
@@ -626,22 +626,6 @@ def process(scan):
             task['message'] = e
             log('Task FAILED: {}'.format(task))
             pass
-
-    # Start MATLAB
-    mlab = matlabProcess()
-
-    # remove exist([analysis_struct.video_folder '\process-' mac '.log'], 'file')
-    # rm results_folder
-
-    # Download the RVM
-
-    # Download the VPR (it's in the same place as rvm)
-
-    # Spawn N matlab instances
-
-
-
-    emitSNSMessage('== Task Complete: {}'.format(json.dumps(task)))
 
 
 @announce
