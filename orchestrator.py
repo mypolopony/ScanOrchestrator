@@ -382,7 +382,7 @@ def generateRVM():
         try:
             log('Waiting for task')
             task = receivefromServiceBus('rvm')
-            log('Received task')
+            log('Received RVM task')
 
             # Obtain the scan
             try:
@@ -446,7 +446,7 @@ def preprocess():
         try:
             log('Waiting for task')
             task = receivefromServiceBus('preprocess')
-            log('Received task')
+            log('Received preprocessing task')
 
             # Download the tarfiles
             for tar in task['tarfiles']:
