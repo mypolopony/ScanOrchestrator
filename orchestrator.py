@@ -475,7 +475,7 @@ def preprocess():
             # because the multiprocessing library could not directly be called as some of the objects were
             # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
             # the function wrapper is necessary anymore
-            log('Preprocessing. . .')
+            log('Preprocessing {} archives with {} MATLAB instances'.format(len(task['tarfiles']), NUM_MATLAB_INSTANCES))
             workers = list()
             for instance in range(NUM_MATLAB_INSTANCES):
                 worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocess', task])
