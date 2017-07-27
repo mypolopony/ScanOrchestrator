@@ -15,6 +15,9 @@ import shutil
 import socket
 import traceback
 import requests
+
+import glob
+import argparse
 import multiprocess
 
 import pandas as pd
@@ -125,7 +128,7 @@ def handleAWSMessage(result):
         # delete them or, failing that, default to releasing them back to the queue
 
 @announce
-def poll():
+def poll(args):
     start = datetime.datetime.now()
 
     logger.info('Scan Detector Starting\n\n')
@@ -148,7 +151,7 @@ def poll():
                     logger.info('Queueing task {}/{}'.format(ridx, len(results)))
                     task = handleAWSMessage(result)             # Parse clientid and scanid
                     task['role'] = 'rvm'                        # Tag with the first task step
-                    sendtoServiceBus('rvm',json.dumps(task))    # Send to the RVM queue
+                    sendtoServiceBus(args.service_bus, 'rvm',json.dumps(task))    # Send to the RVM queue
                 except:
                     logger.error(traceback.print_exc())
                     logger.exception('Error while handling messge: {}'.format(result.body))
@@ -302,7 +305,7 @@ def initiateScanProcess(scan):
     # may be be evaluated for 'goodness'
 
 @announce
-def sendtoServiceBus(queue, msg):
+def sendtoServiceBus(bus_service, queue, msg):
     '''
     This is plainly just a wrapper for a message to a service bus, maybe other messaging things will happen here
     '''
@@ -310,7 +313,7 @@ def sendtoServiceBus(queue, msg):
 
 
 @announce
-def receivefromServiceBus(queue, lock=False):
+def receivefromServiceBus(bus_service, queue, lock=False):
     '''
     A generic way of asking for work to do, based on the task. The default behavior, for longer running processes,
     is for peek_lock to be False, which means deleting the message when it is received. This means that the
@@ -368,7 +371,7 @@ def log(message):
         logger.warning('Boringmachine not reachable: {}'.format(e))
 
 @announce
-def generateRVM():
+def generateRVM(args):
     '''
     Given a set of scans (or one scan), generate a row video map.
     '''
@@ -381,7 +384,7 @@ def generateRVM():
     while True:
         try:
             log('Waiting for task')
-            task = receivefromServiceBus('rvm')
+            task = receivefromServiceBus(args.service_bus, 'rvm')
             log('Received RVM task')
 
             # Obtain the scan
@@ -418,7 +421,7 @@ def generateRVM():
                 tarfiles = pd.Series.unique(data['file'])
                 for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
                     task['tarfiles'] = list(shard)
-                    sendtoServiceBus('preprocess', task)
+                    sendtoServiceBus(args.bus_service, 'preprocess', task)
 
                 log('Task Complete: {}'.format(json.dumps(task)))
 
@@ -428,7 +431,7 @@ def generateRVM():
 
 
 @announce
-def preprocess():
+def preprocess(args):
     '''
     Preprocessing method
     '''
@@ -445,7 +448,7 @@ def preprocess():
     while True:
         try:
             log('Waiting for task')
-            task = receivefromServiceBus('preprocess')
+            task = receivefromServiceBus(args.service_bus, 'preprocess')
             log('Received preprocessing task')
 
             # Download the tarfiles
@@ -511,7 +514,7 @@ def preprocess():
                     session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S'),
                     folders=[ os.path.basename(zipfile) ]
                     )
-                sendtoServiceBus('detection', detectiontask)
+                sendtoServiceBus(args.service_bus, 'detection', detectiontask)
         except Exception as e:
             task['message'] = e
             log('Task FAILED: {}'.format(task))
@@ -529,14 +532,14 @@ def launchMatlabTasks(taskname, task):
 
 
 @announce
-def detection(scan):
+def detection(args):
     '''
     Detection method
     '''
     print('Koshyland')
 
     # Grab a task
-    task = receivefromServiceBus('detection')
+    task = receivefromServiceBus(args.service_bus, 'detection')
 
     while task:
         # Do things
@@ -618,6 +621,25 @@ def getComputerInfoString():
 	return ret
 
 
+def parse_args():
+    parser=argparse.ArgumentParser('orchestrator')
+
+    default_service_namespace = 'agridataqueues',
+    default_shared_access_key_name = 'sharedaccess',
+    default_shared_access_key_value = 'cWonhEE3LIQ2cqf49mAL2uIZPV/Ig85YnyBtdb1z+xo='
+    parser.add_argument('-n', '--service_namespace', help='service namespace', dest='service_namespace',
+                        default=default_service_namespace)
+    parser.add_argument('-k', '--shared_access_key_name', help='shared_access_key_name', dest='shared_access_key_name',
+                        default=default_shared_access_key_name)
+    parser.add_argument('-v', '--shared_access_key_value', help='shared_access_key_value', dest='shared_access_key_value',
+                        default=default_shared_access_key_value)
+    args = parser.parse_args()
+    args.bus_service = ServiceBusService(service_namespace=args.service_namespace,
+                                shared_access_key_name=args.shared_access_key_name,
+                                shared_access_key_value=args.shared_access_key_value)
+    return args
+
+
 if __name__ == '__main__':
     # Initial decision points. It is important that these do not return anything. This requires that each task stream
     # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. The
@@ -625,13 +647,15 @@ if __name__ == '__main__':
     # to handle adverse or successful events.
 
     # What task are we meant to do? This is based on instance names
+
+    args=parse_args()
     roletype = identifyRole()
     log('I\'m awake! Role type is {}'.format(roletype))
 
     try:
         # Preprocessing
         if 'preproc' in roletype:
-            preprocess()
+            preprocess(args)
 
         # Convert scan filenames and CSVs from old style to new style
         elif roletype == 'convert':
@@ -646,15 +670,15 @@ if __name__ == '__main__':
 
         # Daemon mode
         elif roletype == 'poll':
-            poll()
+            poll(args)
 
         # RVM Generation
         elif 'rvm' in roletype or 'jumpbox' in roletype:
-            generateRVM()
+            generateRVM(args)
 
         # Detection
         elif roletype == 'detection':
-            detection()
+            detection(args)
 
         # Error
         else:
