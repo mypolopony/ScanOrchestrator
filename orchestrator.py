@@ -519,7 +519,7 @@ def preprocess():
                     s3_aws_access_key_id='AKIAJC7XVEAQELBKAANQ',
                     s3_aws_secret_access_key='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',
                     session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S'),
-                    folders=[ analysis_struct['s3_result_path'] + os.path.basename(zipfile) ]
+                    folders=[ analysis_struct['s3_result_path'] + '/temp/' + os.path.basename(zipfile) ]
                     )
                 sendtoServiceBus('detection', detectiontask)
         except Exception as e:
