@@ -144,7 +144,7 @@ def poll(args):
                 logger.error('A problem occured: {}'.format(str(e)))
                 raise e
 
-            # For each result. . .
+            # For each result
             logger.info('Received {} tasks'.format(len(results)))
             for ridx, result in enumerate(results):
                 try:
@@ -542,15 +542,6 @@ def detection(args):
     '''
     print('Koshyland')
 
-    # Grab a task
-    task = receivefromServiceBus(args.service_bus, 'detection')
-
-    while task:
-        # Do things
-        x = 0
-
-    emitSNSMessage('== Task Complete: {}'.format(json.dumps(task)))
-
 
 @announce
 def process(args):
@@ -567,27 +558,22 @@ def process(args):
     while True:
         try:
             log('Waiting for task')
-            multi_task.append(receivefromServiceBus('process'))
+            task = receivefromServiceBus('process')
+            multi_task.append(task)
+            log('DEBUG: RECEIVED PROCESS TASK: {}'.format(task))
             log('Received preprocessing task')
 
             # Rebuild base scan info
             rebuildScanInfo()
 
             # Download appropriate tar file(s) (imagery)
+            # The frames are obtained from the preprocessing folder, which is not data added by the detection process
+            # but rather uses the previous s3 uri
+            # for frames in task['detection_params']
 
             # Wait for a group of scans equal to the number of MATLAB instances
             while len(multi_task) <= NUM_MATLAB_INSTANCES and service_bus.get_queue('process').message_count > 0:
                 multi_task.append(receiveFromServiceBus('process'))
-
-            # Download the tarfiles
-            for tar in task['tarfiles']:
-                scanid = '_'.join(tar.split('_')[0:2])
-                key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
-                log('Downloading {}'.format(key))
-                try:
-                    s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
-                except Exception as e:
-                    log('Download of {} has resulted in an error: {}'.format(key, e))
 
             # Launch tasks
             log('Processing group of {} archives'.format(len(multi_task)))
@@ -624,6 +610,7 @@ def process(args):
             analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'], task['blockname'])
 
             # Now what?
+            log('Processing done. {}'.format(task))
         except Exception as e:
             task['message'] = e
             log('Task FAILED: {}'.format(task))
