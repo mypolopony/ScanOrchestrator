@@ -68,7 +68,7 @@ sns = boto3.client('sns', region_name=config.get('sns','region'))
 
 # Azure Service Bus
 from azure.servicebus import ServiceBusService, Message, Queue
-bus_service = ServiceBusService(service_namespace='agridataqueues',
+service_bus = ServiceBusService(service_namespace='agridataqueues',
                                 shared_access_key_name='sharedaccess',
                                 shared_access_key_value='cWonhEE3LIQ2cqf49mAL2uIZPV/Ig85YnyBtdb1z+xo=')
 
@@ -305,15 +305,15 @@ def initiateScanProcess(scan):
     # may be be evaluated for 'goodness'
 
 @announce
-def sendtoServiceBus(bus_service, queue, msg):
+def sendtoServiceBus(service_bus, queue, msg):
     '''
     This is plainly just a wrapper for a message to a service bus, maybe other messaging things will happen here
     '''
-    bus_service.send_queue_message(queue, Message(msg))
+    service_bus.send_queue_message(queue, Message(msg))
 
 
 @announce
-def receivefromServiceBus(bus_service, queue, lock=False):
+def receivefromServiceBus(service_bus, queue, lock=False):
     '''
     A generic way of asking for work to do, based on the task. The default behavior, for longer running processes,
     is for peek_lock to be False, which means deleting the message when it is received. This means that the
@@ -321,7 +321,7 @@ def receivefromServiceBus(bus_service, queue, lock=False):
     '''
     incoming = None
     while not incoming:
-    	incoming = bus_service.receive_queue_message(queue, peek_lock=lock).body
+    	incoming = service_bus.receive_queue_message(queue, peek_lock=lock).body
 
     # Here, we can accept either properly formatted JSON strings or, if necessary, convert the
     # quotes to make them compliant.
@@ -421,7 +421,7 @@ def generateRVM(args):
                 tarfiles = pd.Series.unique(data['file'])
                 for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
                     task['tarfiles'] = list(shard)
-                    sendtoServiceBus(args.bus_service, 'preprocess', task)
+                    sendtoServiceBus(args.service_bus, 'preprocess', task)
 
                 log('Task Complete: {}'.format(json.dumps(task)))
 
@@ -683,8 +683,8 @@ def getComputerInfoString():
 def parse_args():
     parser=argparse.ArgumentParser('orchestrator')
 
-    default_service_namespace = 'agridataqueues',
-    default_shared_access_key_name = 'sharedaccess',
+    default_service_namespace = 'agridataqueues'
+    default_shared_access_key_name = 'sharedaccess'
     default_shared_access_key_value = 'cWonhEE3LIQ2cqf49mAL2uIZPV/Ig85YnyBtdb1z+xo='
     parser.add_argument('-n', '--service_namespace', help='service namespace', dest='service_namespace',
                         default=default_service_namespace)
@@ -693,7 +693,7 @@ def parse_args():
     parser.add_argument('-v', '--shared_access_key_value', help='shared_access_key_value', dest='shared_access_key_value',
                         default=default_shared_access_key_value)
     args = parser.parse_args()
-    args.bus_service = ServiceBusService(service_namespace=args.service_namespace,
+    args.service_bus = ServiceBusService(service_namespace=args.service_namespace,
                                 shared_access_key_name=args.shared_access_key_name,
                                 shared_access_key_value=args.shared_access_key_value)
     return args
