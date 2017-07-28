@@ -573,6 +573,8 @@ def process(args):
             # Rebuild base scan info
             rebuildScanInfo()
 
+            # Download appropriate tar file(s) (imagery)
+
             # Wait for a group of scans equal to the number of MATLAB instances
             while len(multi_task) <= NUM_MATLAB_INSTANCES and service_bus.get_queue('process').message_count > 0:
                 multi_task.append(receiveFromServiceBus('process'))

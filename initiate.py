@@ -1,4 +1,5 @@
 import datetime
+import time
 from pprint import pprint
 from azure.servicebus import ServiceBusService, Message, Queue
 bus_service = ServiceBusService(service_namespace='agridataqueues',
@@ -27,9 +28,6 @@ detectiontask['detection_params'] =  dict(
     session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S'),
     folders=[ '2017-06-30_10-01_22179657_10_12.tar.gz-preprocess-row18-dir2.zip' ]
     )
-pprint(detectiontask)
-# Send to RVM Queue
-bus_service = bus_service.send_queue_message(task['role'], Message(task))
-#print('Initiated Task {}'.format(task))
-#print('It is now being sent to be RVM''d. Afterwards, if it passes a sanity check\n \
-#    currently at least 50% of expected rows and it will be preprocessed and )
+
+for i in range(1,2):
+    bus_service.send_queue_message('detection', Message(task))
