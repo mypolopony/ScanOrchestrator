@@ -12,11 +12,12 @@ task = {
    'farmname'     : 'UpperRange',
    'scanids'      : ['2017-06-30_10-01'],
    'blockname'    : 'G2',
-   'role'         : 'detection',
+   'role'         : 'rvm',
 }
 
-detectiontask = task
-detectiontask['detection_params'] =  dict(
+'''
+task['role'] = 'detection'
+task['detection_params'] =  dict(
     bucket='agridatadepot',
     base_url_path='{}/results/farm_{}/block_{}/temp'.format(task['clientid'],task['farmname'].replace(' ',''), task['blockname']),
     input_path='preprocess-frames',
@@ -28,6 +29,7 @@ detectiontask['detection_params'] =  dict(
     session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S'),
     folders=[ '2017-06-30_10-01_22179657_10_12.tar.gz-preprocess-row18-dir2.zip' ]
     )
+'''
 
 for i in range(1,2):
     bus_service.send_queue_message('detection', Message(task))
