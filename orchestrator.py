@@ -78,18 +78,24 @@ logger = logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelnam
                     datefmt='%a, %d %b %Y %H:%M:%S')
 logger = logging.getLogger('default')
 logger.setLevel(logging.DEBUG)
+
 # File Handler
 fh = logging.FileHandler('events.log')
 fh.setLevel(logging.INFO)
+
 # Console Handler
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
+
 # Formatter
 formatter = logging.Formatter('%(asctime)s [%(levelname)s]: %(message)s', datefmt='%a, %d %b %Y %H:%M:%S')
 ch.setFormatter(formatter)
 fh.setFormatter(formatter)
 # Add handlers
 # logger.addHandler(ch)         # For sanity's sake, toggle console-handler and file-handler, but not both
+
+# Canonical indows paths
+video_dir = r'C:\AgriData\Projects\videos'
 
 
 def announce(func, *args, **kwargs):
@@ -431,8 +437,6 @@ def generateRVM(args):
 
 @announce
 def rebuildScanInfo(task):
-    # Canonical filepath
-    video_dir = r'C:\AgriData\Projects\videos'
     if os.path.exists(video_dir):
         shutil.rmtree(video_dir)
     os.makedirs(video_dir)
