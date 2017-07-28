@@ -430,7 +430,7 @@ def generateRVM(args):
             pass
 
 @announce
-def rebuildScanInfo():
+def rebuildScanInfo(task):
     # Canonical filepath
     video_dir = r'C:\AgriData\Projects\videos'
     if os.path.exists(video_dir):
@@ -466,7 +466,7 @@ def preprocess(args):
             log('Received preprocessing task')
 
             # Rebuild base scan info
-            rebuildScanInfo()
+            rebuildScanInfo(task)
 
             # Download the tarfiles
             for tar in task['tarfiles']:
@@ -564,7 +564,7 @@ def process(args):
             log('Received preprocessing task')
 
             # Rebuild base scan info
-            rebuildScanInfo()
+            rebuildScanInfo(task)
 
             # Download appropriate tar file(s) (imagery)
             # The frames are obtained from the preprocessing folder, which is not data added by the detection process
