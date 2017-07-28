@@ -430,7 +430,7 @@ def generateRVM(args):
             pass
 
 @announce
-def rebuildScanInfo(target_dir):
+def rebuildScanInfo():
     # Canonical filepath
     video_dir = r'C:\AgriData\Projects\videos'
     if os.path.exists(video_dir):

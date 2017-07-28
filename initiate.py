@@ -2,7 +2,7 @@ import datetime
 import time
 from pprint import pprint
 from azure.servicebus import ServiceBusService, Message, Queue
-bus_service = ServiceBusService(service_namespace='agridataqueues',
+service_bus = ServiceBusService(service_namespace='agridataqueues',
                                 shared_access_key_name='sharedaccess',
                                 shared_access_key_value='cWonhEE3LIQ2cqf49mAL2uIZPV/Ig85YnyBtdb1z+xo=')
 
@@ -31,5 +31,4 @@ task['detection_params'] =  dict(
     )
 '''
 
-for i in range(1,2):
-    bus_service.send_queue_message('detection', Message(task))
+service_bus.send_queue_message(task['role'], Message(task))
