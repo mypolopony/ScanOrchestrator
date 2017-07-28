@@ -443,13 +443,13 @@ def rebuildScanInfo(task):
         for file in s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
             key = file['Key'].split('/')[-1]
             if 'csv' in key and key.startswith(scan):
-                s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'], os.path.join(target_dir, 'imu_basler', key))
+                s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'], os.path.join(video_dir, 'imu_basler', key))
 
     # Download the RVM, VPR
     key = '/'.join(task['rvm_uri'].split('/')[3:])
-    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(target_dir, key.split('/')[-1]))
+    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
     key = key.replace('rvm.csv','vpr.csv')
-    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(target_dir, key.split('/')[-1]))
+    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
 
 @announce
 def preprocess(args):
