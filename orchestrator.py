@@ -575,6 +575,7 @@ def process(args):
             # but rather uses the previous s3 uri
             # for frames in task['detection_params']
 
+
             # Wait for a group of scans equal to the number of MATLAB instances
             while len(multi_task) <= NUM_MATLAB_INSTANCES and service_bus.get_queue('process').message_count > 0:
                 multi_task.append(receiveFromServiceBus('process'))
