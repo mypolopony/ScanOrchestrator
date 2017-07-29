@@ -15,7 +15,6 @@ task = {
    'role'         : 'rvm',
 }
 
-'''
 task['role'] = 'detection'
 task['detection_params'] =  dict(
     bucket='agridatadepot',
@@ -27,8 +26,8 @@ task['detection_params'] =  dict(
     s3_aws_access_key_id='AKIAJC7XVEAQELBKAANQ',
     s3_aws_secret_access_key='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',
     session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S'),
-    folders=[ '2017-06-30_10-01_22179657_10_12.tar.gz-preprocess-row18-dir2.zip' ]
+    folders=[ '2017-06-30_10-01_22179677_10_28-preprocess-row39-dir1.zip' ]
     )
-'''
 
-service_bus.send_queue_message(task['role'], Message(task))
+for i in range(1,100):
+    service_bus.send_queue_message(task['role'], Message(task))

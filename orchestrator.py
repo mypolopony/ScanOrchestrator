@@ -519,7 +519,7 @@ def preprocess(args):
                     caffemodel_s3_url_trunk='s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel',
                     s3_aws_access_key_id='AKIAJC7XVEAQELBKAANQ',
                     s3_aws_secret_access_key='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',
-                    session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S'),
+                    session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S.%f').replace('.','-'),
                     folders=[ os.path.basename(zipfile) ]
                     )
                 sendtoServiceBus(args.service_bus, 'detection', detectiontask)
