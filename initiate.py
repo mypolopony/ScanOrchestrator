@@ -14,7 +14,7 @@ task = {
    'blockname'    : 'G2',
    'role'         : 'rvm',
 }
-
+'''
 task['role'] = 'detection'
 task['detection_params'] =  dict(
     bucket='agridatadepot',
@@ -28,6 +28,5 @@ task['detection_params'] =  dict(
     session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S'),
     folders=[ '2017-06-30_10-01_22179677_10_28-preprocess-row39-dir1.zip' ]
     )
-
-for i in range(1,100):
-    service_bus.send_queue_message(task['role'], Message(task))
+'''
+service_bus.send_queue_message(task['role'], Message(task))
