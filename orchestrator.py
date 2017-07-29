@@ -469,6 +469,9 @@ def preprocess(args):
             task = receivefromServiceBus(args.service_bus, 'preprocess')
             log('Received preprocessing task')
 
+            # For debugging
+            emitSNSMessage(task)
+
             # Rebuild base scan info
             rebuildScanInfo(task)
 
@@ -616,6 +619,7 @@ def process(args):
 
             # Now what?
             log('Processing done. {}'.format(task))
+            emitSNSMessage(task)
         except Exception as e:
             task['message'] = e
             log('Task FAILED: {}'.format(task))
