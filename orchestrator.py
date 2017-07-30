@@ -371,8 +371,7 @@ def log(message):
     payload['message'] = message
 
     try:
-        boringmachine = '54.164.89.210'
-        r = requests.post('http://{}:5000/orchestrator'.format(boringmachine), json = payload)
+        r = requests.post('http://dash.agridata.ai/orchestrator', json = payload)
     except Exception as e:
         logger.warning('Boringmachine not reachable: {}'.format(e))
 
@@ -639,7 +638,7 @@ def identifyRole():
         try:
             # Look for computer type (role)
             output = subprocess.check_output(["powershell.exe", "Get-ComputerInfo"], shell=True)
-            instance_type = re.search('CsName[ ]+: \w+', output).group().split(':')[-1].strip().lower()
+            instance_type = re.search('CsName[ ]+: \w+', output).group().split(':')[-1].strip()
             return instance_type
         except Exception as e:
             logger.error(traceback.print_exc())
