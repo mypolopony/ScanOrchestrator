@@ -467,9 +467,6 @@ def preprocess(args):
             task = receivefromServiceBus(args.service_bus, 'preprocess')
             log('Received preprocessing task')
 
-            # For debugging
-            emitSNSMessage(task)
-
             # Rebuild base scan info
             rebuildScanInfo(task)
 
