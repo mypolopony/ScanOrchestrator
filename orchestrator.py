@@ -528,6 +528,10 @@ def preprocess(args):
         except Exception as e:
             task['message'] = e
             log('Task FAILED: {}'.format(task))
+
+            # Delete error message and reenqueue
+            del task['message']
+            sendtoServiceBus(args.service_bus, 'preprocess', task)
             pass
 
 @announce 
@@ -572,12 +576,6 @@ def process(args):
             # Rebuild base scan info
             rebuildScanInfo(task)
 
-            # Download appropriate tar file(s) (imagery)
-            # The frames are obtained from the preprocessing folder, which is not data added by the detection process
-            # but rather uses the previous s3 uri
-            # for frames in task['detection_params']
-
-
             # Wait for a group of scans equal to the number of MATLAB instances
             while len(multi_task) <= NUM_MATLAB_INSTANCES and service_bus.get_queue('process').message_count > 0:
                 multi_task.append(receiveFromServiceBus('process'))
@@ -621,7 +619,11 @@ def process(args):
             emitSNSMessage(task)
         except Exception as e:
             task['message'] = e
-            log('Task FAILED: {}'.format(task))
+            log('Task FAILED. Reenqueueing... ({})'.format(task))
+
+            # Delete error message and reenqueue
+            del task['message']
+            sendtoServiceBus(args.service_bus, 'process', task)
             pass
 
 
