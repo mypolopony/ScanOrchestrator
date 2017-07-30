@@ -429,8 +429,7 @@ def generateRVM(args):
                     task['tarfiles'] = list(shard)
                     sendtoServiceBus(args.service_bus, 'preprocess', task)
 
-                log('Task Complete: {}'.format(json.dumps(task)))
-
+                log('RVM task complete')
         except Exception as err:
             emitSNSMessage('Failure on {}'.format(str(err)))
             pass
