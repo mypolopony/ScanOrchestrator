@@ -1,5 +1,6 @@
 import datetime
 import time
+import json
 from pprint import pprint
 from azure.servicebus import ServiceBusService, Message, Queue
 service_bus = ServiceBusService(service_namespace='agridataqueues',
@@ -29,4 +30,4 @@ task['detection_params'] =  dict(
     folders=[ '2017-06-30_10-01_22179677_10_28-preprocess-row39-dir1.zip' ]
     )
 '''
-service_bus.send_queue_message(task['role'], Message(task))
+service_bus.send_queue_message(task['role'], Message(json.dumps(task)))

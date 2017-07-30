@@ -1,0 +1,33 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "images_myCustomImage_name": {
+            "value": null
+        },
+        "virtualMachineScaleSets_preprocess_name": {
+            "value": null
+        },
+        "loadBalancers_loadBalancer1_name": {
+            "value": null
+        },
+        "publicIPAddresses_publicip1_name": {
+            "value": null
+        },
+        "virtualNetworks_vmssvnet_name": {
+            "value": null
+        },
+        "subnets_Subnet_name": {
+            "value": null
+        },
+        "loadBalancers_loadBalancer1_id": {
+            "value": null
+        },
+        "loadBalancers_loadBalancer1_id_1": {
+            "value": null
+        },
+        "loadBalancers_loadBalancer1_id_2": {
+            "value": null
+        }
+    }
+}
