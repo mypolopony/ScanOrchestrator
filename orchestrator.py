@@ -638,7 +638,7 @@ def identifyRole():
         try:
             # Look for computer type (role)
             output = subprocess.check_output(["powershell.exe", "Get-ComputerInfo"], shell=True)
-            instance_type = re.search('CsName[ ]+: \w+', output).group().split(':')[-1].strip()
+            instance_type = re.search('CsName[ ]+: \w+', output).group().split(':')[-1].strip().lower()
             return instance_type
         except Exception as e:
             logger.error(traceback.print_exc())
