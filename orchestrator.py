@@ -315,7 +315,7 @@ def sendtoServiceBus(service_bus, queue, msg):
     '''
     This is plainly just a wrapper for a message to a service bus, maybe other messaging things will happen here
     '''
-    service_bus.send_queue_message(queue, Message(msg))
+    service_bus.send_queue_message(queue, Message(json.dumps(msg)))
 
 
 @announce
