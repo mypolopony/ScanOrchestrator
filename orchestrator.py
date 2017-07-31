@@ -24,6 +24,7 @@ import pandas as pd
 import numpy as np
 
 from bson.objectid import ObjectId
+from botocore.exceptions import ClientError
 
 # AgriData
 from utils.models_min import *
@@ -520,6 +521,10 @@ def preprocess(args):
                     session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S.%f').replace('.','-'),
                     folders=[ os.path.basename(zipfile) ])
                 sendtoServiceBus(args.service_bus, 'detection', detectiontask)
+        except ClientError:
+            # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
+            sendtoServiceBus(args.bus_service, 'preprocess', task)
+            pass
         except Exception as e:
             task['message'] = e
             log('Task FAILED: {}'.format(task))
@@ -610,6 +615,10 @@ def process(args):
 
             # Now what?
             log('Processing done. {}'.format(task))
+        except ClientError:
+            # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
+            sendtoServiceBus(args.bus_service, 'process', task)
+            pass
         except Exception as e:
             task['message'] = e
             log('Task FAILED. Reenqueueing... ({})'.format(task))
