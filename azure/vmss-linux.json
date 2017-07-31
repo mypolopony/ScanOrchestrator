@@ -271,7 +271,7 @@
                     "dataDisks": []
                 },
                           "osProfile": {
-                    "computerName": "[parameters('virtualMachines_kg_kraussjbox_name')]",
+                    "computerName": "[parameters('vmssName')]",
                     "adminUsername": "agridata",
                     "adminPassword": "[parameters('adminPassword')]",
                     "linuxConfiguration": {
