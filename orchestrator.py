@@ -466,7 +466,7 @@ def preprocess(args):
         try:
             log('Waiting for task')
             task = receivefromServiceBus(args.service_bus, 'preprocess')
-            log('Received preprocessing task')
+            log('Received detection task: {}'.format(task))
 
             # Rebuild base scan info
             rebuildScanInfo(task)
