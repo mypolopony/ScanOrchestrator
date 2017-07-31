@@ -1,0 +1,332 @@
+{  
+   "$schema":"https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+   "contentVersion":"1.0.0.0",
+   "parameters":{  
+      "virtualMachines_kg_kraussjbox_name":{  
+         "defaultValue":"kg-kraussjbox",
+         "type":"String"
+      },
+      "virtualMachineScaleSets_kg_krauss_name":{  
+         "defaultValue":"kg-krauss",
+         "type":"String"
+      },
+      "networkInterfaces_kg_kraussjboxnic_name":{  
+         "defaultValue":"kg-kraussjboxnic",
+         "type":"String"
+      },
+      "publicIPAddresses_kg_krausspip_name":{  
+         "defaultValue":"kg-krausspip",
+         "type":"String"
+      },
+      "virtualNetworks_kg_kraussvnet_name":{  
+         "defaultValue":"kg-kraussvnet",
+         "type":"String"
+      },
+      "storageAccounts_7sysessgwyg4ajb_name":{  
+         "defaultValue":"7sysessgwyg4ajb",
+         "type":"String"
+      },
+      "subnets_kg_krausssubnet_name":{  
+         "defaultValue":"kg-kraussvnet/kg-krausssubnet",
+         "type":"String"
+      }
+   },
+   "variables":{  
+
+   },
+   "resources":[  
+      {  
+         "comments":"Generalized from resource: '/subscriptions/86655500-654c-4374-8618-faae891c053e/resourceGroups/kg-krauss-rg/providers/Microsoft.Compute/virtualMachines/kg-kraussjbox'.",
+         "type":"Microsoft.Compute/virtualMachines",
+         "name":"[parameters('virtualMachines_kg_kraussjbox_name')]",
+         "apiVersion":"2016-04-30-preview",
+         "location":"southcentralus",
+         "scale":null,
+         "properties":{  
+            "hardwareProfile":{  
+               "vmSize":"Standard_NC6"
+            },
+            "storageProfile":{  
+               "imageReference":{  
+                  "publisher":"Canonical",
+                  "offer":"UbuntuServer",
+                  "sku":"16.04-LTS",
+                  "version":"latest"
+               },
+               "osDisk":{  
+                  "osType":"Linux",
+                  "name":"[concat(parameters('virtualMachines_kg_kraussjbox_name'),'osdisk')]",
+                  "createOption":"FromImage",
+                  "vhd":{  
+                     "uri":"[concat('http', '://', parameters('storageAccounts_7sysessgwyg4ajb_name'), '.blob.core.windows.net', concat('/', parameters('virtualMachines_kg_kraussjbox_name'),'vhd/', parameters('virtualMachines_kg_kraussjbox_name'),'osdisk.vhd'))]"
+                  },
+                  "caching":"ReadWrite"
+               },
+               "dataDisks":[  
+
+               ]
+            },
+            "osProfile":{  
+               "computerName":"[parameters('virtualMachines_kg_kraussjbox_name')]",
+               "adminUsername":"agridata",
+               "linuxConfiguration":{  
+                  "disablePasswordAuthentication":false
+               },
+               "secrets":[  
+
+               ]
+            },
+            "networkProfile":{  
+               "networkInterfaces":[  
+                  {  
+                     "id":"[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaces_kg_kraussjboxnic_name'))]"
+                  }
+               ]
+            },
+            "diagnosticsProfile":{  
+               "bootDiagnostics":{  
+                  "enabled":true,
+                  "storageUri":"[concat('http', '://', parameters('storageAccounts_7sysessgwyg4ajb_name'), '.blob.core.windows.net', '/')]"
+               }
+            }
+         },
+         "dependsOn":[  
+            "[resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccounts_7sysessgwyg4ajb_name'))]",
+            "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaces_kg_kraussjboxnic_name'))]"
+         ]
+      },
+      {  
+         "comments":"Generalized from resource: '/subscriptions/86655500-654c-4374-8618-faae891c053e/resourceGroups/kg-krauss-rg/providers/Microsoft.Compute/virtualMachineScaleSets/kg-krauss'.",
+         "type":"Microsoft.Compute/virtualMachineScaleSets",
+         "sku":{  
+            "name":"Standard_NC6",
+            "tier":"Standard",
+            "capacity":1
+         },
+         "name":"[parameters('virtualMachineScaleSets_kg_krauss_name')]",
+         "apiVersion":"2016-04-30-preview",
+         "location":"southcentralus",
+         "scale":null,
+         "properties":{  
+            "overprovision":true,
+            "singlePlacementGroup":true,
+            "upgradePolicy":{  
+               "mode":"Manual"
+            },
+            "virtualMachineProfile":{  
+               "osProfile":{  
+                  "computerNamePrefix":"[parameters('virtualMachineScaleSets_kg_krauss_name')]",
+                  "adminUsername":"agridata",
+                  "linuxConfiguration":{  
+                     "disablePasswordAuthentication":false
+                  },
+                  "secrets":[  
+
+                  ]
+               },
+               "storageProfile":{  
+                  "osDisk":{  
+                     "osType":"Linux",
+                     "name":"vmssosdisk",
+                     "createOption":"FromImage",
+                     "image":{  
+                        "uri":"https://kghawkingdisks407.blob.core.windows.net/vhds/osdisk_0346bf622b.vhd"
+                     },
+                     "caching":"ReadWrite"
+                  }
+               },
+               "networkProfile":{  
+                  "networkInterfaceConfigurations":[  
+                     {  
+                        "name":"[concat(parameters('virtualMachineScaleSets_kg_krauss_name'),'nic')]",
+                        "properties":{  
+                           "primary":true,
+                           "ipConfigurations":[  
+                              {  
+                                 "name":"[concat(parameters('virtualMachineScaleSets_kg_krauss_name'),'ipconfig')]",
+                                 "properties":{  
+                                    "subnet":{  
+                                       "id":"[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('subnets_kg_krausssubnet_name'))]"
+                                    }
+                                 }
+                              }
+                           ]
+                        }
+                     }
+                  ]
+               },
+               "extensionProfile":{  
+                  "extensions":[  
+                     {  
+                        "properties":{  
+                           "publisher":"Microsoft.Compute",
+                           "type":"CustomScriptExtension",
+                           "typeHandlerVersion":"1.8",
+                           "autoUpgradeMinorVersion":true,
+                           "settings":{  
+                              "fileUris":[  
+                                 "https://agridatacomputestorage.blob.core.windows.net/scripts/run.ps1"
+                              ],
+                              "commandToExecute":"powershell.exe -ExecutionPolicy Unrestricted -File ./run.ps1",
+                              "protectedSettings":{  
+                                 "commandToExecute":"powershell.exe -ExecutionPolicy Unrestricted -File ./run.ps1",
+                                 "storageAccountName":"agridatacomputestorage",
+                                 "storageAccountKey":"HTqbKnZ/9/lo+G1ohr+KUYteOZSsrh4yqkgIc0KwlaXc+lx6egTVsG2qHCYDm5B4efTT0KX+wk+bNZmZmgrNfA=="
+                              }
+                           }
+                        },
+                        "name":"configurationextension"
+                     }
+                  ]
+               }
+            },
+            "dependsOn":[  
+               "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('subnets_kg_krausssubnet_name'))]"
+            ]
+         },
+         {  
+            "comments":"Generalized from resource: '/subscriptions/86655500-654c-4374-8618-faae891c053e/resourceGroups/kg-krauss-rg/providers/Microsoft.Network/networkInterfaces/kg-kraussjboxnic'.",
+            "type":"Microsoft.Network/networkInterfaces",
+            "name":"[parameters('networkInterfaces_kg_kraussjboxnic_name')]",
+            "apiVersion":"2017-06-01",
+            "location":"southcentralus",
+            "scale":null,
+            "properties":{  
+               "provisioningState":"Succeeded",
+               "resourceGuid":"d304d525-cc80-4244-beb4-6057c6dd8469",
+               "ipConfigurations":[  
+                  {  
+                     "name":"kg-kraussjboxipconfig",
+                     "etag":"W/\"5a498868-188b-4785-af07-15a4656cebe0\"",
+                     "properties":{  
+                        "provisioningState":"Succeeded",
+                        "privateIPAddress":"10.0.0.4",
+                        "privateIPAllocationMethod":"Dynamic",
+                        "publicIPAddress":{  
+                           "id":"[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddresses_kg_krausspip_name'))]"
+                        },
+                        "subnet":{  
+                           "id":"[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('subnets_kg_krausssubnet_name'))]"
+                        },
+                        "primary":true,
+                        "privateIPAddressVersion":"IPv4"
+                     }
+                  }
+               ],
+               "dnsSettings":{  
+                  "dnsServers":[  
+
+                  ],
+                  "appliedDnsServers":[  
+
+                  ],
+                  "internalDomainNameSuffix":"kxgp3tinh3le1g0jmvypljufma.jx.internal.cloudapp.net"
+               },
+               "macAddress":"00-0D-3A-75-53-C5",
+               "enableAcceleratedNetworking":false,
+               "enableIPForwarding":false,
+               "primary":true,
+               "virtualMachine":{  
+                  "id":"[resourceId('Microsoft.Compute/virtualMachines', parameters('virtualMachines_kg_kraussjbox_name'))]"
+               }
+            },
+            "dependsOn":[  
+               "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddresses_kg_krausspip_name'))]",
+               "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('subnets_kg_krausssubnet_name'))]",
+               "[resourceId('Microsoft.Compute/virtualMachines', parameters('virtualMachines_kg_kraussjbox_name'))]"
+            ]
+         },
+         {  
+            "comments":"Generalized from resource: '/subscriptions/86655500-654c-4374-8618-faae891c053e/resourceGroups/kg-krauss-rg/providers/Microsoft.Network/publicIPAddresses/kg-krausspip'.",
+            "type":"Microsoft.Network/publicIPAddresses",
+            "name":"[parameters('publicIPAddresses_kg_krausspip_name')]",
+            "apiVersion":"2017-06-01",
+            "location":"southcentralus",
+            "scale":null,
+            "properties":{  
+               "provisioningState":"Succeeded",
+               "resourceGuid":"e5938314-56a5-4410-9cc8-e0ccd0869a34",
+               "ipAddress":"13.84.227.29",
+               "publicIPAddressVersion":"IPv4",
+               "publicIPAllocationMethod":"Dynamic",
+               "idleTimeoutInMinutes":4,
+               "dnsSettings":{  
+                  "domainNameLabel":"kg-krauss-rg-vmss",
+                  "fqdn":"kg-krauss-rg-vmss.southcentralus.cloudapp.azure.com"
+               }
+            },
+            "dependsOn":[  
+
+            ]
+         },
+         {  
+            "comments":"Generalized from resource: '/subscriptions/86655500-654c-4374-8618-faae891c053e/resourceGroups/kg-krauss-rg/providers/Microsoft.Network/virtualNetworks/kg-kraussvnet'.",
+            "type":"Microsoft.Network/virtualNetworks",
+            "name":"[parameters('virtualNetworks_kg_kraussvnet_name')]",
+            "apiVersion":"2017-06-01",
+            "location":"southcentralus",
+            "scale":null,
+            "properties":{  
+               "provisioningState":"Succeeded",
+               "resourceGuid":"cdfecc55-3f0d-4d56-9b49-6570f5a68560",
+               "addressSpace":{  
+                  "addressPrefixes":[  
+                     "10.0.0.0/16"
+                  ]
+               },
+               "subnets":[  
+                  {  
+                     "name":"kg-krausssubnet",
+                     "etag":"W/\"afffdb03-e1ea-40de-8772-9231e79a54e2\"",
+                     "properties":{  
+                        "provisioningState":"Succeeded",
+                        "addressPrefix":"10.0.0.0/24"
+                     }
+                  }
+               ],
+               "virtualNetworkPeerings":[  
+
+               ]
+            },
+            "dependsOn":[  
+
+            ]
+         },
+         {  
+            "comments":"Generalized from resource: '/subscriptions/86655500-654c-4374-8618-faae891c053e/resourceGroups/kg-krauss-rg/providers/Microsoft.Storage/storageAccounts/7sysessgwyg4ajb'.",
+            "type":"Microsoft.Storage/storageAccounts",
+            "sku":{  
+               "name":"Standard_LRS",
+               "tier":"Standard"
+            },
+            "kind":"Storage",
+            "name":"[parameters('storageAccounts_7sysessgwyg4ajb_name')]",
+            "apiVersion":"2016-01-01",
+            "location":"southcentralus",
+            "tags":{  
+
+            },
+            "scale":null,
+            "properties":{  
+
+            },
+            "dependsOn":[  
+
+            ]
+         },
+         {  
+            "comments":"Generalized from resource: '/subscriptions/86655500-654c-4374-8618-faae891c053e/resourceGroups/kg-krauss-rg/providers/Microsoft.Network/virtualNetworks/kg-kraussvnet/subnets/kg-krausssubnet'.",
+            "type":"Microsoft.Network/virtualNetworks/subnets",
+            "name":"[parameters('subnets_kg_krausssubnet_name')]",
+            "apiVersion":"2017-06-01",
+            "scale":null,
+            "properties":{  
+               "provisioningState":"Succeeded",
+               "addressPrefix":"10.0.0.0/24"
+            },
+            "dependsOn":[  
+               "[resourceId('Microsoft.Network/virtualNetworks', parameters('virtualNetworks_kg_kraussvnet_name'))]"
+            ]
+         }
+      ]
+   }
