@@ -570,7 +570,7 @@ def process(args):
             log('Waiting for task')
             task = receivefromServiceBus(args.service_bus, 'process')
             multi_task.append(task)
-            log('Received preprocessing task')
+            log('Received processing task')
 
             # Rebuild base scan info
             rebuildScanInfo(task)
