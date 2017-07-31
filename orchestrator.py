@@ -565,7 +565,6 @@ def process(args):
             log('Waiting for task')
             task = receivefromServiceBus(args.service_bus, 'process')
             multi_task.append(task)
-            log('DEBUG: RECEIVED PROCESS TASK: {}'.format(task))
             log('Received preprocessing task')
 
             # Rebuild base scan info
@@ -573,7 +572,7 @@ def process(args):
 
             # Wait for a group of scans equal to the number of MATLAB instances
             while len(multi_task) <= NUM_MATLAB_INSTANCES and service_bus.get_queue('process').message_count > 0:
-                multi_task.append(receiveFromServiceBus('process'))
+                multi_task.append(receivefromServiceBus(args.service_bus, 'process'))
 
             # Launch tasks
             log('Processing group of {} archives'.format(len(multi_task)))
@@ -611,7 +610,6 @@ def process(args):
 
             # Now what?
             log('Processing done. {}'.format(task))
-            emitSNSMessage(task)
         except Exception as e:
             task['message'] = e
             log('Task FAILED. Reenqueueing... ({})'.format(task))
