@@ -563,7 +563,7 @@ def process(args):
     while True:
         try:
             log('Waiting for task')
-            task = receivefromServiceBus('process')
+            task = receivefromServiceBus(args.service_bus, 'process')
             multi_task.append(task)
             log('DEBUG: RECEIVED PROCESS TASK: {}'.format(task))
             log('Received preprocessing task')
