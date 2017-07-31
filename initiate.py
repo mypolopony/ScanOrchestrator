@@ -7,7 +7,7 @@ service_bus = ServiceBusService(service_namespace='agridataqueues',
                                 shared_access_key_name='sharedaccess',
                                 shared_access_key_value='cWonhEE3LIQ2cqf49mAL2uIZPV/Ig85YnyBtdb1z+xo=')
 
-# Task definition
+# Task definition - Start with RVM
 task = {
    'clientid'     : '5953469d1fb359d2a7a66287',
    'farmname'     : 'Upper Range',
@@ -15,6 +15,8 @@ task = {
    'blockname'    : 'G2',
    'role'         : 'rvm',
 }
+
+# To start at detection, uncomment and modify this code
 '''
 task['role'] = 'detection'
 task['detection_params'] =  dict(
@@ -30,4 +32,6 @@ task['detection_params'] =  dict(
     folders=[ '2017-06-30_10-01_22179677_10_28-preprocess-row39-dir1.zip' ]
     )
 '''
+
+# Send the task
 service_bus.send_queue_message(task['role'], Message(json.dumps(task)))
