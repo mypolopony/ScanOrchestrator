@@ -133,8 +133,12 @@
       "properties": {
         "storageProfile": {
           "osDisk": {
-            "osState": "Generalized",
-            "blobUri": "[parameters('sourceImageVhdUri')]",
+            "osType": "Linux",
+            "caching": "ReadWrite",
+            "createOption": "FromImage",
+            "image": {
+              "uri": "[parameters('sourceImageVhdUri')]"
+            },
             "storageAccountType": "Standard_LRS"
           }
         }
