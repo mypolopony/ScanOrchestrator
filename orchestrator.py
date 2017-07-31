@@ -518,8 +518,7 @@ def preprocess(args):
                     s3_aws_access_key_id='AKIAJC7XVEAQELBKAANQ',
                     s3_aws_secret_access_key='YlPBiE9s9LV5+ruhKqQ0wsZgj3ZFp6psF6p5OBpZ',
                     session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S.%f').replace('.','-'),
-                    folders=[ os.path.basename(zipfile) ]
-                    )
+                    folders=[ os.path.basename(zipfile) ])
                 sendtoServiceBus(args.service_bus, 'detection', detectiontask)
         except Exception as e:
             task['message'] = e
@@ -718,7 +717,7 @@ if __name__ == '__main__':
             detection(args)
 
         # Process
-        elif 'process' in roletype:
+        elif 'process' in roletype or 'jumpxob' in roletype:
             process(args)
 
         # Convert scan filenames and CSVs from old style to new style
