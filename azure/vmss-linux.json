@@ -133,7 +133,6 @@
       "properties": {
         "storageProfile": {
           "osDisk": {
-            "osType": "Windows",
             "osState": "Generalized",
             "blobUri": "[parameters('sourceImageVhdUri')]",
             "storageAccountType": "Standard_LRS"
