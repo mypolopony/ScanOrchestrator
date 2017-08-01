@@ -8,6 +8,9 @@ echo "$(Get-Date): Starting (again)" > C:\Users\agridata\startup_again.log
 
 
 ### AWS / Rclone credentials
+# $env:AWS_ACCESS_KEY_ID = "AKIAJCTBYUIK37F3OUYA"
+# $env:AWS_SECRET_ACCESS_KEY = "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"
+
 New-Item -ItemType Directory -Force -Path C:\Users\agridata\.aws
 cp C:\AgriData\Projects\aws\credentials C:\Users\agridata\.aws\ 
 New-Item -ItemType Directory -Force -Path C:\Users\agridata\.config 
