@@ -542,7 +542,7 @@ def launchMatlabTasks(taskname, task):
     '''
     mlab = matlabProcess()
     mlab.runTask(taskname, task['clientid'], task['scanids'])
-    #mlab.quit()
+    mlab.quit()
 
 
 @announce
