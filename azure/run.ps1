@@ -30,7 +30,7 @@ git reset --hard origin/master
 
 
 ### Copy extern
-aws s3 cp s3://agridataselwyn/extern C:\AgriData\Projects\MatlabCode
+aws s3 cp s3://agridataselwyn/extern C:\AgriData\Projects\MatlabCode --recursive
 cp C:\AgriData\Projects\MatlabCore\extern\vlfeat-0.9.20\bin\win64\vcomp100.dll C:\Windows\System32
 
 
