@@ -1,5 +1,6 @@
 ### Signon
 echo "$(Get-Date): Starting" > C:\Users\agridata\startup.log
+echo $env:username >> C:\Users\agridata\startup.log
 
 
 ### AWS / Rclone credentials
@@ -34,7 +35,8 @@ git reset --hard origin/master
 
 
 ### Copy extern
-aws s3 cp s3://agridataselwyn/extern C:\AgriData\Projects\MatlabCore\extern\ --recursive
+echo "$(Get-Date): Copy extern" >> C:\Users\agridata\startup.log
+aws s3 cp s3://agridataselwyn/extern C:\AgriData\Projects\MatlabCore\extern\ --recursive > C:\Users\aridata\aws.log
 cp C:\AgriData\Projects\MatlabCore\extern\vlfeat-0.9.20\bin\win64\vcomp100.dll C:\Windows\System32
 
 
