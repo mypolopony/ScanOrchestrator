@@ -36,7 +36,7 @@ git reset --hard origin/master
 
 ### Copy extern
 echo "$(Get-Date): Copy extern" >> C:\Users\agridata\startup.log
-aws s3 cp s3://agridataselwyn/extern C:\AgriData\Projects\MatlabCore\extern\ --recursive > C:\Users\aridata\aws.log
+aws s3 cp s3://agridataselwyn/extern C:\AgriData\Projects\MatlabCore\extern\ --recursive
 cp C:\AgriData\Projects\MatlabCore\extern\vlfeat-0.9.20\bin\win64\vcomp100.dll C:\Windows\System32
 
 
