@@ -11,7 +11,7 @@ git_sync() {
     git_password=Panch56!
     git_organization_name=motioniq
     git_repo_name=deepLearning
-    branch_name=dev
+    branch_name=$1
 
     git remote rm origin
     git remote add  origin "https://${git_user_name}:${git_password}@github.com/${git_organization_name}/${git_repo_name}"
@@ -31,8 +31,16 @@ git_sync() {
 sudo systemctl stop myservice
 
 # Update
-git_sync
+git_sync dev
 
 # Run
-python /home/agridata/code/projects/deepLearning/infra/ag_orchestrator.py & disown
+sudo systemctl start myservice
+
+#SERVICE_NAMESPACE="agridataqueues2"
+#SHARED_ACCESS_KEY_NAME="sharedaccess"
+#SHARED_ACCESS_KEY_VALUE="eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA="
+#ROLE="detection"
+#cd /home/agridata/code/projects/deepLearning
+#python infra/ag_orchestrator.py  -n ${SERVICE_NAMESPACE} -k ${SHARED_ACCESS_KEY_NAME} -v ${SHARED_ACCESS_KEY_VALUE} -r ${ROLE}  &
+
 exit
