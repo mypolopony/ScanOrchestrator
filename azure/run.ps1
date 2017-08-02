@@ -11,7 +11,9 @@ New-Item -ItemType Directory -Force -Path C:\Users\agridata\.config\rclone
 cp C:\AgriData\Projects\.config\rclone\rclone.conf C:\Users\agridata\.config\rclone\ 
 
 
-### Set environment variables
+### Set environment variables and try to give system AWS credentials, too
+New-Item -ItemType Directory -Force -Path ~\.aws
+cp C:\AgriData\Projects\aws\credentials ~\.aws\ 
 [Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAJCTBYUIK37F3OUYA", "Machine")
 [Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "Machine")
 

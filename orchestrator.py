@@ -253,23 +253,28 @@ def transformScan(scan):
 
     ## Add filenames column to CSV
     logger.info('Filling in CSV columns. . . this can also take a while. . .')
+    offset = 0
     for csv in glob.glob(dest + '/{}*.csv'.format(scan.scanid)):
         camera  = re.search(pattern_cam, csv).group()
         log     = pd.read_csv(csv)
+        archives = sorted(glob.glob(dest + '/*' + camera + '*.tar.gz'))
         try:
-            names = list()
-            for tf in sorted(glob.glob(dest + '/*' + camera + '*.tar.gz')):
-                for i in range(0,len(tarfile.open(tf).getmembers())):
-                    names.append(tf.split('/')[-1])
+            for idx, tf in enumerate(archives):
 
-            if len(names) == len(log) + 1:
-                logger.info('Names == Log + 1: This is normal, shaving one from Names')
-                names = names[:-1]
-            elif len(names) == len(log) - 1:
-                logger.info('Log == Names + 1: This is odd but still okay, adding one to Names')
-                names.append(names[-1])
-
-            log['filename'] = names
+                # Take the first frame number and remember it as the offset
+                if idx == 0:
+                    offset = log['frame_number'][0]
+                    print('Camera {}, Offset {}'.format(camera, offset))
+                print('{} : {}/{}'.format(camera, idx, len(archives)))
+                try:
+                    # These are the recalculated frame numbers, i.e. line numbers in the log
+                    framenos = [int(m.name.replace('.jpg','')) - offset for m in tarfile.open(tf).getmembers()]
+                    # Occasionally, there are more tar files than there are lines in the CSV, 
+                    # but always no more than one (due to log file / image file race)
+                    framenos = [f for f in framenos if f < len(log)]
+                    log.loc[framenos,'filename'] = tf
+                except:
+                    logger.warning('Tar file {} could not be opened'.format(tf))
             log.to_csv(csv)
         except Exception as e:
             logger.error(traceback.print_exc())
@@ -662,7 +667,6 @@ def matlabProcess(startpath=r'C:\AgriData\Projects'):
     logger.info('Starting MATLAB. . .')
     mlab = matlab.engine.start_matlab()
     mlab.addpath(mlab.genpath(startpath))
-    #  mlab.javaaddpath(r'C:\AgriData\Projects\MatlabCore\extern\mongo\mongo-java-driver-3.4.2.jar');
 
     return mlab
 
