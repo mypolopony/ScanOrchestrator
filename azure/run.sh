@@ -11,7 +11,7 @@ git_sync() {
     git_password=Panch56!
     git_organization_name=motioniq
     git_repo_name=deepLearning
-    branch_name=$1
+    branch_name=dev
 
     git remote rm origin
     git remote add  origin "https://${git_user_name}:${git_password}@github.com/${git_organization_name}/${git_repo_name}"
@@ -31,7 +31,7 @@ git_sync() {
 sudo systemctl stop myservice
 
 # Update
-git_sync dev
+git_sync
 
 # Run
 sudo systemctl start myservice
