@@ -662,7 +662,6 @@ def matlabProcess(startpath=r'C:\AgriData\Projects'):
     logger.info('Starting MATLAB. . .')
     mlab = matlab.engine.start_matlab()
     mlab.addpath(mlab.genpath(startpath))
-    #  mlab.javaaddpath(r'C:\AgriData\Projects\MatlabCore\extern\mongo\mongo-java-driver-3.4.2.jar');
 
     return mlab
 
