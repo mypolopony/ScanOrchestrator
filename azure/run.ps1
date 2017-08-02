@@ -2,15 +2,8 @@
 echo "$(Get-Date): Starting" > C:\Users\agridata\startup.log
 echo "$(Get-Date): Starting (again)" >> C:\Users\agridata\startup.log
 
-### Signon
-echo "$(Get-Date): Starting" > C:\Users\agridata\startup_again.log
-echo "$(Get-Date): Starting (again)" > C:\Users\agridata\startup_again.log
-
 
 ### AWS / Rclone credentials
-# $env:AWS_ACCESS_KEY_ID = "AKIAJCTBYUIK37F3OUYA"
-# $env:AWS_SECRET_ACCESS_KEY = "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"
-
 New-Item -ItemType Directory -Force -Path C:\Users\agridata\.aws
 cp C:\AgriData\Projects\aws\credentials C:\Users\agridata\.aws\ 
 New-Item -ItemType Directory -Force -Path C:\Users\agridata\.config 
@@ -36,6 +29,11 @@ git fetch --all
 git reset --hard origin/master
 
 
+### Copy extern
+aws s3 cp s3://agridataselwyn/extern C:\AgriData\Projects\MatlabCode
+cp C:\AgriData\Projects\MatlabCore\extern\vlfeat-0.9.20\bin\win64\vcomp100.dll C:\Windows\System32
+
+
 ### Launch Orchestrator
 echo "$(Get-Date): Launching Orchestrator" >> C:\Users\agridata\startup.log
 pythonw C:\AgriData\Projects\ScanOrchestrator\orchestrator.py
@@ -43,3 +41,5 @@ pythonw C:\AgriData\Projects\ScanOrchestrator\orchestrator.py
 
 ### Signoff
 echo "$(Get-Date): Finished" >> C:\Users\agridata\startup.log
+
+exit

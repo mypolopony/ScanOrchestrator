@@ -34,6 +34,5 @@ sudo systemctl stop myservice
 git_sync
 
 # Run
-python /home/agridata/code/projects/deepLearning/infra/ag_orchestrator.py &
-
+python /home/agridata/code/projects/deepLearning/infra/ag_orchestrator.py & disown
 exit
