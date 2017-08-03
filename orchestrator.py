@@ -729,7 +729,7 @@ if __name__ == '__main__':
 
         # Process
         elif 'process' in roletype or 'jumpxob' in roletype:
-            preprocess(args)
+            process(args)
 
         # Convert scan filenames and CSVs from old style to new style
         elif roletype == 'convert':
