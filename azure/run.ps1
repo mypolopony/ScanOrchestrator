@@ -23,6 +23,7 @@ echo "$(Get-Date): Updating ScanOrchestrator" >> C:\Users\agridata\startup.log
 cd C:\AgriData\Projects\ScanOrchestrator
 git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/ScanOrchestrator.git"
+git gc --prune=now
 git fetch --all
 git reset --hard origin/everett-wheeler 
 
@@ -32,6 +33,7 @@ echo "$(Get-Date): Updating MatlabCore" >> C:\Users\agridata\startup.log
 cd C:\AgriData\Projects\MatlabCore
 git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/MatlabCore.git"
+git gc --prune=now
 git fetch --all
 git reset --hard origin/master
 
