@@ -322,6 +322,7 @@ def handleFailedTask(service_bus, task, queue):
     Behavior for failed tasks
     '''
     MAX_RETRIES = 9         # Under peek.lock conditions, Azure sets a default of 10
+
     if 'num_retries' in task.keys() and num_retrues >= MAX_RETRIES:
         log('Max retries met for task, sending to DLQ: {}'.format(task))
         sendtoServiceBus(service_bus, 'dlq', task)
@@ -504,10 +505,7 @@ def preprocess(args):
                 scanid = '_'.join(tar.split('_')[0:2])
                 key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
                 log('Downloading {}'.format(key))
-                try:
-                    s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
-                except Exception as e:
-                    log('Download of {} has resulted in an error: {}'.format(key, e))
+                s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
 
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
@@ -731,7 +729,7 @@ if __name__ == '__main__':
 
         # Process
         elif 'process' in roletype or 'jumpxob' in roletype:
-            process(args)
+            preprocess(args)
 
         # Convert scan filenames and CSVs from old style to new style
         elif roletype == 'convert':
