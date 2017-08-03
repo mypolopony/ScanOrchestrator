@@ -317,23 +317,23 @@ def initiateScanProcess(scan):
     # may be be evaluated for 'goodness'
 
 @announce
-def handleFailedTask(service_bus, task, queue):
+def handleFailedTask(service_bus, queue, task):
     '''
     Behavior for failed tasks
     '''
     MAX_RETRIES = 9         # Under peek.lock conditions, Azure sets a default of 10
 
-    if 'num_retries' in task.keys() and num_retrues >= MAX_RETRIES:
+    if 'num_retries' in task.keys() and task['num_retries'] >= MAX_RETRIES:
         log('Max retries met for task, sending to DLQ: {}'.format(task))
         sendtoServiceBus(service_bus, 'dlq', task)
     else:
         # Num_retries should exist, so this check is just for safety
         task['num_retries'] += 1
-        log('Task FAILED: {}'.format(task))
+        log('Task FAILED. Re-enqueing: {}'.format(task))
 
         # Delete error message and reenqueue
         del task['message']
-        sendtoServiceBus(args.service_bus, 'preprocess', task)
+        sendtoServiceBus(args.service_bus, queue, task)
 
 
 @announce
@@ -528,7 +528,7 @@ def preprocess(args):
             analysis_struct['video_folder'] = video_dir
 
             # S3 results path
-            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'], task['blockname'])
+            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''))
 
             # Hand-off to detection
             zips = glob.glob(analysis_struct['video_folder'] + '/*.zip')
@@ -608,7 +608,7 @@ def process(args):
             for task in multi_task:
                 for zipfile in task['detection_params']['folders']:
                     scanid = '_'.join(zipfile.split('_')[0:2])
-                    key = '{}/results/farm_{}/block_{}/detection/{}'.format(task['clientid'], task['farmname'], task['blockname'], zipfile)
+                    key = '{}/results/farm_{}/block_{}/detection/{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), zipfile)
                     log('Downloading {}'.format(key))
                     s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, zipfile))
                 worker = multiprocess.Process(target=launchMatlabTasks, args=['process', task])
@@ -628,7 +628,7 @@ def process(args):
             analysis_struct['video_folder'] = video_dir
 
             # S3 results path
-            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'], task['blockname'])
+            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''))
 
             # Now what?
             log('Processing done. {}'.format(task))
