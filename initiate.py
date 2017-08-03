@@ -11,7 +11,7 @@ service_bus = ServiceBusService(service_namespace='agridataqueues',
 task = {
    'clientid'     : '5953469d1fb359d2a7a66287',
    'farmname'     : 'Quintessa',
-   'scanids'      : ['2017-07-11_09-57', '2017-07-11_13-59', '2017-07-12_08-19', '2017-07-12_09-04'],
+   'scanids'      : ['2017-07-11_09-57', '2017-07-11_13-59', '2017-07-11_09-57', '2017-07-11_13-59', '2017-07-12_08-19', '2017-07-12_09-04'],
    'blockname'    : 'Dragons Terrace',
    'role'         : 'rvm',
 }

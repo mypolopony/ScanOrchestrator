@@ -317,10 +317,30 @@ def initiateScanProcess(scan):
     # may be be evaluated for 'goodness'
 
 @announce
+def handleFailedTask(service_bus, task, queue):
+    '''
+    Behavior for failed tasks
+    '''
+    MAX_RETRIES = 9         # Under peek.lock conditions, Azure sets a default of 10
+    if 'num_retries' in task.keys() and num_retrues >= MAX_RETRIES:
+        log('Max retries met for task, sending to DLQ: {}'.format(task))
+        sendtoServiceBus(service_bus, 'dlq', task)
+    else:
+        # Num_retries should exist, so this check is just for safety
+        task['num_retries'] += 1
+        log('Task FAILED: {}'.format(task))
+
+        # Delete error message and reenqueue
+        del task['message']
+        sendtoServiceBus(args.service_bus, 'preprocess', task)
+
+
+@announce
 def sendtoServiceBus(service_bus, queue, msg):
     '''
     This is plainly just a wrapper for a message to a service bus, maybe other messaging things will happen here
     '''
+    msg['num_retries'] = 0              # Reset number of retries
     service_bus.send_queue_message(queue, Message(json.dumps(msg)))
 
 
@@ -428,10 +448,13 @@ def generateRVM(args):
             elif rows_found > block.num_rows:
                 emitSNSMessage('Too many rows found (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
             else:
-                # Split tarfiles
+                # Generate tar files and eliminate NaNs
                 tarfiles = pd.Series.unique(data['file'])
+                tarfiles = tarfiles.fillna('')
+                # Split tarfiles
                 for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
-                    task['tarfiles'] = list(shard)
+                    task['tarfiles'] = [s for s in shard if s]
+                    task['num_retries'] = 0         # Set as clean
                     sendtoServiceBus(args.service_bus, 'preprocess', task)
 
                 log('RVM task complete')
@@ -471,7 +494,7 @@ def preprocess(args):
         try:
             log('Waiting for task')
             task = receivefromServiceBus(args.service_bus, 'preprocess')
-            log('Received preprocessor task: {}'.format(task))
+            log('Received preprocessing task: {}'.format(task))
 
             # Rebuild base scan info
             rebuildScanInfo(task)
@@ -525,18 +548,15 @@ def preprocess(args):
                     s3_aws_secret_access_key='YlPBiE9s9LV5+ruhKqQ0wsZgj3ZFp6psF6p5OBpZ',
                     session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S.%f').replace('.','-'),
                     folders=[ os.path.basename(zipfile) ])
+                detectiontask['num_retries'] = 0         # Set as clean
                 sendtoServiceBus(args.service_bus, 'detection', detectiontask)
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-            sendtoServiceBus(args.bus_service, 'preprocess', task)
+            sendtoServiceBus(args.service_bus, 'preprocess', task)
             pass
         except Exception as e:
             task['message'] = e
-            log('Task FAILED: {}'.format(task))
-
-            # Delete error message and reenqueue
-            del task['message']
-            sendtoServiceBus(args.service_bus, 'preprocess', task)
+            handleFailedTask(args.service_bus, 'preprocess', task)
             pass
 
 @announce 
@@ -595,20 +615,6 @@ def process(args):
             for worker in workers:
                 worker.join()
 
-            '''
-            # Postprocessing
-            log('Postprocessing group of {} archives'.format(len(multi_task)))
-            workers = list()
-            for task in multi_task:
-                worker = multiprocess.Process(target=launchMatlabTasks, args=['postprocess', task])
-                worker.start()
-                workers.append(worker)
-
-            for worker in workers:
-                worker.join()
-
-            '''
-
             log('All MATLAB instances have finished')
 
             # Pre file upload, recreate relevant parts of analysis_struct
@@ -622,15 +628,11 @@ def process(args):
             log('Processing done. {}'.format(task))
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-            sendtoServiceBus(args.bus_service, 'process', task)
+            sendtoServiceBus(args.service_bus, 'process', task)
             pass
         except Exception as e:
             task['message'] = e
-            log('Task FAILED. Reenqueueing... ({})'.format(task))
-
-            # Delete error message and reenqueue
-            del task['message']
-            sendtoServiceBus(args.service_bus, 'process', task)
+            handleFailedTask(args.service_bus, 'process', task)
             pass
 
 
