@@ -606,9 +606,17 @@ def process(args):
             log('Processing group of {} archives'.format(len(multi_task)))
             workers = list()
             for task in multi_task:
+                for zipfile in task['detection_params']['folders']:
+                    scanid = '_'.join(zipfile.split('_')[0:2])
+                    key = '{}/results/farm_{}/block_{}/detection/{}'.format(task['clientid'], task['farmname'], task['blockname'], zipfile)
+                    log('Downloading {}'.format(key))
+                    s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, zipfile))
                 worker = multiprocess.Process(target=launchMatlabTasks, args=['process', task])
                 worker.start()
                 workers.append(worker)
+
+                # Delay is recommended to keep MATLAB processes from stepping on one another
+                time.sleep(60)
 
             for worker in workers:
                 worker.join()
