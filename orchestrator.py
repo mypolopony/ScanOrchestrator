@@ -333,7 +333,7 @@ def handleFailedTask(service_bus, queue, task):
 
         # Delete error message and reenqueue
         del task['message']
-        sendtoServiceBus(args.service_bus, queue, task)
+        sendtoServiceBus(service_bus, queue, task)
 
 
 @announce
@@ -585,14 +585,11 @@ def process(args):
     # Here is the number of children to spawn
     NUM_MATLAB_INSTANCES = 4
 
-    # A collection of tasks
-    multi_task = list()
-
     while True:
         try:
             log('Waiting for task')
             task = receivefromServiceBus(args.service_bus, 'process')
-            multi_task.append(task)
+            multi_task = [task]
             log('Received processing task')
 
             # Rebuild base scan info
