@@ -523,6 +523,9 @@ def preprocess(args):
                 worker.start()
                 workers.append(worker)
 
+                # Short delay to stagger workers
+                time.sleep(2)
+
             for worker in workers:
                 worker.join()
 
@@ -618,7 +621,7 @@ def process(args):
                 workers.append(worker)
 
                 # Delay is recommended to keep MATLAB processes from stepping on one another
-                time.sleep(10)
+                time.sleep(4)
 
             for worker in workers:
                 worker.join()
