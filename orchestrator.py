@@ -451,7 +451,7 @@ def generateRVM(args):
             else:
                 # Generate tar files and eliminate NaNs
                 tarfiles = pd.Series.unique(data['file'])
-                tarfiles = tarfiles.fillna('')
+
                 # Split tarfiles
                 for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
                     task['tarfiles'] = [s for s in shard if s]
@@ -506,6 +506,11 @@ def preprocess(args):
                 key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
                 log('Downloading {}'.format(key))
                 s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
+
+            # Untar
+            mlab = matlabProcess()
+            mlab.my_untar(video_dir)
+            mlab.quit()
 
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
@@ -613,7 +618,7 @@ def process(args):
                 workers.append(worker)
 
                 # Delay is recommended to keep MATLAB processes from stepping on one another
-                time.sleep(60)
+                time.sleep(10)
 
             for worker in workers:
                 worker.join()
