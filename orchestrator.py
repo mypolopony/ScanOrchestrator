@@ -508,6 +508,7 @@ def preprocess(args):
                 s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
 
             # Untar
+            log('Untarring. . .')
             mlab = matlabProcess()
             mlab.my_untar(video_dir)
             mlab.quit()
@@ -561,7 +562,7 @@ def preprocess(args):
             sendtoServiceBus(args.service_bus, 'preprocess', task)
             pass
         except Exception as e:
-            task['message'] = e
+            task['message'] = traceback.print_exc() + ' : ' + e
             handleFailedTask(args.service_bus, 'preprocess', task)
             pass
 
