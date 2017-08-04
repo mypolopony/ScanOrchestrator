@@ -510,7 +510,7 @@ def preprocess(args):
             # Untar
             log('Untarring. . .')
             mlab = matlabProcess()
-            mlab.my_untar(video_dir)
+            mlab.my_untar(video_dir, nargout=0)
             mlab.quit()
 
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
