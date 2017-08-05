@@ -407,8 +407,6 @@ def generateRVM(args):
     '''
     Given a set of scans (or one scan), generate a row video map.
     '''
-    task['role'] = 'rvm'
-
     # Parameters                # To calculate the number of separate tasks, 
     SHARD_FACTOR = 3            # divide the number of rows by this factor
 
@@ -593,7 +591,6 @@ def process(args):
     '''
     Processing method
     '''
-    task['role'] = 'process'
 
     # Here is the number of children to spawn
     NUM_MATLAB_INSTANCES = 4
@@ -606,7 +603,7 @@ def process(args):
             log('Received processing task')
 
             # Wait for a group of scans equal to the number of MATLAB instances
-            while len(multi_task) <= NUM_MATLAB_INSTANCES and service_bus.get_queue('process').message_count > 0:
+            while len(multi_task) < NUM_MATLAB_INSTANCES and service_bus.get_queue('process').message_count > 0:
                 multi_task.append(receivefromServiceBus(args.service_bus, 'process'))
 
             # Launch tasks
