@@ -28,6 +28,7 @@ base = '''{"rvm_uri":"s3://agridatadepot/5953469d1fb359d2a7a66287/results/farm_Q
 base = json.loads(base)
 
 print('Inserting into queue')
-for zipfile in detected:
+for idx, zipfile in enumerate(detected):
+    print('{}/{}'.format(idx,len(detected))
     base['detection_params']['folders'] = [os.path.basename(zipfile)]
     service_bus.send_queue_message('process', Message(json.dumps(base)))
