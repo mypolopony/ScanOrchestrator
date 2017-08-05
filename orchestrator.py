@@ -432,9 +432,9 @@ def generateRVM(args):
             task['farmname']    = Farm.objects.get(id=block.farm).name.replace(' ','')
 
             # Check staging database for previous scans of this block
-            staged = db.staging.find({'block': scan.blocks[0]})
-            if staged:
-                task['scanids'] = task['scanids'] + [s['_id'] for s in staged]
+            # staged = db.staging.find({'block': scan.blocks[0]})
+            # if staged:
+            #    task['scanids'] = task['scanids'] + [s['_id'] for s in staged]
 
             # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
             log('Calculating RVM')
