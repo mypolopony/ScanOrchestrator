@@ -540,7 +540,7 @@ def preprocess(args):
 
             # Hand-off to detection
             zips = glob.glob(analysis_struct['video_folder'] + '/*.zip')
-            log('DEBUG: {}'.format(glob.glob(analysis_struct['video_folder'] + '*')))
+            log('DEBUG: {}'.format(glob.glob(analysis_struct['video_folder'])))
             log('Success, found {} zip files. Creating Detection tasks.'.format(len(zips)))
             for zipfile in zips:
                 detectiontask = task
@@ -549,7 +549,7 @@ def preprocess(args):
                     base_url_path='{}/results/farm_{}/block_{}/temp'.format(task['clientid'],task['farmname'].replace(' ',''), task['blockname'].replace(' ', '')),
                     input_path='preprocess-frames',
                     output_path='detection',
-                    caffemodel_s3_url_cluster='s3://deeplearning_data/models/best/post-bloom_8_4_2017_100000.caffemodel',
+                    caffemodel_s3_url_cluster='s3://deeplearning_data/models/best/post-bloom_july_29_2017_390000.caffemodel',
                     caffemodel_s3_url_trunk='s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel',
                     s3_aws_access_key_id='AKIAJC7XVEAQELBKAANQ',
                     s3_aws_secret_access_key='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',
