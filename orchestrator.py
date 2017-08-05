@@ -31,8 +31,8 @@ from utils.models_min import *
 from utils.connection import *
 
 # Operational parameters
-WAIT_TIME = 20      # AWS wait time for messages
-NUM_MSGS = 10       # Number of messages to grab at a time
+WAIT_TIME   = 20    # AWS wait time for messages
+NUM_MSGS    = 10    # Number of messages to grab at a time
 RETRY_DELAY = 60    # Number of seconds to wait upon encountering an error
 
 # Load config file
@@ -316,6 +316,7 @@ def initiateScanProcess(scan):
     # The scan is uploaded and ready to be placed in the 'ready' or 'rvm' queue, where it
     # may be be evaluated for 'goodness'
 
+
 @announce
 def handleFailedTask(service_bus, queue, task):
     '''
@@ -354,7 +355,7 @@ def receivefromServiceBus(service_bus, queue, lock=False):
     '''
     incoming = None
     while not incoming:
-    	incoming = service_bus.receive_queue_message(queue, peek_lock=lock).body
+        incoming = service_bus.receive_queue_message(queue, peek_lock=lock).body
 
     # Here, we can accept either properly formatted JSON strings or, if necessary, convert the
     # quotes to make them compliant.
@@ -364,6 +365,7 @@ def receivefromServiceBus(service_bus, queue, lock=False):
         msg = json.loads(incoming.replace("'",'"').replace('u"','"'))
 
     return msg
+
 
 @announce
 def emitSNSMessage(message, context=None, topic='statuslog'):
@@ -389,6 +391,7 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
         Subject     =  '{} message'.format(topic)
     )
 
+
 @announce
 def log(message):
     # Let's send this message to the dashboard 
@@ -401,6 +404,7 @@ def log(message):
         r = requests.post('http://dash.agridata.ai/orchestrator', json = payload)
     except Exception as e:
         logger.warning('Boringmachine not reachable: {}'.format(e))
+
 
 @announce
 def generateRVM(args):
@@ -438,7 +442,7 @@ def generateRVM(args):
 
             # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
             log('Calculating RVM')
-            s3uri, localuri = mlab.runTask('rvm', task['clientid'], task['scanids'])
+            s3uri, localuri = mlab.runTask('rvm', task['clientid'], task['scanids'], task)
             task['rvm_uri'] = s3uri
 
             # Check for completeness
@@ -463,6 +467,7 @@ def generateRVM(args):
             emitSNSMessage('Failure on {}'.format(str(err)))
             pass
 
+
 @announce
 def rebuildScanInfo(task):
     if os.path.exists(video_dir):
@@ -482,6 +487,7 @@ def rebuildScanInfo(task):
     s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
     key = key.replace('rvm.csv','vpr.csv')
     s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
+
 
 @announce
 def preprocess(args):
@@ -567,6 +573,7 @@ def preprocess(args):
             handleFailedTask(args.service_bus, 'preprocess', task)
             pass
 
+
 @announce 
 def launchMatlabTasks(taskname, task):
     '''
@@ -574,7 +581,7 @@ def launchMatlabTasks(taskname, task):
     pickle (actually, dill) a wider range of objects (like function wrappers)
     '''
     mlab = matlabProcess()
-    mlab.runTask(taskname, task['clientid'], task['scanids'])
+    mlab.runTask(taskname, task['clientid'], task['scanids'], task)
     mlab.quit()
 
 
@@ -593,7 +600,7 @@ def process(args):
     '''
 
     # Here is the number of children to spawn
-    NUM_MATLAB_INSTANCES = 4
+    NUM_MATLAB_INSTANCES = 1
 
     while True:
         try:
@@ -601,6 +608,9 @@ def process(args):
             task = receivefromServiceBus(args.service_bus, 'process')
             multi_task = [task]
             log('Received processing task')
+
+            # Rebuild base scan info
+            rebuildScanInfo(task)
 
             # Wait for a group of scans equal to the number of MATLAB instances
             while len(multi_task) < NUM_MATLAB_INSTANCES and service_bus.get_queue('process').message_count > 0:
@@ -682,6 +692,7 @@ def matlabProcess(startpath=r'C:\AgriData\Projects'):
 
     return mlab
 
+
 @announce
 def getComputerInfoString():
 	# Grab
@@ -740,7 +751,7 @@ if __name__ == '__main__':
             detection(args)
 
         # Process
-        elif 'process' in roletype or 'jumpxob' in roletype:
+        elif 'process' in roletype or 'xob' in roletype:
             process(args)
 
         # Convert scan filenames and CSVs from old style to new style

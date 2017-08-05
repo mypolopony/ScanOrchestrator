@@ -14,6 +14,7 @@ task = {
    'scanids'      : ['2017-07-11_09-57', '2017-07-11_13-59', '2017-07-11_09-57', '2017-07-11_13-59', '2017-07-12_08-19', '2017-07-12_09-04'],
    'blockname'    : 'Dragons Terrace',
    'role'         : 'rvm',
+   'test'         : True
 }
 
 # To start at detection, uncomment and modify this code
