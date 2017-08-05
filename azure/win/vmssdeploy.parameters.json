@@ -1,0 +1,36 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmSku": {
+      "value": "Standard_D4S_V3"
+    },
+    "instanceCount": {
+      "value": 15
+    },
+    "adminUsername": {
+      "value": "agridata"
+    },
+    "adminPassword": {
+      "value": "BattleOfHastings1066"
+    },
+    "sourceImageVhdUri":{
+        "value":"https://kggamowstorage.blob.core.windows.net/vhds/computeos_disk1.vhd"
+    },
+    "destinationFolder":{
+        "value": "/home/agridata"
+    },
+    "serviceName":{
+        "value": "myservice"
+    },
+    "customScriptName":{
+        "value": "updateapp.sh"
+    },
+    "appPackage":{
+        "value": "package.tar.gz"
+    },
+    "osType":{
+        "value": "Windows"
+    }
+  }
+}

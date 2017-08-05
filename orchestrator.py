@@ -710,9 +710,9 @@ def getComputerInfoString():
 def parse_args():
     parser=argparse.ArgumentParser('orchestrator')
 
-    default_service_namespace = 'agridataqueues'
+    default_service_namespace = 'agridataqueues2'
     default_shared_access_key_name = 'sharedaccess'
-    default_shared_access_key_value = 'cWonhEE3LIQ2cqf49mAL2uIZPV/Ig85YnyBtdb1z+xo='
+    default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
     parser.add_argument('-n', '--service_namespace', help='service namespace', dest='service_namespace',
                         default=default_service_namespace)
     parser.add_argument('-k', '--shared_access_key_name', help='shared_access_key_name', dest='shared_access_key_name',
@@ -724,6 +724,8 @@ def parse_args():
                                 shared_access_key_name=args.shared_access_key_name,
                                 shared_access_key_value=args.shared_access_key_value)
     return args
+
+
 
 
 if __name__ == '__main__':
