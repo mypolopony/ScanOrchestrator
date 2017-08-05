@@ -508,7 +508,6 @@ def preprocess(args):
                 s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
 
             # Untar
-            log('Untarring. . .')
             mlab = matlabProcess()
             mlab.my_untar(video_dir, nargout=0)
             mlab.quit()
@@ -541,6 +540,7 @@ def preprocess(args):
 
             # Hand-off to detection
             zips = glob.glob(analysis_struct['video_folder'] + '/*.zip')
+            log('DEBUG: {}'.format(glob.glob(analysis_struct['video_folder'] + '*')))
             log('Success, found {} zip files. Creating Detection tasks.'.format(len(zips)))
             for zipfile in zips:
                 detectiontask = task
