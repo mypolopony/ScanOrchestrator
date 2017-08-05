@@ -29,16 +29,16 @@ base = json.loads(base)
 
 print('Inserting into queue')
 
-'''
 # Insert all
 for idx, zipfile in enumerate(detected):
     print('{}/{}'.format(idx,len(detected)))
     base['detection_params']['folders'] = [os.path.basename(zipfile)]
     service_bus.send_queue_message('process', Message(json.dumps(base)))
-'''
 
-# Insert n
+'''
+# Insert tasks
 n = 3
 for i in range(0,n):
 	base['detection_params']['folders'] = [os.path.basename(detected[n])]
 	service_bus.send_queue_message('process', Message(json.dumps(base)))
+'''

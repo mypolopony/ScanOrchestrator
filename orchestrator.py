@@ -92,6 +92,7 @@ ch.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s [%(levelname)s]: %(message)s', datefmt='%a, %d %b %Y %H:%M:%S')
 ch.setFormatter(formatter)
 fh.setFormatter(formatter)
+
 # Add handlers
 # logger.addHandler(ch)         # For sanity's sake, toggle console-handler and file-handler, but not both
 
@@ -600,7 +601,7 @@ def process(args):
     '''
 
     # Here is the number of children to spawn
-    NUM_MATLAB_INSTANCES = 1
+    NUM_MATLAB_INSTANCES = 4
 
     while True:
         try:
