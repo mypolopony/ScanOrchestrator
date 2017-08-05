@@ -407,6 +407,8 @@ def generateRVM(args):
     '''
     Given a set of scans (or one scan), generate a row video map.
     '''
+    task['role'] = 'rvm'
+
     # Parameters                # To calculate the number of separate tasks, 
     SHARD_FACTOR = 3            # divide the number of rows by this factor
 
@@ -470,24 +472,27 @@ def rebuildScanInfo(task):
     os.makedirs(video_dir)
     os.makedirs(video_dir + '\imu_basler')
 
-    # Download log files
-    for scan in task['scanids']:
-        for file in s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
-            key = file['Key'].split('/')[-1]
-            if 'csv' in key and key.startswith(scan):
-                s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'], os.path.join(video_dir, 'imu_basler', key))
+    if task['role'] is not 'rvm':
+        # Download log files
+        for scan in task['scanids']:
+            for file in s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
+                key = file['Key'].split('/')[-1]
+                if 'csv' in key and key.startswith(scan):
+                    s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'], os.path.join(video_dir, 'imu_basler', key))
 
-    # Download the RVM, VPR
-    key = '/'.join(task['rvm_uri'].split('/')[3:])
-    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
-    key = key.replace('rvm.csv','vpr.csv')
-    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
+        # Download the RVM, VPR
+        key = '/'.join(task['rvm_uri'].split('/')[3:])
+        s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
+        key = key.replace('rvm.csv','vpr.csv')
+        s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
 
 @announce
 def preprocess(args):
     '''
     Preprocessing method
     '''
+    task['role'] = 'preprocess'
+
     # Here is the number of children to spawn
     NUM_MATLAB_INSTANCES = 4
 
@@ -590,6 +595,7 @@ def process(args):
     '''
     Processing method
     '''
+    task['role'] = 'process'
 
     # Here is the number of children to spawn
     NUM_MATLAB_INSTANCES = 4
