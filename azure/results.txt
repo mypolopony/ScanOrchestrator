@@ -1,0 +1,66 @@
+Sequential Blackjack --
+
+
+Elapsed time is 17.2 seconds
+Elapsed time is 16.6 seconds
+Elapsed time is 17.4 seconds
+Elapsed time is 17.0 seconds
+Elapsed time is 17.1 seconds
+Elapsed time is 17.0 seconds
+Elapsed time is 17.1 seconds
+Elapsed time is 17.3 seconds
+Elapsed time is 17.3 seconds
+Elapsed time is 17.9 seconds
+Average time is 17.2 seconds
+
+
+Distributed Blackjack --
+
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 20.3 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 10.8 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 11.8 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 11.8 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 11.8 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 11.8 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 10.7 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 11.9 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 10.7 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 11.8 seconds
+Average time is 12.3 seconds
+
+
+
+Distributed Blackjack --
+
+This example will submit a job with 6 task(s) to the cluster.
+
+Elapsed time is 9.0 seconds
+This example will submit a job with 6 task(s) to the cluster.
+Elapsed time is 8.9 seconds
+This example will submit a job with 6 task(s) to the cluster.
+Elapsed time is 8.9 seconds
+This example will submit a job with 6 task(s) to the cluster.
+Elapsed time is 8.9 seconds
+This example will submit a job with 6 task(s) to the cluster.
+Elapsed time is 9.0 seconds
+This example will submit a job with 6 task(s) to the cluster.
+Elapsed time is 9.0 seconds
+This example will submit a job with 6 task(s) to the cluster.
+Elapsed time is 8.8 seconds
+This example will submit a job with 6 task(s) to the cluster.
+Elapsed time is 8.9 seconds
+This example will submit a job with 6 task(s) to the cluster.
+Elapsed time is 9.0 seconds
+This example will submit a job with 6 task(s) to the cluster.
+Elapsed time is 9.0 seconds
+Average time is 8.9 seconds
