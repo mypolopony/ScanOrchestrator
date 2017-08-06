@@ -4,6 +4,8 @@
 # Don't exit on errors (git throws errors that aren't really errors)
 set +e
 
+RUNAS=agridata
+
 git_sync() {
 
     git_user_name=agkgeorge
@@ -53,14 +55,16 @@ git_sync() {
 
     cd $HOME
 }
+export -f git_sync
 
 # Stop old service
 sudo systemctl stop myservice
 
-# Update
-git_sync $1 $2
+# Update as agridata
+su -p -c "git_sync $1 $2" - $RUNAS
 
-# Run
+
+# Restart service
 sudo systemctl start myservice
 
 exit
