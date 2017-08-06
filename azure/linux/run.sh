@@ -5,7 +5,6 @@
 set +e
 
 git_sync() {
-    cd /home/agridata/code/projects/deepLearning
 
     git_user_name=agkgeorge
     git_password=Panch56!
@@ -33,6 +32,7 @@ git_sync() {
 
 
 
+    cd /home/agridata/code/projects/deepLearning
     git_repo_name=deepLearning
     branch_name_deepLearning=$2
 
