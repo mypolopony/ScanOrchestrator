@@ -10,20 +10,47 @@ git_sync() {
     git_user_name=agkgeorge
     git_password=Panch56!
     git_organization_name=motioniq
-    git_repo_name=deepLearning
-    branch_name=$1
+
+
+
+
+    cd /home/agridata/code/projects/ScanOrchestrator
+    git_repo_name=ScanOrchestrator
+
+    branch_name_scanOrchestrator=$1
 
     git remote rm origin
     git remote add  origin "https://${git_user_name}:${git_password}@github.com/${git_organization_name}/${git_repo_name}"
     git fetch --all
-    git checkout $branch_name
+    git checkout $branch_name_scanOrchestrator
     git config --global user.email "bot@agridata.ai"
     git config --global user.name "Windows Instance Bot"
-    git merge origin/$branch_name --no-edit
+    git merge origin/$branch_name_scanOrchestrator --no-edit
     git checkout --theirs .
     git add -u
     git commit -m "merge" --no-edit
-    git checkout $branch_name
+    git checkout $branch_name_scanOrchestrator
+
+
+
+    git_repo_name=deepLearning
+    branch_name_deepLearning=$2
+
+    git remote rm origin
+    git remote add  origin "https://${git_user_name}:${git_password}@github.com/${git_organization_name}/${git_repo_name}"
+    git fetch --all
+    git checkout $branch_name_deepLearning
+    git config --global user.email "bot@agridata.ai"
+    git config --global user.name "Windows Instance Bot"
+    git merge origin/$branch_name_deepLearning --no-edit
+    git checkout --theirs .
+    git add -u
+    git commit -m "merge" --no-edit
+    git checkout $branch_name_deepLearning
+
+
+
+
     cd $HOME
 }
 
@@ -31,16 +58,9 @@ git_sync() {
 sudo systemctl stop myservice
 
 # Update
-git_sync $1
+git_sync $1 $2
 
 # Run
 sudo systemctl start myservice
-
-#SERVICE_NAMESPACE="agridataqueues2"
-#SHARED_ACCESS_KEY_NAME="sharedaccess"
-#SHARED_ACCESS_KEY_VALUE="eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA="
-#ROLE="detection"
-#cd /home/agridata/code/projects/deepLearning
-#python infra/ag_orchestrator.py  -n ${SERVICE_NAMESPACE} -k ${SHARED_ACCESS_KEY_NAME} -v ${SHARED_ACCESS_KEY_VALUE} -r ${ROLE}  &
 
 exit
