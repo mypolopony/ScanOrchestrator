@@ -15,20 +15,30 @@ import shutil
 import socket
 import traceback
 import requests
-
+import StringIO
+import datetime
 import glob
 import argparse
 import multiprocess
 
 import pandas as pd
 import numpy as np
-
+from collections import namedtuple
 from bson.objectid import ObjectId
 from botocore.exceptions import ClientError
 
 # AgriData
 from utils.models_min import *
 from utils.connection import *
+
+
+#some relative paths
+from inspect import getsourcefile
+current_path = os.path.abspath(getsourcefile(lambda:0))
+parent_dir = os.path.split(os.path.dirname(current_path))[0]
+deeplearning_dir = os.path.join(parent_dir, 'deepLearning')
+sys.path.insert(0, deeplearning_dir)
+source_dir=os.path.dirname(current_path)
 
 # Operational parameters
 WAIT_TIME   = 20    # AWS wait time for messages
@@ -586,12 +596,56 @@ def launchMatlabTasks(taskname, task):
     mlab.quit()
 
 
+
 @announce
 def detection(args):
     '''
     Detection method
     '''
-    print('Koshyland')
+
+    import deepLearning.detect_s3_az
+    while True:
+        try:
+            log('Waiting for task')
+            task = receivefromServiceBus(args.bus_service, 'detection')
+            log('Received detection task: {}'.format(task))
+
+            t = task.get('detection_params', [])
+            t.update(dict(caffemodel_s3_url_cluster=str(t['caffemodel_s3_url_cluster']),
+                          caffemodel_s3_url_trunk=str(t['caffemodel_s3_url_trunk'])))
+            arg_list = []
+
+            for k, v in t.iteritems():
+                arg_list.append('--' + k)
+                if type(v) == list:
+                    arg_list.extend(v)
+                else:
+                    arg_list.append(v)
+
+            args_detect = detect_s3_az.parse_args(arg_list)
+            logger.info(('detection process %r, %r' % (task, args_detect)))
+            s3keys = detect_s3_az.main(args_detect)
+
+            # for now we expect only one element
+            assert (len(s3keys) <= 1)
+            task['detection_params']['result'] = s3keys if not s3keys  else  s3keys[0]
+            log('Success. Completed detection: {}'.format(task['detection_params']['result']))
+            sendtoServiceBus(args.bus_service, 'process', task)
+        except ClientError:
+            tb = traceback.format_exc()
+            logger.error(tb)
+            task['message'] = e
+            # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
+            #sendtoServiceBus(args.bus_service, 'detection', task)
+            handleFailedTask(args.service_bus, 'process', task)
+            pass
+        except Exception, e:
+            tb = traceback.format_exc()
+            logger.error(tb)
+            task['message'] = e
+            log('Task FAILED. Reenqueueing... ({})'.format(task))
+
+            pass
 
 
 @announce
