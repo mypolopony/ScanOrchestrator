@@ -344,7 +344,16 @@ def handleFailedTask(service_bus, queue, task):
 
         # Delete error message and reenqueue
         del task['message']
-        sendtoServiceBus(service_bus, queue, task)
+        resendtoServiceBus(service_bus, queue, task)
+
+
+
+@announce
+def resendtoServiceBus(service_bus, queue, msg):
+    '''
+    This is plainly just a wrapper for a message to a service bus, maybe other messaging things will happen here
+    '''
+    service_bus.send_queue_message(queue, Message(json.dumps(msg)))
 
 
 @announce
