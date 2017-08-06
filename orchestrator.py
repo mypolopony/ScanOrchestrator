@@ -629,13 +629,12 @@ def detection(args):
             assert (len(s3keys) <= 1)
             task['detection_params']['result'] = s3keys if not s3keys  else  s3keys[0]
             log('Success. Completed detection: {}'.format(task['detection_params']['result']))
-            sendtoServiceBus(args.bus_service, 'process', task)
+            sendtoServiceBus(args.service_bus, 'process', task)
         except ClientError:
             tb = traceback.format_exc()
             logger.error(tb)
             task['message'] = e
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-            #sendtoServiceBus(args.bus_service, 'detection', task)
             handleFailedTask(args.service_bus, 'process', task)
             pass
         except Exception, e:
