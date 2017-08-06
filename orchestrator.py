@@ -36,8 +36,7 @@ from utils.connection import *
 from inspect import getsourcefile
 current_path = os.path.abspath(getsourcefile(lambda:0))
 parent_dir = os.path.split(os.path.dirname(current_path))[0]
-deeplearning_dir = os.path.join(parent_dir, 'deepLearning')
-sys.path.insert(0, deeplearning_dir)
+sys.path.insert(0, parent_dir)
 source_dir=os.path.dirname(current_path)
 
 # Operational parameters
@@ -603,11 +602,11 @@ def detection(args):
     Detection method
     '''
 
-    import deepLearning.detect_s3_az
+    from deepLearning.infra import detect_s3_az
     while True:
         try:
             log('Waiting for task')
-            task = receivefromServiceBus(args.bus_service, 'detection')
+            task = receivefromServiceBus(args.service_bus, 'detection')
             log('Received detection task: {}'.format(task))
 
             t = task.get('detection_params', [])
@@ -763,7 +762,7 @@ def getComputerInfoString():
 
 def parse_args():
     parser=argparse.ArgumentParser('orchestrator')
-
+    default_role='Unknown'
     default_service_namespace = 'agridataqueues2'
     default_shared_access_key_name = 'sharedaccess'
     default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
@@ -773,6 +772,8 @@ def parse_args():
                         default=default_shared_access_key_name)
     parser.add_argument('-v', '--shared_access_key_value', help='shared_access_key_value', dest='shared_access_key_value',
                         default=default_shared_access_key_value)
+    parser.add_argument('-r', '--role', help='role', dest='role',
+                        default=default_role)
     args = parser.parse_args()
     args.service_bus = ServiceBusService(service_namespace=args.service_namespace,
                                 shared_access_key_name=args.shared_access_key_name,
@@ -792,6 +793,9 @@ if __name__ == '__main__':
 
     args = parse_args()
     roletype = identifyRole()
+    #if role is specified by args then that takes precedence, kg
+    if args.role != 'Unknown':
+        roletype=args.role
     log('I\'m awake! Role type is {}'.format(roletype))
 
     try:
@@ -830,4 +834,5 @@ if __name__ == '__main__':
         else:
             emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
     except Exception as e:
-        emitSNSMessage(str(e))
+        #emitSNSMessage(str(e))
+        raise
