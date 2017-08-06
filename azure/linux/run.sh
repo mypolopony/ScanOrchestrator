@@ -6,6 +6,29 @@ set +e
 
 RUNAS=agridata
 
+git_sync_core() {
+    git_user_name=agkgeorge
+    git_password=Panch56!
+    git_organization_name=motioniq
+    
+    git_repo_name=$1
+    branch_name=$2
+     
+    git remote rm origin
+    git remote add  origin "https://${git_user_name}:${git_password}@github.com/${git_organization_name}/${git_repo_name}"
+    git fetch --all
+    git checkout $branch_name
+    git config --global user.email "bot@agridata.ai"
+    git config --global user.name "Windows Instance Bot"
+    git merge origin/$branch_name --no-edit
+    git checkout --theirs .
+    git add -u
+    git commit -m "merge" --no-edit
+    git checkout $branch_name
+}
+
+export -f git_sync_core
+    
 git_sync() {
 
     git_user_name=agkgeorge
@@ -14,41 +37,46 @@ git_sync() {
 
 
 
-
-    cd /home/agridata/code/projects/ScanOrchestrator
+    
     git_repo_name=ScanOrchestrator
+    cd /home/agridata/code/projects/$git_repo_name
 
-    branch_name_scanOrchestrator=$1
-
-    git remote rm origin
-    git remote add  origin "https://${git_user_name}:${git_password}@github.com/${git_organization_name}/${git_repo_name}"
-    git fetch --all
-    git checkout $branch_name_scanOrchestrator
-    git config --global user.email "bot@agridata.ai"
-    git config --global user.name "Windows Instance Bot"
-    git merge origin/$branch_name_scanOrchestrator --no-edit
-    git checkout --theirs .
-    git add -u
-    git commit -m "merge" --no-edit
-    git checkout $branch_name_scanOrchestrator
+    branch_name=$1
+    
+    git_sync_core $git_repo_name $branch_name
 
 
+    #git remote rm origin
+    #git remote add  origin "https://${git_user_name}:${git_password}@github.com/${git_organization_name}/${git_repo_name}"
+    #git fetch --all
+    #git checkout $branch_name
+    #git config --global user.email "bot@agridata.ai"
+    #git config --global user.name "Windows Instance Bot"
+    #git merge origin/$branch_name --no-edit
+    #git checkout --theirs .
+    #git add -u
+    #git commit -m "merge" --no-edit
+    #git checkout $branch_name
 
-    cd /home/agridata/code/projects/deepLearning
+
+    
     git_repo_name=deepLearning
-    branch_name_deepLearning=$2
+    cd /home/agridata/code/projects/$git_repo_name
+    branch_name=$2
 
-    git remote rm origin
-    git remote add  origin "https://${git_user_name}:${git_password}@github.com/${git_organization_name}/${git_repo_name}"
-    git fetch --all
-    git checkout $branch_name_deepLearning
-    git config --global user.email "bot@agridata.ai"
-    git config --global user.name "Windows Instance Bot"
-    git merge origin/$branch_name_deepLearning --no-edit
-    git checkout --theirs .
-    git add -u
-    git commit -m "merge" --no-edit
-    git checkout $branch_name_deepLearning
+    git_sync_core $git_repo_name $branch_name
+
+    #git remote rm origin
+    #git remote add  origin "https://${git_user_name}:${git_password}@github.com/${git_organization_name}/${git_repo_name}"
+    #git fetch --all
+    #git checkout $branch_name
+    #git config --global user.email "bot@agridata.ai"
+    #git config --global user.name "Windows Instance Bot"
+    #git merge origin/$branch_name --no-edit
+    #git checkout --theirs .
+    #git add -u
+    #git commit -m "merge" --no-edit
+    #git checkout $branch_name
 
 
 
