@@ -35,4 +35,4 @@ task['detection_params'] =  dict(
 '''
 
 # Send the task
-  channel.basic_publish(exchange='', routing_key=task['role'], body=json.dumps(task))
+channel.basic_publish(exchange='', routing_key=task['role'], body=json.dumps(task))
