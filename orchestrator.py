@@ -549,6 +549,9 @@ def preprocess(args):
             mlab.my_untar(video_dir, nargout=0)
             mlab.quit()
 
+            #foo
+            log('Unloaded tar files {}'.format(task['tarfiles']))
+            """
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
             # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
@@ -594,6 +597,7 @@ def preprocess(args):
                     folders=[ os.path.basename(zipfile) ])
                 detectiontask['num_retries'] = 0         # Set as clean
                 sendtoServiceBus(args.service_bus, 'detection', detectiontask)
+            """
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
             sendtoServiceBus(args.service_bus, 'preprocess', task)
