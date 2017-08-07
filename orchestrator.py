@@ -466,6 +466,7 @@ def generateRVM(args):
         # Notify
         log('Received task: {}'.format(task))
 
+        '''
         # Start MATLAB
         mlab = matlabProcess()
 
@@ -513,6 +514,8 @@ def generateRVM(args):
         except Exception as err:
             emitSNSMessage('Failure on {}'.format(str(err)))
             pass
+        '''
+        sendtoKombu('preprocess',{'message':'This is a super fun task!'})
 
 
 @announce
@@ -541,86 +544,86 @@ def preprocess(ch, method, properties, body):
     '''
     Preprocessing method
     '''
-    # The task
-    task = json.loads(body)
-    ch.basic_ack(delivery_tag=method.delivery_tag)
+    while True:
+        # The task
+        task = receivefromKombu('preprocess')
 
-    # Notify
-    log('Received task: {}'.format(task))
+        # Notify
+        log('Received task: {}'.format(task))
 
-    '''
-    # Start MATLAB
-    mlab = matlabProcess()
-
-    try:
-        # Rebuild base scan info
-        rebuildScanInfo(task)
-
-        # Download the tarfiles
-        for tar in task['tarfiles']:
-            scanid = '_'.join(tar.split('_')[0:2])
-            key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
-            log('Downloading {}'.format(key))
-            s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
-
-        # Untar
+        '''
+        # Start MATLAB
         mlab = matlabProcess()
-        mlab.my_untar(video_dir, nargout=0)
-        mlab.quit()
 
-        # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
-        # because the multiprocessing library could not directly be called as some of the objects were
-        # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
-        # the function wrapper is necessary anymore
-        log('Preprocessing {} archives with {} MATLAB instances'.format(len(task['tarfiles']), NUM_MATLAB_INSTANCES))
-        workers = list()
-        for instance in range(NUM_MATLAB_INSTANCES):
-            worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocess', task])
-            worker.start()
-            workers.append(worker)
+        try:
+            # Rebuild base scan info
+            rebuildScanInfo(task)
 
-            # Short delay to stagger workers
-            time.sleep(2)
+            # Download the tarfiles
+            for tar in task['tarfiles']:
+                scanid = '_'.join(tar.split('_')[0:2])
+                key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
+                log('Downloading {}'.format(key))
+                s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
 
-        for worker in workers:
-            worker.join()
+            # Untar
+            mlab = matlabProcess()
+            mlab.my_untar(video_dir, nargout=0)
+            mlab.quit()
 
-        log('All MATLAB instances have finished')
+            # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
+            # because the multiprocessing library could not directly be called as some of the objects were
+            # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
+            # the function wrapper is necessary anymore
+            log('Preprocessing {} archives with {} MATLAB instances'.format(len(task['tarfiles']), NUM_MATLAB_INSTANCES))
+            workers = list()
+            for instance in range(NUM_MATLAB_INSTANCES):
+                worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocess', task])
+                worker.start()
+                workers.append(worker)
 
-        # Pre file upload, recreate relevant parts of analysis_struct
-        analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
-        analysis_struct['video_folder'] = video_dir
+                # Short delay to stagger workers
+                time.sleep(2)
 
-        # S3 results path
-        analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''))
+            for worker in workers:
+                worker.join()
 
-        # Hand-off to detection
-        zips = glob.glob(analysis_struct['video_folder'] + '/*.zip')
-        log('Success, found {} zip files. Creating Detection tasks.'.format(len(zips)))
-        for zipfile in zips:
-            detectiontask = task
-            detectiontask['detection_params'] =  dict(
-                bucket='agridatadepot',
-                base_url_path='{}/results/farm_{}/block_{}/{}'.format(task['clientid'],task['farmname'].replace(' ',''), task['blockname'].replace(' ', ''),RESULTS_PREFIX),
-                input_path='preprocess-frames',
-                output_path='detection',
-                caffemodel_s3_url_cluster='s3://deeplearning_data/models/best/post-bloom_july_29_2017_390000.caffemodel',
-                caffemodel_s3_url_trunk='s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel',
-                s3_aws_access_key_id='AKIAJC7XVEAQELBKAANQ',
-                s3_aws_secret_access_key='YlPBiE9s9LV5+ruhKqQ0wsZgj3ZFp6psF6p5OBpZ',
-                session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S.%f').replace('.','-'),
-                folders=[ os.path.basename(zipfile) ])
-            detectiontask['num_retries'] = 0         # Set as clean
-            sendtoRMQ('detection', detectiontask)
-    except ClientError:
-        # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-        sendtoRMQ('preprocess', task)
-        pass
-    except Exception as e:
-        task['message'] = traceback.print_exc() + ' : ' + e
-        handleFailedTask('preprocess', task)
-        pass
-    '''
+            log('All MATLAB instances have finished')
+
+            # Pre file upload, recreate relevant parts of analysis_struct
+            analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
+            analysis_struct['video_folder'] = video_dir
+
+            # S3 results path
+            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''))
+
+            # Hand-off to detection
+            zips = glob.glob(analysis_struct['video_folder'] + '/*.zip')
+            log('Success, found {} zip files. Creating Detection tasks.'.format(len(zips)))
+            for zipfile in zips:
+                detectiontask = task
+                detectiontask['detection_params'] =  dict(
+                    bucket='agridatadepot',
+                    base_url_path='{}/results/farm_{}/block_{}/{}'.format(task['clientid'],task['farmname'].replace(' ',''), task['blockname'].replace(' ', ''),RESULTS_PREFIX),
+                    input_path='preprocess-frames',
+                    output_path='detection',
+                    caffemodel_s3_url_cluster='s3://deeplearning_data/models/best/post-bloom_july_29_2017_390000.caffemodel',
+                    caffemodel_s3_url_trunk='s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel',
+                    s3_aws_access_key_id='AKIAJC7XVEAQELBKAANQ',
+                    s3_aws_secret_access_key='YlPBiE9s9LV5+ruhKqQ0wsZgj3ZFp6psF6p5OBpZ',
+                    session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S.%f').replace('.','-'),
+                    folders=[ os.path.basename(zipfile) ])
+                detectiontask['num_retries'] = 0         # Set as clean
+                sendtoRMQ('detection', detectiontask)
+        except ClientError:
+            # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
+            sendtoRMQ('preprocess', task)
+            pass
+        except Exception as e:
+            task['message'] = traceback.print_exc() + ' : ' + e
+            handleFailedTask('preprocess', task)
+            pass
+        '''
 
 
 @announce 
@@ -821,5 +824,4 @@ if __name__ == '__main__':
             emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
     except Exception as e:
         # TODO: Capture other signals to close the RMQ connection?
-        rmq_connection.close()
         emitSNSMessage(str(e))
