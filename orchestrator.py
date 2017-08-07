@@ -5,12 +5,9 @@ import json
 import logging
 import subprocess
 import tarfile
-import glob
-import sys
 import os
 import re
 import time
-import pika
 import boto3
 import shutil
 import socket
@@ -26,6 +23,7 @@ import numpy as np
 
 from bson.objectid import ObjectId
 from botocore.exceptions import ClientError
+from kombu import Connection
 
 # AgriData
 from utils.models_min import *
@@ -73,17 +71,6 @@ from azure.servicebus import ServiceBusService, Message, Queue
 service_bus = ServiceBusService(config.get('service_bus', 'service_namespace'),
                                 config.get('service_bus', 'shared_access_key_name'),
                                 config.get('service_bus', 'shared_access_key_value'))
-
-# RabbitMQ connection (with generic channl)
-rmq_connection = pika.BlockingConnection(pika.URLParameters('amqp://{}:{}@{}/{}'.format(
-                                config.get('rmq', 'username'),
-                                config.get('rmq', 'password'),
-                                config.get('rmq', 'hostname'),
-                                config.get('rmq', 'vhost'))))
-channel = rmq_connection.channel()
-# Ensure that queues exist
-for q in ['rvm', 'preprocess', 'detection', 'process', 'postprocess', 'dlq']:
-    channel.queue_declare(queue=q)
 
 # Initialize logging
 logger = logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
@@ -383,16 +370,27 @@ def receivefromServiceBus(service_bus, queue, lock=False):
 
     return msg
 
-
 @announce
 def sendtoRMQ(queue, message):
+    '''
+    Here we send a message to a RabbitMQ queue. Opening new channels does involve
+    presumably some overhead, so in the future, batch messaging may be useful
+    '''
     if type(message) is not dict:
         message = json.dumps(message)
 
+    # Open the channel
+    conn = pika.BlockingConnection(pika.URLParameters('amqp://{}:{}@{}/'.format(
+                                config.get('rmq', 'username'),
+                                config.get('rmq', 'password'),
+                                config.get('rmq', 'hostname'))))
+    channel = conn.channel()
+    # Send
     channel.basic_publish(exchange='',
                           routing_key=queue,
                           body=json.dumps(message))
-
+    # Close the channel
+    channel.close()
 
 @announce
 def emitSNSMessage(message, context=None, topic='statuslog'):
@@ -400,9 +398,9 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
 
     # Ensure type (change to JSON)
     if type(message) == str:
-        _message = dict()				# Save as temp variable
+        _message = dict()               # Save as temp variable
         _message = {'info': message}
-        message = _message				# Unwrap
+        message = _message              # Unwrap
 
     # Main payload
     payload = {
@@ -434,63 +432,87 @@ def log(message):
 
 
 @announce
-def generateRVM(ch, method, properties, body):
+def receivefromKombu(queue):
+    with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
+                                                    config.get('rmq', 'password'),
+                                                    config.get('rmq', 'hostname'))) as kbu:
+        q = kbu.SimpleQueue(queue)
+        message = q.get(block=True)
+        message.ack()
+        q.close()
+        return message.payload
+
+
+@announce
+def sendtoKombu(queue, message):
+    with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
+                                                    config.get('rmq', 'password'),
+                                                    config.get('rmq', 'hostname'))) as kbu:
+        q = kbu.SimpleQueue(queue)
+        q.put(message)
+        q.close()
+
+
+@announce
+def generateRVM(args):
     '''
     Given a set of scans (or one scan), generate a row video map.
     '''
-    # The task
-    task = json.loads(body)
 
-    # Notify
-    log('Received task: {}'.format(task))
+    while True:
+        # The task
+        task = receivefromKombu('rvm')
 
-    # Start MATLAB
-    mlab = matlabProcess()
+        # Notify
+        log('Received task: {}'.format(task))
 
-    try:
-        # Obtain the scan
+        # Start MATLAB
+        mlab = matlabProcess()
+
         try:
-            scan = Scan.objects.get(client=task['clientid'], scanid=task['scanids'][0])
-        except:
-            scan = Scan.objects.get(client=ObjectId(task['clientid']), scanid=task['scanids'][0])
+            # Obtain the scan
+            try:
+                scan = Scan.objects.get(client=task['clientid'], scanid=task['scanids'][0])
+            except:
+                scan = Scan.objects.get(client=ObjectId(task['clientid']), scanid=task['scanids'][0])
 
-        block = Block.objects.get(id=scan.blocks[0])
-        task['blockid']     = str(block.id)
-        task['blockname']   = block.name
-        task['farmid']      = str(block.farm)
-        task['farmname']    = Farm.objects.get(id=block.farm).name.replace(' ','')
+            block = Block.objects.get(id=scan.blocks[0])
+            task['blockid']     = str(block.id)
+            task['blockname']   = block.name
+            task['farmid']      = str(block.farm)
+            task['farmname']    = Farm.objects.get(id=block.farm).name.replace(' ','')
 
-        # Check staging database for previous scans of this block
-        # staged = db.staging.find({'block': scan.blocks[0]})
-        # if staged:
-        #    task['scanids'] = task['scanids'] + [s['_id'] for s in staged]
+            # Check staging database for previous scans of this block
+            # staged = db.staging.find({'block': scan.blocks[0]})
+            # if staged:
+            #    task['scanids'] = task['scanids'] + [s['_id'] for s in staged]
 
-        # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
-        log('Calculating RVM')
-        s3uri, localuri = mlab.runTask('rvm', task['clientid'], task['scanids'], task)
-        task['rvm_uri'] = s3uri
+            # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
+            log('Calculating RVM')
+            s3uri, localuri = mlab.runTask('rvm', task['clientid'], task['scanids'], task)
+            task['rvm_uri'] = s3uri
 
-        # Check for completeness
-        data = pd.read_csv(localuri, header=0)
-        rows_found = len(set([(r, d) for r,d in zip(data['rows'],data['direction'])])) / 2
-        if rows_found < block.num_rows * 0.5:
-            emitSNSMessage('RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
-        elif rows_found > block.num_rows:
-            emitSNSMessage('Too many rows found (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
-        else:
-            # Generate tar files and eliminate NaNs
-            tarfiles = pd.Series.unique(data['file'])
+            # Check for completeness
+            data = pd.read_csv(localuri, header=0)
+            rows_found = len(set([(r, d) for r,d in zip(data['rows'],data['direction'])])) / 2
+            if rows_found < block.num_rows * 0.5:
+                emitSNSMessage('RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
+            elif rows_found > block.num_rows:
+                emitSNSMessage('Too many rows found (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
+            else:
+                # Generate tar files and eliminate NaNs
+                tarfiles = pd.Series.unique(data['file'])
 
-            # Split tarfiles
-            for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
-                task['tarfiles'] = [s for s in shard if s]
-                task['num_retries'] = 0         # Set as clean
-                sendtoRMQ('preprocess', task)
+                # Split tarfiles2
+                for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
+                    task['tarfiles'] = [s for s in shard if s]
+                    task['num_retries'] = 0         # Set as clean
+                    sendtoRMQ('preprocess', task)
 
-            log('RVM task complete')
-    except Exception as err:
-        emitSNSMessage('Failure on {}'.format(str(err)))
-        pass
+                log('RVM task complete')
+        except Exception as err:
+            emitSNSMessage('Failure on {}'.format(str(err)))
+            pass
 
 
 @announce
@@ -521,10 +543,12 @@ def preprocess(ch, method, properties, body):
     '''
     # The task
     task = json.loads(body)
+    ch.basic_ack(delivery_tag=method.delivery_tag)
 
     # Notify
     log('Received task: {}'.format(task))
 
+    '''
     # Start MATLAB
     mlab = matlabProcess()
 
@@ -596,6 +620,7 @@ def preprocess(ch, method, properties, body):
         task['message'] = traceback.print_exc() + ' : ' + e
         handleFailedTask('preprocess', task)
         pass
+    '''
 
 
 @announce 
@@ -718,15 +743,15 @@ def matlabProcess(startpath=r'C:\AgriData\Projects'):
 
 @announce
 def getComputerInfoString():
-	# Grab
-	ret = subprocess.check_output('ipconfig')
+    # Grab
+    ret = subprocess.check_output('ipconfig')
 
-	# FOrmat
-	ignore = [' . ','\r','\n']
-	for i in ignore:
-		ret = ret.replace(i,'')
+    # FOrmat
+    ignore = [' . ','\r','\n']
+    for i in ignore:
+        ret = ret.replace(i,'')
 
-	return ret
+    return ret
 
 
 def parse_args():
@@ -747,7 +772,6 @@ def parse_args():
                                 shared_access_key_value=args.shared_access_key_value)
     return args
 
-
 if __name__ == '__main__':
     # Initial decision points. It is important that these do not return anything. This requires that each task stream
     # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. The
@@ -763,19 +787,19 @@ if __name__ == '__main__':
     try:
         # RVM Generation
         if 'rvm' in roletype or 'jumpbox' in roletype:
-            channel.basic_consume(generateRVM, queue='rvm', no_ack=True)
+            generateRVM(args)
 
         # Preprocessing
         elif 'preproc' in roletype:
-            channel.basic_consume(preprocess, queue='preprocess', no_ack=True)
+            preprocess(args)
 
         # Detection
         elif 'detection' in roletype:
-            channel.basic_consume(detection, queue='detection', no_ack=True)
+            detection(args)
 
         # Process
         elif 'process' in roletype or 'xob' in roletype:
-            channel.basic_consume(process, queue='process', no_ack=True)
+            process(args)
 
         # Convert scan filenames and CSVs from old style to new style
         elif roletype == 'convert':
@@ -797,5 +821,5 @@ if __name__ == '__main__':
             emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
     except Exception as e:
         # TODO: Capture other signals to close the RMQ connection?
-        emitSNSMessage(str(e))
         rmq_connection.close()
+        emitSNSMessage(str(e))
