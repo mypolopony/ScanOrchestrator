@@ -53,10 +53,14 @@ else:
     assert(os.path.basename(os.getcwd()) == 'ScanOrchestrator')
     assert (os.path.isfile('./utils/poller.conf'))
     config.read('utils/poller.conf')
-
-    if os.path.isfile('./data/poller.conf'):
+    #override options with value for data dir
+    if os.path.isfile('./utils/poller.conf'):
         config2 = ConfigParser.ConfigParser()
-        config2.read('./data/poller.conf')
+        config2.read('./utils/poller.conf')
+        for s  in config2.sections():
+            for k,v in config2.items(s):
+                config2.set(s, k, v)
+
 
 
 # Temporary location for collateral in processing
@@ -619,7 +623,7 @@ def detection(args):
     '''
 
     from deepLearning.infra import detect_s3_az
-    logger.info('Config read: type:{}, {}'.format(dir(config), config))
+    logger.info('Config read: type:{}'.format(config))
     while True:
         try:
             log('Waiting for task')
