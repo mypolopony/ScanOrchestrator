@@ -491,6 +491,7 @@ def generateRVM(args):
                 for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
                     task['tarfiles'] = [s for s in shard if s]
                     task['num_retries'] = 0         # Set as clean
+                    task['time_stamp']='%s' % datetime.datetime.now()
                     sendtoServiceBus(args.service_bus, 'preprocess', task)
 
                 log('RVM task complete')
