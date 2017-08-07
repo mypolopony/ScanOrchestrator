@@ -623,7 +623,7 @@ def detection(args):
     '''
 
     from deepLearning.infra import detect_s3_az
-    logger.info('Config read: type:{}'.format(config))
+    logger.info('Config read: type:{}'.format(dict(config['env'])))
     while True:
         try:
             log('Waiting for task')
