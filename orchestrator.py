@@ -54,13 +54,14 @@ else:
     assert (os.path.isfile('./utils/poller.conf'))
     config.read('utils/poller.conf')
     #override options with value for data dir
+    """
     if os.path.isfile('./utils/poller.conf'):
         config2 = ConfigParser.ConfigParser()
         config2.read('./utils/poller.conf')
         for s  in config2.sections():
             for k,v in config2.items(s):
                 config2.set(s, k, v)
-
+    """
 
 
 # Temporary location for collateral in processing
@@ -536,7 +537,9 @@ def preprocess(args):
 
             # Rebuild base scan info
             rebuildScanInfo(task)
-
+            sendtoServiceBus(args.service_bus, 'dlq', task)
+            """
+            #foo
             # Download the tarfiles
             for tar in task['tarfiles']:
                 scanid = '_'.join(tar.split('_')[0:2])
@@ -549,9 +552,9 @@ def preprocess(args):
             mlab.my_untar(video_dir, nargout=0)
             mlab.quit()
 
-            #foo
+            
             log('Unloaded tar files {}'.format(task['tarfiles']))
-            """
+            
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
             # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
