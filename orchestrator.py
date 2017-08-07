@@ -642,7 +642,7 @@ def detection(args):
         except Exception, e:
             tb = traceback.format_exc()
             logger.error(tb)
-            task['message'] = e
+            task['message'] = str(e)
             log('Task FAILED. Reenqueueing... ({})'.format(task))
             handleFailedTask(args.service_bus, 'detection', task)
             pass
