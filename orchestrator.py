@@ -456,13 +456,24 @@ def generateRVM(args):
             else:
                 # Generate tar files and eliminate NaNs
                 tarfiles = pd.Series.unique(data['file'])
-
-                # Split tarfiles
-                for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
-                    task['tarfiles'] = [s for s in shard if s]
-                    task['num_retries'] = 0         # Set as clean
-                    sendtoServiceBus(args.service_bus, 'preprocess', task)
-
+                delim='\n'
+                with file('tarfile_log.txt', 'w') as fp:
+                    fp.write('====== tarfiles list begin ======' + delim)
+                
+                    for i in range(len(tarfiles)):
+                        fp.write('tarfile, {}, {}'.format(i, tarfiles[i]) + delim)
+                    fp.write('====== tarfiles list end ======' + delim)
+                    # Split tarfiles
+                    fp.write('====== tarfile split begin ======' + delim)
+                    #log('tarfile split: {}'.format(np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR))))
+                    i=0
+                    for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
+                        task['tarfiles'] = [s for s in shard if s]
+                        fp.write('tarfile, {}, {}'.format(i, task['tarfiles']) + delim)
+                        i += len(task['tarfiles'])
+                        task['num_retries'] = 0         # Set as clean
+                        sendtoServiceBus(args.service_bus, 'preprocess', task)
+                    fp.write('====== tarfile split end ======' + delim)
                 log('RVM task complete')
         except Exception as err:
             emitSNSMessage('Failure on {}'.format(str(err)))
@@ -499,12 +510,16 @@ def preprocess(args):
     # Here is the number of children to spawn
     NUM_MATLAB_INSTANCES = 4
 
+    count = 0
+
     while True:
         try:
             log('Waiting for task')
             task = receivefromServiceBus(args.service_bus, 'preprocess')
             log('Received preprocessing task: {}'.format(task))
-
+            print('Received: {}, Queue size: {}'.format(count, args.service_bus.get_queue('preprocess').message_count))
+            count += 1
+            '''
             # Rebuild base scan info
             rebuildScanInfo(task)
 
@@ -565,6 +580,7 @@ def preprocess(args):
                     folders=[ os.path.basename(zipfile) ])
                 detectiontask['num_retries'] = 0         # Set as clean
                 sendtoServiceBus(args.service_bus, 'detection', detectiontask)
+            '''
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
             sendtoServiceBus(args.service_bus, 'preprocess', task)
@@ -746,6 +762,7 @@ if __name__ == '__main__':
         # RVM Generation
         elif 'rvm' in roletype or 'jumpbox' in roletype:
             generateRVM(args)
+            #preprocess(args)
 
         # Detection
         elif roletype == 'detection':
