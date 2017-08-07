@@ -538,8 +538,7 @@ def preprocess(args):
 
             # Rebuild base scan info
             rebuildScanInfo(task)
-            sendtoServiceBus(args.service_bus, 'dlq', task)
-            """
+
             #foo
             # Download the tarfiles
             for tar in task['tarfiles']:
@@ -555,7 +554,8 @@ def preprocess(args):
 
             
             log('Unloaded tar files {}'.format(task['tarfiles']))
-            
+            """
+            #foo
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
             # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
