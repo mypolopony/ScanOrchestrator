@@ -44,6 +44,10 @@ aws s3 cp s3://agridataselwyn/extern C:\AgriData\Projects\MatlabCore\extern\ --r
 cp C:\AgriData\Projects\MatlabCore\extern\vlfeat-0.9.20\bin\win64\vcomp100.dll C:\Windows\System32
 
 
+## Pip Dependencies (bake into future images)
+pip install pika
+
+
 ### Launch Orchestrator
 echo "$(Get-Date): Launching Orchestrator" >> C:\Users\agridata\startup.log
 pythonw C:\AgriData\Projects\ScanOrchestrator\orchestrator.py

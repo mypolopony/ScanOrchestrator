@@ -762,15 +762,15 @@ if __name__ == '__main__':
 
     try:
         # RVM Generation
-        elif 'rvm' in roletype or 'jumpbox' in roletype:
+        if 'rvm' in roletype or 'jumpbox' in roletype:
             channel.basic_consume(generateRVM, queue='rvm', no_ack=True)
 
         # Preprocessing
-        if 'preproc' in roletype:
+        elif 'preproc' in roletype:
             channel.basic_consume(preprocess, queue='preprocess', no_ack=True)
 
         # Detection
-        elif 'detection' in roletype::
+        elif 'detection' in roletype:
             channel.basic_consume(detection, queue='detection', no_ack=True)
 
         # Process
