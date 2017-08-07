@@ -2,10 +2,10 @@ import datetime
 import time
 import json
 from pprint import pprint
-from azure.servicebus import ServiceBusService, Message, Queue
-service_bus = ServiceBusService(service_namespace='agridataqueues',
-                                shared_access_key_name='sharedaccess',
-                                shared_access_key_value='cWonhEE3LIQ2cqf49mAL2uIZPV/Ig85YnyBtdb1z+xo=')
+
+import pika
+connection = pika.BlockingConnection(pika.URLParameters('amqp://agridata:agridata@boringmachine/'))
+channel = connection.channel()
 
 # Task definition - Start with RVM
 task = {
@@ -35,4 +35,4 @@ task['detection_params'] =  dict(
 '''
 
 # Send the task
-service_bus.send_queue_message(task['role'], Message(json.dumps(task)))
+channel.basic_publish(exchange='', routing_key='hello', body=json.dumps(task))
