@@ -50,7 +50,12 @@ if os.name == 'nt':
     import matlab.engine
     config.read(r'C:\AgriData\Projects\ScanOrchestrator\utils\poller.conf')
 else:
-    config.read('utils/poller.conf')
+    print('current wd is %r' % os.path.basename(os.getcwd()))
+    if os.path.isfile('./data/poller.conf'):
+        config.read('./utils/poller.conf')
+    else:
+        assert(os.path.isfile('./utils/poller.conf'))
+        config.read('utils/poller.conf')
 
 # Temporary location for collateral in processing
 tmpdir = config.get('env', 'tmpdir')
