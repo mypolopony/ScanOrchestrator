@@ -4,7 +4,7 @@
 DELETE=0
 CREATE=1
 LOC=eastus
-while getopts d:c:p: opts; do
+while getopts d:c:l: opts; do
    case ${opts} in
       d) DELETE=${OPTARG} ;;
       c) CREATE=${OPTARG} ;;
@@ -17,8 +17,8 @@ echo DELETE=$DELETE  CREATE=$CREATE LOC=$LOC
 
 
 
-KEY=processE
-RG=processE
+KEY=AEpreprocess
+RG=AEpreprocess
 OUTDIR=./output
 DEPLOYMENT_NAME=$KEY-depl
 mkdir -p $OUTDIR
@@ -30,10 +30,8 @@ fi
 
 if [ "$CREATE" -eq "1" ];then
     paramsJson=$(cat  $SRC_DIR/vmssdeploy.parameters.json | jq '.parameters')
-    echo creating resource group
+    echo creating resource group $RG
     az group create -n $RG   -l $LOC > $OUTDIR/$RG-output.json
-    echo creating storage account $STORAGE
-
 
     templateFile=$SRC_DIR/vmssdeploy.json
     paramsJson=$(cat  $SRC_DIR/vmssdeploy.parameters.json | jq '.parameters')
@@ -41,7 +39,7 @@ if [ "$CREATE" -eq "1" ];then
     echo $paramsJson
 
     #az group deployment validate -g $RG   --template-file $templateFile --parameters "$paramsJson" --verbose
-
+    echo creating deployment $DEPLOYMENT_NAME
     az group deployment create -g $RG  -n $DEPLOYMENT_NAME  --template-file $templateFile --parameters "$paramsJson" --verbose >  $OUTDIR/$DEPLOYMENT_NAME-output.json
 
 
