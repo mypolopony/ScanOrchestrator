@@ -340,23 +340,23 @@ def initiateScanProcess(scan):
 
 
 @announce
-def handleFailedTask(service_bus, queue, task):
+def handleFailedTask(args,  queue, task):
     '''
     Behavior for failed tasks
     '''
     MAX_RETRIES = 9         # Under peek.lock conditions, Azure sets a default of 10
 
     if 'num_retries' in task.keys() and task['num_retries'] >= MAX_RETRIES:
-        log('Max retries met for task, sending to DLQ: {}'.format(task))
-        sendtoServiceBus(service_bus, 'dlq', task)
+        log(args, 'Max retries met for task, sending to DLQ: {}'.format(task))
+        sendtoServiceBus(args.service_bus, 'dlq', task)
     else:
         # Num_retries should exist, so this check is just for safety
         task['num_retries'] += 1
-        log('Task FAILED. Re-enqueing: {}'.format(task))
+        log(args, 'Task FAILED. Re-enqueing: {}'.format(task))
 
         # Delete error message and reenqueue
         del task['message']
-        resendtoServiceBus(service_bus, queue, task)
+        resendtoServiceBus(args.service_bus, queue, task)
 
 
 
@@ -424,9 +424,10 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
 
 
 @announce
-def log(message):
+def log(args, message):
     # Let's send this message to the dashboard 
     payload = dict()
+    payload['session_name']=args.session_name
     payload['hostname'] = socket.gethostname()
     payload['ip'] = socket.gethostbyname(payload['hostname'])
     payload['message'] = message
@@ -450,9 +451,9 @@ def generateRVM(args):
 
     while True:
         try:
-            log('Waiting for task')
+            log(args, 'Waiting for task')
             task = receivefromServiceBus(args.service_bus, 'rvm')
-            log('Received RVM task')
+            log(args, 'Received RVM task')
 
             # Obtain the scan
             try:
@@ -472,7 +473,7 @@ def generateRVM(args):
             #    task['scanids'] = task['scanids'] + [s['_id'] for s in staged]
 
             # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
-            log('Calculating RVM')
+            log(args, 'Calculating RVM')
             s3uri, localuri = mlab.runTask('rvm', task['clientid'], task['scanids'], task)
             task['rvm_uri'] = s3uri
 
@@ -494,7 +495,7 @@ def generateRVM(args):
                     task['time_stamp']='%s' % datetime.datetime.now()
                     sendtoServiceBus(args.service_bus, 'preprocess', task)
 
-                log('RVM task complete')
+                log(args, 'RVM task complete')
         except Exception as err:
             emitSNSMessage('Failure on {}'.format(str(err)))
             pass
@@ -532,9 +533,9 @@ def preprocess(args):
 
     while True:
         try:
-            log('Waiting for task')
+            log(args, 'Waiting for task')
             task = receivefromServiceBus(args.service_bus, 'preprocess')
-            log('Received preprocessing task: {}'.format(task))
+            log(args, 'Received preprocessing task: {}'.format(task))
 
             # Rebuild base scan info
             rebuildScanInfo(task)
@@ -544,7 +545,7 @@ def preprocess(args):
             for tar in task['tarfiles']:
                 scanid = '_'.join(tar.split('_')[0:2])
                 key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
-                log('Downloading {}'.format(key))
+                log(args, 'Downloading {}'.format(key))
                 s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
 
             # Untar
@@ -553,15 +554,13 @@ def preprocess(args):
             mlab.quit()
 
             
-            log('kg: Unloaded tar files {}'.format(task['tarfiles']))
-            sendtoServiceBus(args.service_bus, 'dlq', task)
-            """
+            log(args, 'Unloaded tar files {}'.format(task['tarfiles']))
             #foo
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
             # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
             # the function wrapper is necessary anymore
-            log('Preprocessing {} archives with {} MATLAB instances'.format(len(task['tarfiles']), NUM_MATLAB_INSTANCES))
+            log(args, 'Preprocessing {} archives with {} MATLAB instances'.format(len(task['tarfiles']), NUM_MATLAB_INSTANCES))
             workers = list()
             for instance in range(NUM_MATLAB_INSTANCES):
                 worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocess', task])
@@ -574,7 +573,7 @@ def preprocess(args):
             for worker in workers:
                 worker.join()
 
-            log('All MATLAB instances have finished')
+            log(args, 'All MATLAB instances have finished')
 
             # Pre file upload, recreate relevant parts of analysis_struct
             analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
@@ -585,8 +584,8 @@ def preprocess(args):
 
             # Hand-off to detection
             zips = glob.glob(analysis_struct['video_folder'] + '/*.zip')
-            log('DEBUG: {}'.format(glob.glob(analysis_struct['video_folder'])))
-            log('Success, found {} zip files. Creating Detection tasks.'.format(len(zips)))
+            log(args, 'DEBUG: {}'.format(glob.glob(analysis_struct['video_folder'])))
+            log(args, 'Success, found {} zip files. Creating Detection tasks.'.format(len(zips)))
             for zipfile in zips:
                 detectiontask = task
                 detectiontask['detection_params'] =  dict(
@@ -602,14 +601,13 @@ def preprocess(args):
                     folders=[ os.path.basename(zipfile) ])
                 detectiontask['num_retries'] = 0         # Set as clean
                 sendtoServiceBus(args.service_bus, 'detection', detectiontask)
-            """
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
             sendtoServiceBus(args.service_bus, 'preprocess', task)
             pass
         except Exception as e:
             task['message'] = traceback.print_exc() + ' : ' + e
-            handleFailedTask(args.service_bus, 'preprocess', task)
+            handleFailedTask(args,  'preprocess', task)
             pass
 
 
@@ -635,9 +633,9 @@ def detection(args):
     #logger.info('Config read: type:{}'.format(dict(config['env'])))
     while True:
         try:
-            log('Waiting for task')
+            log(args, 'Waiting for task')
             task = receivefromServiceBus(args.service_bus, 'detection')
-            log('Received detection task: {}'.format(task))
+            log(args, 'Received detection task: {}'.format(task))
 
             t = task.get('detection_params', [])
             t.update(dict(caffemodel_s3_url_cluster=str(t['caffemodel_s3_url_cluster']),
@@ -658,14 +656,14 @@ def detection(args):
             # for now we expect only one element
             assert (len(s3keys) <= 1)
             task['detection_params']['result'] = s3keys if not s3keys  else  s3keys[0]
-            log('Success. Completed detection: {}'.format(task['detection_params']['result']))
+            log(args, 'Success. Completed detection: {}'.format(task['detection_params']['result']))
             sendtoServiceBus(args.service_bus, 'process', task)
         except Exception, e:
             tb = traceback.format_exc()
             logger.error(tb)
             task['message'] = str(e)
-            log('Task FAILED. Reenqueueing... ({})'.format(task))
-            handleFailedTask(args.service_bus, 'detection', task)
+            log('args, Task FAILED. Reenqueueing... ({})'.format(task))
+            handleFailedTask(args, 'detection', task)
             pass
 
 
@@ -680,10 +678,10 @@ def process(args):
 
     while True:
         try:
-            log('Waiting for task')
+            log(args, 'Waiting for task')
             task = receivefromServiceBus(args.service_bus, 'process')
             multi_task = [task]
-            log('Received processing task')
+            log(args, 'Received processing task')
 
             # Rebuild base scan info
             rebuildScanInfo(task)
@@ -693,13 +691,13 @@ def process(args):
                 multi_task.append(receivefromServiceBus(args.service_bus, 'process'))
 
             # Launch tasks
-            log('Processing group of {} archives'.format(len(multi_task)))
+            log(args, 'Processing group of {} archives'.format(len(multi_task)))
             workers = list()
             for task in multi_task:
                 for zipfile in task['detection_params']['folders']:
                     scanid = '_'.join(zipfile.split('_')[0:2])
                     key = '{}/results/farm_{}/block_{}/temp/detection/{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), zipfile)
-                    log('Downloading {}'.format(key))
+                    log(args, 'Downloading {}'.format(key))
                     s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, zipfile))
                 worker = multiprocess.Process(target=launchMatlabTasks, args=['process', task])
                 worker.start()
@@ -711,7 +709,7 @@ def process(args):
             for worker in workers:
                 worker.join()
 
-            log('All MATLAB instances have finished')
+            log(args, 'All MATLAB instances have finished')
 
             # Pre file upload, recreate relevant parts of analysis_struct
             analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
@@ -721,14 +719,14 @@ def process(args):
             analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''))
 
             # Now what?
-            log('Processing done. {}'.format(task))
+            log(args, 'Processing done. {}'.format(task))
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
             sendtoServiceBus(args.service_bus, 'process', task)
             pass
         except Exception as e:
             task['message'] = e
-            handleFailedTask(args.service_bus, 'process', task)
+            handleFailedTask(args,  'process', task)
             pass
 
 
@@ -785,6 +783,7 @@ def getComputerInfoString():
 def parse_args():
     parser=argparse.ArgumentParser('orchestrator')
     default_role='Unknown'
+    default_session='drgntrrc1'
     default_service_namespace = 'agridataqueues2'
     default_shared_access_key_name = 'sharedaccess'
     default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
@@ -795,6 +794,8 @@ def parse_args():
     parser.add_argument('-v', '--shared_access_key_value', help='shared_access_key_value', dest='shared_access_key_value',
                         default=default_shared_access_key_value)
     parser.add_argument('-r', '--role', help='role', dest='role',
+                        default=default_role)
+    parser.add_argument('-s', '--session_name', help='session_name', dest='session_name',
                         default=default_role)
     args = parser.parse_args()
     args.service_bus = ServiceBusService(service_namespace=args.service_namespace,
@@ -818,7 +819,7 @@ if __name__ == '__main__':
     #if role is specified by args then that takes precedence, kg
     if args.role != 'Unknown':
         roletype=args.role
-    log('I\'m awake! Role type is {}'.format(roletype))
+    log(args, 'I\'m awake! Role type is {}'.format(roletype))
 
     try:
         # Preprocessing
