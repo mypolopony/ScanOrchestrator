@@ -559,7 +559,6 @@ def preprocess(args):
         # Notify
         log('Received task: {}'.format(task))
 
-        '''
         # Start MATLAB
         mlab = matlabProcess()
 
@@ -631,7 +630,6 @@ def preprocess(args):
             task['message'] = e
             handleFailedTask('preprocess', task)
             pass
-        '''
 
 
 @announce 
