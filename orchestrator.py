@@ -553,7 +553,8 @@ def preprocess(args):
             mlab.quit()
 
             
-            log('Unloaded tar files {}'.format(task['tarfiles']))
+            log('kg: Unloaded tar files {}'.format(task['tarfiles']))
+            sendtoServiceBus(args.service_bus, 'dlq', task)
             """
             #foo
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
