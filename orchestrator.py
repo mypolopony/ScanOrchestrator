@@ -827,4 +827,4 @@ if __name__ == '__main__':
             emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
     except Exception as e:
         # TODO: Capture other signals to close the RMQ connection?
-        emitSNSMessage(str(e))
+        emitSNSMessage('Fatal error: ' + str(e))
