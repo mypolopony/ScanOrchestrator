@@ -87,10 +87,16 @@
         },
         "defaultValue": ""
     },
-    "scriptArg1": {
+    "scanOrchestratorBranch": {
       "type": "string",
       "metadata": {
         "description": "The first argument to the extension script"
+      }
+    },
+    "deepLearningBranch": {
+      "type": "string",
+      "metadata": {
+        "description": "The second argument to the extension script"
       }
     }
   },
@@ -311,7 +317,7 @@
                     ]
                   },
                     "protectedSettings": {
-                        "commandToExecute": "[concat('bash ',parameters('customScriptName'), ' ', parameters('scriptArg1') )]",
+                        "commandToExecute": "[concat('bash ',parameters('customScriptName'), ' ', parameters('scanOrchestratorBranch'), ' ', parameters('deepLearningBranch'))]",
                         "storageAccountName":"agridatacomputestorage",
                         "storageAccountKey":"HTqbKnZ/9/lo+G1ohr+KUYteOZSsrh4yqkgIc0KwlaXc+lx6egTVsG2qHCYDm5B4efTT0KX+wk+bNZmZmgrNfA=="
                     }

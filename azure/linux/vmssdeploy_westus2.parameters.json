@@ -32,8 +32,11 @@
     "appPackage":{
         "value": "package.tar.gz"
     },
-    "scriptArg1": {
-         "value": "master"
+    "scanOrchestratorBranch": {
+         "value": "everett-wheeler"
+    },
+    "deepLearningBranch": {
+         "value": "dev2"
     }
   }
 }
