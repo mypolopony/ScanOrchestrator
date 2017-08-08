@@ -545,7 +545,7 @@ def rebuildScanInfo(task):
 
 
 @announce
-def preprocess(ch, method, properties, body):
+def preprocess(args):
     '''
     Preprocessing method
     '''
