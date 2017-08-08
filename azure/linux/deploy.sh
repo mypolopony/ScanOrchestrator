@@ -39,7 +39,7 @@ if [ "$CREATE" -eq "1" ];then
     echo $paramsJson
 
     #az group deployment validate -g $RG   --template-file $templateFile --parameters "$paramsJson" --verbose
-     az group deployment create -g $RG  -n $DEPLOYMENT_NAME  --template-file $templateFile --parameters "$paramsJson" --verbose >  $OUTDIR/$DEPLOYMENT_NAME-output.json
+    az group deployment create -g $RG  -n $DEPLOYMENT_NAME  --template-file $templateFile --parameters "$paramsJson" --verbose >  $OUTDIR/$DEPLOYMENT_NAME-output.json
 
 fi
 

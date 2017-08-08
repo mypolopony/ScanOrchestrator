@@ -756,10 +756,18 @@ def getComputerInfoString():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser('orchestrator')
-    default_role = 'Unknown'
-    default_session = 'drgntrrc1'
-
+    parser=argparse.ArgumentParser('orchestrator')
+    default_role='Unknown'
+    default_session='drgntrrc2'
+    default_service_namespace = 'agridataqueues2'
+    default_shared_access_key_name = 'sharedaccess'
+    default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
+    parser.add_argument('-n', '--service_namespace', help='service namespace', dest='service_namespace',
+                        default=default_service_namespace)
+    parser.add_argument('-k', '--shared_access_key_name', help='shared_access_key_name', dest='shared_access_key_name',
+                        default=default_shared_access_key_name)
+    parser.add_argument('-v', '--shared_access_key_value', help='shared_access_key_value', dest='shared_access_key_value',
+                        default=default_shared_access_key_value)
     parser.add_argument('-r', '--role', help='role', dest='role',
                         default=default_role)
     parser.add_argument('-s', '--session_name', help='session_name', dest='session_name',
