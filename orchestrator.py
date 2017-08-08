@@ -500,14 +500,16 @@ def generateRVM(args):
             emitSNSMessage('Failure on {}'.format(str(err)))
             pass
 
-
 @announce
 def rebuildScanInfo(task):
-    if os.path.exists(video_dir):
-        shutil.rmtree(video_dir)
-    os.makedirs(video_dir)
-    os.makedirs(video_dir + '\imu_basler')
-
+    try:
+        if os.path.exists(video_dir):
+            shutil.rmtree(video_dir)
+        os.makedirs(video_dir)
+        os.makedirs(video_dir + '\imu_basler')
+    #kgeorge: selwyn, please find the exception that is occuring here and catch that
+    except:
+        pass
     # Download log files
     for scan in task['scanids']:
         for file in s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
@@ -796,7 +798,7 @@ def parse_args():
     parser.add_argument('-r', '--role', help='role', dest='role',
                         default=default_role)
     parser.add_argument('-s', '--session_name', help='session_name', dest='session_name',
-                        default=default_role)
+                        default=default_session)
     args = parser.parse_args()
     args.service_bus = ServiceBusService(service_namespace=args.service_namespace,
                                 shared_access_key_name=args.shared_access_key_name,
