@@ -442,7 +442,7 @@ def receivefromKombu(queue, num = 1):
             message = q.get(block=True)
             message.ack()
             msgs.append(message.payload)
-            q.close()
+        q.close()
 
         # If only one task is requested, release it from the list
         if num == 1:
