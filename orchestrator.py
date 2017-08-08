@@ -525,10 +525,13 @@ def generateRVM(args):
 
 @announce
 def rebuildScanInfo(task):
-    if os.path.exists(video_dir):
-        shutil.rmtree(video_dir)
-    os.makedirs(video_dir)
-    os.makedirs(video_dir + '\imu_basler')
+    try:
+        if os.path.exists(video_dir):
+            shutil.rmtree(video_dir)
+        os.makedirs(video_dir)
+        os.makedirs(video_dir + '\imu_basler')
+    except:
+        pass
 
     # Download log files
     for scan in task['scanids']:
@@ -556,6 +559,7 @@ def preprocess(args):
         # Notify
         log('Received task: {}'.format(task))
 
+        '''
         # Start MATLAB
         mlab = matlabProcess()
 
@@ -627,6 +631,7 @@ def preprocess(args):
             task['message'] = traceback.print_exc() + ' : ' + e
             handleFailedTask('preprocess', task)
             pass
+        '''
 
 
 @announce 
