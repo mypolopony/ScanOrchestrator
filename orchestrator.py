@@ -624,7 +624,7 @@ def preprocess(args):
             sendtoKombu('preprocess', task)
             pass
         except Exception as e:
-            task['message'] = traceback.print_exc() + ' : ' + e
+            task['message'] = e
             handleFailedTask('preprocess', task)
             pass
 
@@ -790,7 +790,7 @@ if __name__ == '__main__':
     try:
         # RVM Generation
         if 'rvm' in roletype or 'jumpbox' in roletype:
-            generateRVM(args)
+            preprocess(args)
 
         # Preprocessing
         elif 'preproc' in roletype:
