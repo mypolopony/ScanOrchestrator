@@ -162,7 +162,7 @@ def poll(args):
                     logger.info('Queueing task {}/{}'.format(ridx, len(results)))
                     task = handleAWSMessage(result)             # Parse clientid and scanid
                     task['role'] = 'rvm'                        # Tag with the first task step
-                    sendtoRMQ('rvm', task)    # Send to the RVM queue
+                    sendtoKombu('rvm', task)    # Send to the RVM queue
                 except:
                     logger.error(traceback.print_exc())
                     logger.exception('Error while handling messge: {}'.format(result.body))
@@ -330,7 +330,7 @@ def handleFailedTask(queue, task):
 
     if 'num_retries' in task.keys() and task['num_retries'] >= MAX_RETRIES:
         log('Max retries met for task, sending to DLQ: {}'.format(task))
-        sendtoRMQ('dlq', task)
+        sendtoKombu('dlq', task)
     else:
         # Num_retries should exist, so this check is just for safety
         task['num_retries'] += 1
@@ -338,7 +338,7 @@ def handleFailedTask(queue, task):
 
         # Delete error message and reenqueue
         del task['message']
-        sendtoRMQ(queue, task)
+        sendtoKombu(queue, task)
 
 
 @announce
@@ -432,20 +432,24 @@ def log(message):
 
 
 @announce
-def receivefromKombu(queue):
+def receivefromKombu(queue, num = 1):
+    msgs = list()
     with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
                                                     config.get('rmq', 'password'),
                                                     config.get('rmq', 'hostname'))) as kbu:
-        while(True):
-            try:
-                q = kbu.SimpleQueue(queue)
-                message = q.get(block=True)
-                message.ack()
-                q.close()
-                return message.payload
-            except:
-                pass
+        while(len(msgs) < num and q.qsize > 0):
+            q = kbu.SimpleQueue(queue)
+            message = q.get(block=True)
+            message.ack()
+            msgs.append(message.payload)
+            q.close()
 
+        # If only one task is requested, release it from the list
+        if num == 1:
+            return msgs[0]
+        # Otherwise, return a list of tasks
+        else:
+            return msgs
 
 @announce
 def sendtoKombu(queue, message):
@@ -470,7 +474,6 @@ def generateRVM(args):
         # Notify
         log('Received task: {}'.format(task))
 
-        '''
         # Start MATLAB
         mlab = matlabProcess()
 
@@ -512,14 +515,12 @@ def generateRVM(args):
                 for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
                     task['tarfiles'] = [s for s in shard if s]
                     task['num_retries'] = 0         # Set as clean
-                    sendtoRMQ('preprocess', task)
+                    sendtoKombu('preprocess', task)
 
                 log('RVM task complete')
         except Exception as err:
             emitSNSMessage('Failure on {}'.format(str(err)))
             pass
-        '''
-        sendtoKombu('preprocess',{'message':'This is a super fun task!'})
 
 
 @announce
@@ -555,7 +556,6 @@ def preprocess(ch, method, properties, body):
         # Notify
         log('Received task: {}'.format(task))
 
-        '''
         # Start MATLAB
         mlab = matlabProcess()
 
@@ -618,16 +618,15 @@ def preprocess(ch, method, properties, body):
                     session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S.%f').replace('.','-'),
                     folders=[ os.path.basename(zipfile) ])
                 detectiontask['num_retries'] = 0         # Set as clean
-                sendtoRMQ('detection', detectiontask)
+                sendtoKombu('detection', detectiontask)
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-            sendtoRMQ('preprocess', task)
+            sendtoKombu('preprocess', task)
             pass
         except Exception as e:
             task['message'] = traceback.print_exc() + ' : ' + e
             handleFailedTask('preprocess', task)
             pass
-        '''
 
 
 @announce 
@@ -650,65 +649,62 @@ def detection(args):
 
 
 @announce
-def process(ch, method, properties, body):
+def process(args):
     '''
     Processing method
     '''
-     # The task
-    task = json.loads(body)
+    while True:
+        # The tasks
+        multi_task = receivefromKombu('process', num=NUM_MATLAB_INSTANCES)
 
-    # Notify
-    log('Received task: {}'.format(task))
+        # Notify
+        log('Received task: {}'.format(task))
 
-    # Start MATLAB
-    mlab = matlabProcess()
+        # Start MATLAB
+        mlab = matlabProcess()
 
-    try:
-        # Rebuild base scan info
-        rebuildScanInfo(task)
+        try:
+            # Rebuild base scan info (just use the first task)
+            rebuildScanInfo(multi_task[0])
 
-        # Wait for a group of scans equal to the number of MATLAB instances
-        while len(multi_task) < NUM_MATLAB_INSTANCES and service_bus.get_queue('process').message_count > 0:
-            multi_task.append(receivefromServiceBus(args.service_bus, 'process'))
+            # Launch tasks
+            log('Processing group of {} archives'.format(len(multi_task)))
+            workers = list()
+            for task in multi_task:
+                for zipfile in task['detection_params']['folders']:
+                    scanid = '_'.join(zipfile.split('_')[0:2])
+                    key = '{}/results/farm_{}/block_{}/{}/detection/{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), RESULTS_PREFIX, zipfile)
+                    log('Downloading {}'.format(key))
+                    s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, zipfile))
+                worker = multiprocess.Process(target=launchMatlabTasks, args=['process', task])
+                worker.start()
+                workers.append(worker)
 
-        # Launch tasks
-        log('Processing group of {} archives'.format(len(multi_task)))
-        workers = list()
-        for task in multi_task:
-            for zipfile in task['detection_params']['folders']:
-                scanid = '_'.join(zipfile.split('_')[0:2])
-                key = '{}/results/farm_{}/block_{}/{}/detection/{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), RESULTS_PREFIX, zipfile)
-                log('Downloading {}'.format(key))
-                s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, zipfile))
-            worker = multiprocess.Process(target=launchMatlabTasks, args=['process', task])
-            worker.start()
-            workers.append(worker)
+                # Delay is recommended to keep MATLAB processes from stepping on one another
+                time.sleep(4)
 
-            # Delay is recommended to keep MATLAB processes from stepping on one another
-            time.sleep(4)
+            for worker in workers:
+                worker.join()
 
-        for worker in workers:
-            worker.join()
+            log('All MATLAB instances have finished')
 
-        log('All MATLAB instances have finished')
+            # Pre file upload, recreate relevant parts of analysis_struct
+            analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
+            analysis_struct['video_folder'] = video_dir
 
-        # Pre file upload, recreate relevant parts of analysis_struct
-        analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
-        analysis_struct['video_folder'] = video_dir
+            # S3 results path
+            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''))
 
-        # S3 results path
-        analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''))
-
-        # Now what?
-        log('Processing done. {}'.format(task))
-    except ClientError:
-        # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-        sendtoRMQ('process', task)
-        pass
-    except Exception as e:
-        task['message'] = e
-        handleFailedTask('process', task)
-        pass
+            # Now what?
+            log('Processing done. {}'.format(task))
+        except ClientError:
+            # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
+            sendtoKombu('process', task)
+            pass
+        except Exception as e:
+            task['message'] = e
+            handleFailedTask('process', task)
+            pass
 
 
 @announce
@@ -794,7 +790,7 @@ if __name__ == '__main__':
     try:
         # RVM Generation
         if 'rvm' in roletype or 'jumpbox' in roletype:
-            preprocess(args)
+            generateRVM(args)
 
         # Preprocessing
         elif 'preproc' in roletype:

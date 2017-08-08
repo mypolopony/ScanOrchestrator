@@ -7,6 +7,14 @@ import pika
 connection = pika.BlockingConnection(pika.URLParameters('amqp://agridata:agridata@boringmachine/'))
 channel = connection.channel()
 
+from kombu import Connection
+
+def sendtoKombu(queue, message):
+    with Connection('amqp://agridata:agridata@boringmachine:5672//') as kbu:
+        q = kbu.SimpleQueue(queue)
+        q.put(task)
+        q.close()
+
 # Task definition - Start with RVM
 task = {
    'clientid'     : '5953469d1fb359d2a7a66287',
@@ -35,4 +43,5 @@ task['detection_params'] =  dict(
 '''
 
 # Send the task
-channel.basic_publish(exchange='', routing_key=task['role'], body=json.dumps(task))
+#channel.basic_publish(exchange='', routing_key=task['role'], body=json.dumps(task))
+sendtoKombu(task['role'], task)
