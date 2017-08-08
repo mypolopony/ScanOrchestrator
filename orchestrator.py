@@ -627,7 +627,7 @@ def preprocess(args):
             sendtoKombu('preprocess', task)
             pass
         except Exception as e:
-            task['message'] = traceback.print_exc() + ' : ' + e
+            task['message'] = e
             handleFailedTask('preprocess', task)
             pass
 
