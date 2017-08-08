@@ -436,11 +436,15 @@ def receivefromKombu(queue):
     with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
                                                     config.get('rmq', 'password'),
                                                     config.get('rmq', 'hostname'))) as kbu:
-        q = kbu.SimpleQueue(queue)
-        message = q.get(block=True)
-        message.ack()
-        q.close()
-        return message.payload
+        while(True):
+            try:
+                q = kbu.SimpleQueue(queue)
+                message = q.get(block=True)
+                message.ack()
+                q.close()
+                return message.payload
+            except:
+                pass
 
 
 @announce
@@ -790,7 +794,7 @@ if __name__ == '__main__':
     try:
         # RVM Generation
         if 'rvm' in roletype or 'jumpbox' in roletype:
-            generateRVM(args)
+            preprocess(args)
 
         # Preprocessing
         elif 'preproc' in roletype:
