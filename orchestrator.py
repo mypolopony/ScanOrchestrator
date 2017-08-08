@@ -437,8 +437,8 @@ def receivefromKombu(queue, num = 1):
     with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
                                                     config.get('rmq', 'password'),
                                                     config.get('rmq', 'hostname'))) as kbu:
+    	q = kbu.SimpleQueue(queue)
         while(len(msgs) < num and q.qsize > 0):
-            q = kbu.SimpleQueue(queue)
             message = q.get(block=True)
             message.ack()
             msgs.append(message.payload)
