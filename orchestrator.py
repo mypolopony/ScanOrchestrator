@@ -425,6 +425,7 @@ def log(message):
     payload['hostname'] = socket.gethostname()
     payload['ip'] = socket.gethostbyname(payload['hostname'])
     payload['message'] = message
+    payload['session_name'] = message['session_name']
 
     try:
         r = requests.post('http://dash.agridata.ai/orchestrator', json = payload)
