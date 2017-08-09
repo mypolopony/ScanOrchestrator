@@ -368,3 +368,9 @@ Wed, 09 Aug 2017 12:02:19 [INFO]: Starting MATLAB. . .
 Wed, 09 Aug 2017 12:02:34 [INFO]: ***** Executing launchMatlabTasks *****
 Wed, 09 Aug 2017 12:02:34 [INFO]: ***** Executing matlabProcess *****
 Wed, 09 Aug 2017 12:02:34 [INFO]: Starting MATLAB. . .
+Wed, 09 Aug 2017 12:49:58 [INFO]: ***** Executing identifyRole *****
+Wed, 09 Aug 2017 12:50:01 [INFO]: ***** Executing log *****
+Wed, 09 Aug 2017 12:57:11 [INFO]: ***** Executing identifyRole *****
+Wed, 09 Aug 2017 12:57:14 [INFO]: ***** Executing log *****
+Wed, 09 Aug 2017 12:57:14 [INFO]: ***** Executing preprocess *****
+Wed, 09 Aug 2017 12:57:14 [INFO]: ***** Executing receivefromKombu *****

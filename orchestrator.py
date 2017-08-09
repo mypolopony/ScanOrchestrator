@@ -814,7 +814,7 @@ if __name__ == '__main__':
     try:
         # RVM Generation
         if 'rvm' in roletype or 'jumpbox' in roletype:
-            preprocess(args)
+            generateRVM(args)
 
         # Preprocessing
         elif 'preproc' in roletype:
