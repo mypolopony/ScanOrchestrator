@@ -611,6 +611,10 @@ def preprocess(args):
             mlab.my_untar(video_dir, nargout=0)
             mlab.quit()
 
+            # Generate subtasks. We are going to give each MATLAB instance a particular subset of
+            # files
+            subtasks = np.array_split(tarfiles, int(len(task['tarfiles'])/NUM_MATLAB_INSTANCES))
+
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
             # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
@@ -618,7 +622,12 @@ def preprocess(args):
             log('Preprocessing {} archives with {} MATLAB instances'.format(len(task['tarfiles']), NUM_MATLAB_INSTANCES))
             workers = list()
             for instance in range(NUM_MATLAB_INSTANCES):
-                worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocess', task])
+                # Pick up subtasks
+                subtask = task
+                subtask['tarfiles'] = subtasks[instance]
+
+                # Run
+                worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocess', subtask])
                 worker.start()
                 workers.append(worker)
 
@@ -629,32 +638,6 @@ def preprocess(args):
                 worker.join()
 
             log('All MATLAB instances have finished')
-
-            # Pre file upload, recreate relevant parts of analysis_struct
-            analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
-            analysis_struct['video_folder'] = video_dir
-
-            # S3 results path
-            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''))
-
-            # Hand-off to detection
-            zips = glob.glob(analysis_struct['video_folder'] + '/*.zip')
-            log('Success, found {} zip files. Creating Detection tasks.'.format(len(zips)))
-            for zipfile in zips:
-                detectiontask = task
-                detectiontask['detection_params'] =  dict(
-                    bucket='agridatadepot',
-                    base_url_path='{}/results/farm_{}/block_{}/{}'.format(task['clientid'],task['farmname'].replace(' ',''), task['blockname'].replace(' ', ''),RESULTS_PREFIX),
-                    input_path='preprocess-frames',
-                    output_path='detection',
-                    caffemodel_s3_url_cluster='s3://deeplearning_data/models/best/post-bloom_july_29_2017_390000.caffemodel',
-                    caffemodel_s3_url_trunk='s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel',
-                    s3_aws_access_key_id='AKIAJC7XVEAQELBKAANQ',
-                    s3_aws_secret_access_key='YlPBiE9s9LV5+ruhKqQ0wsZgj3ZFp6psF6p5OBpZ',
-                    session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S.%f').replace('.','-'),
-                    folders=[ os.path.basename(zipfile) ])
-                detectiontask['num_retries'] = 0         # Set as clean
-                sendtoKombu('detection', detectiontask)
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
             sendtoKombu('preprocess', task)
