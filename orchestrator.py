@@ -436,7 +436,7 @@ def log(message):
     # TODO: Instead of sending session, we should send the task itself
     try:
         payload['session_name'] = json.loads(message['session_name'])
-    else:
+    except:
         payload['session_name'] = ''
 
     try:
