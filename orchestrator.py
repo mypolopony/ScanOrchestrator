@@ -632,7 +632,7 @@ def preprocess(args):
                 workers.append(worker)
 
                 # Short delay to stagger workers
-                time.sleep(15)
+                time.sleep(5)
 
             for worker in workers:
                 worker.join()
