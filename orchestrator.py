@@ -425,12 +425,19 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
 
 @announce
 def log(message):
-    # Let's send this message to the dashboard 
+    '''
+    Let's send this message to the dashboard 
+    '''
     payload = dict()
     payload['hostname'] = socket.gethostname()
     payload['ip'] = socket.gethostbyname(payload['hostname'])
     payload['message'] = message
-    payload['session_name'] = message['session_name']
+
+    # TODO: Instead of sending session, we should send the task itself
+    try:
+        payload['session_name'] = json.loads(message['session_name'])
+    else:
+        payload['session_name'] = ''
 
     try:
         r = requests.post('http://dash.agridata.ai/orchestrator', json = payload)
