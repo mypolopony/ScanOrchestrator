@@ -10,6 +10,7 @@ import re
 import time
 import boto3
 import shutil
+import pickle
 import socket
 import traceback
 import requests
@@ -96,7 +97,8 @@ logger.addHandler(ch)         # For sanity's sake, toggle console-handler and fi
 logger.addHandler(fh)
 
 # Canonical indows paths
-video_dir = r'C:\AgriData\Projects\videos'
+base_windows_path = r'C:\AgriData\Projects\\'
+video_dir = base_windows_path + 'videos'
 
 # Parameters                            # To calculate the number of separate tasks, 
 SHARD_FACTOR = 4                        # divide the number of rows by this factor
@@ -513,10 +515,19 @@ def generateRVM(args):
                 # Generate tar files and eliminate NaNs
                 tarfiles = pd.Series.unique(data['file'])
 
-                # Split tarfiles2
+                # Save this RVM .mat locally; it only helps for interactive sessions but is useful to
+                # recreate preprocessing tasks without having to re-run the RVM (provided it exists
+                # already on S3)
+                save_folder = base_windows_path + '\save'
+                if not os.path.exists(save_folder):
+                    os.mkdir(save_folder)
+                with open(save_folder + '\{}-rvm.mat'.format(task['blockname']),'wb') as savefile:
+                    pickle.dump({'task': task, 'tarfiles': tarfiles}, savefile)
+
+                # Split tarfiles
                 for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
                     task['tarfiles'] = [s for s in shard if s]
-                    task['num_retries'] = 0         # Set as clean
+                    task['num_retries'] = 0                 # Set as clean
                     sendtoKombu('preprocess', task)
 
                 log('RVM task complete')
