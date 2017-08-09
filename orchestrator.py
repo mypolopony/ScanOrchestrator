@@ -92,7 +92,8 @@ ch.setFormatter(formatter)
 fh.setFormatter(formatter)
 
 # Add handlers
-# logger.addHandler(ch)         # For sanity's sake, toggle console-handler and file-handler, but not both
+logger.addHandler(ch)         # For sanity's sake, toggle console-handler and file-handler, but not both
+logger.addHandler(fh)
 
 # Canonical indows paths
 video_dir = r'C:\AgriData\Projects\videos'
@@ -644,9 +645,14 @@ def launchMatlabTasks(taskname, task):
     A separate wrapper for multiple matlabs. It is called by multiprocess, which has the capability to
     pickle (actually, dill) a wider range of objects (like function wrappers)
     '''
-    mlab = matlabProcess()
-    mlab.runTask(taskname, task['clientid'], task['scanids'], task)
-    mlab.quit()
+    try:
+        mlab = matlabProcess()
+        mlab.runTask(taskname, task['clientid'], task['scanids'], task)
+        mlab.quit()
+    except Exception as e:
+        task['message'] = e
+        handleFailedTask('preprocess', task)
+        pass
 
 
 @announce
