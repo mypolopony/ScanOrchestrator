@@ -571,9 +571,6 @@ def preprocess(args):
             # Rebuild base scan info
             rebuildScanInfo(task)
 
-            # Start MATLAB
-            mlab = matlabProcess()
-
             # Download the tarfiles
             for tar in task['tarfiles']:
                 scanid = '_'.join(tar.split('_')[0:2])
