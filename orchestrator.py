@@ -338,7 +338,7 @@ def handleFailedTask(queue, task):
     else:
         # Num_retries should exist, so this check is just for safety
         task['num_retries'] += 1
-        log('Task FAILED. Re-enqueing: {}'.format(task))
+        log('Task FAILED. Re-enqueing: {}'.format(task), task['session_name'])
 
         # Delete error message and reenqueue
         del task['message']
@@ -424,20 +424,16 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
 
 
 @announce
-def log(message):
+def log(message, session_id=''):
     '''
     Let's send this message to the dashboard 
     '''
+    # TODO: Instead of sending session, we should send the task itself
     payload = dict()
     payload['hostname'] = socket.gethostname()
     payload['ip'] = socket.gethostbyname(payload['hostname'])
     payload['message'] = message
-
-    # TODO: Instead of sending session, we should send the task itself
-    try:
-        payload['session_name'] = json.loads(message['session_name'])
-    except:
-        payload['session_name'] = ''
+    payload['session_name'] = session_id
 
     try:
         r = requests.post('http://dash.agridata.ai/orchestrator', json = payload)
@@ -487,7 +483,7 @@ def generateRVM(args):
         task = receivefromKombu('rvm')
 
         # Notify
-        log('Received task: {}'.format(task))
+        log('Received task: {}'.format(task), task['session_name'])
 
         # Start MATLAB
         mlab = matlabProcess()
@@ -511,8 +507,8 @@ def generateRVM(args):
             #    task['scanids'] = task['scanids'] + [s['_id'] for s in staged]
 
             # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
-            log('Calculating RVM')
-            s3uri, localuri = mlab.runTask('rvm', task['clientid'], task['scanids'], task)
+            log('Calculating RVM', task['session_name'])
+            s3uri, localuri = mlab.runTask(task)
             task['rvm_uri'] = s3uri
 
             # Check for completeness
@@ -541,7 +537,7 @@ def generateRVM(args):
                     task['num_retries'] = 0                 # Set as clean
                     sendtoKombu('preprocess', task)
 
-                log('RVM task complete')
+                log('RVM task complete', task['session_name'])
         except Exception as err:
             emitSNSMessage('Failure on {}'.format(str(err)))
             pass
@@ -561,11 +557,11 @@ def rebuildScanInfo(task):
             os.makedirs(video_dir + '\imu_basler')
             success = True
         except IOError as e:
-            log('Rebuilding IO Error: {}'.format(e))
+            log('Rebuilding IO Error: {}'.format(e), task['session_name'])
             raise Exception(e)
             pass
         except Exception as e:
-            log('A serious error has occured rebuilding scan info: {}'.format(e))
+            log('A serious error has occured rebuilding scan info: {}'.format(e), task['session_name'])
             raise Exception(e)
 
 
@@ -594,7 +590,7 @@ def preprocess(args):
             task = receivefromKombu('preprocess')
 
             # Notify
-            log('Received task: {}'.format(task))
+            log('Received task: {}'.format(task), task['session_name'])
 
             # Rebuild base scan info
             rebuildScanInfo(task)
@@ -603,7 +599,7 @@ def preprocess(args):
             for tar in task['tarfiles']:
                 scanid = '_'.join(tar.split('_')[0:2])
                 key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
-                log('Downloading {}'.format(key))
+                log('Downloading {}'.format(key), task['session_name'])
                 s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
 
             # Untar
@@ -619,7 +615,7 @@ def preprocess(args):
             # because the multiprocessing library could not directly be called as some of the objects were
             # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
             # the function wrapper is necessary anymore
-            log('Preprocessing {} archives with {} MATLAB instances'.format(len(task['tarfiles']), NUM_MATLAB_INSTANCES))
+            log('Preprocessing {} archives with {} MATLAB instances'.format(len(task['tarfiles']), NUM_MATLAB_INSTANCES), task['session_name'])
             workers = list()
             for instance in range(NUM_MATLAB_INSTANCES):
                 # Pick up subtasks
@@ -637,7 +633,7 @@ def preprocess(args):
             for worker in workers:
                 worker.join()
 
-            log('All MATLAB instances have finished')
+            log('All MATLAB instances have finished', task['session_name'])
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
             sendtoKombu('preprocess', task)
@@ -649,14 +645,14 @@ def preprocess(args):
 
 
 @announce 
-def launchMatlabTasks(taskname, task):
+def launchMatlabTasks(task):
     '''
     A separate wrapper for multiple matlabs. It is called by multiprocess, which has the capability to
     pickle (actually, dill) a wider range of objects (like function wrappers)
     '''
     try:
         mlab = matlabProcess()
-        mlab.runTask(taskname, task['clientid'], task['scanids'], task)
+        mlab.runTask(task)
         mlab.quit()
     except Exception as e:
         task['message'] = e
@@ -682,7 +678,7 @@ def process(args):
         multi_task = receivefromKombu('process', num=NUM_MATLAB_INSTANCES)
 
         # Notify
-        log('Received task: {}'.format(task))
+        log('Received task: {}'.format(task), task['session_name'])
 
         # Start MATLAB
         mlab = matlabProcess()
@@ -692,13 +688,13 @@ def process(args):
             rebuildScanInfo(multi_task[0])
 
             # Launch tasks
-            log('Processing group of {} archives'.format(len(multi_task)))
+            log('Processing group of {} archives'.format(len(multi_task)), task['session_name'])
             workers = list()
             for task in multi_task:
                 for zipfile in task['detection_params']['folders']:
                     scanid = '_'.join(zipfile.split('_')[0:2])
                     key = '{}/results/farm_{}/block_{}/{}/detection/{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), RESULTS_PREFIX, zipfile)
-                    log('Downloading {}'.format(key))
+                    log('Downloading {}'.format(key), task['session_name'])
                     s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, zipfile))
                 worker = multiprocess.Process(target=launchMatlabTasks, args=['process', task])
                 worker.start()
@@ -710,7 +706,7 @@ def process(args):
             for worker in workers:
                 worker.join()
 
-            log('All MATLAB instances have finished')
+            log('All MATLAB instances have finished', task['session_name'])
 
             # Pre file upload, recreate relevant parts of analysis_struct
             analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
@@ -720,7 +716,7 @@ def process(args):
             analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''))
 
             # Now what?
-            log('Processing done. {}'.format(task))
+            log('Processing done. {}'.format(task), task['session_name'])
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
             sendtoKombu('process', task)
