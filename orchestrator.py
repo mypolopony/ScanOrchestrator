@@ -154,7 +154,7 @@ def poll(args):
             except Exception as e:
                 logger.error(traceback.print_exc())
                 logger.error('A problem occured: {}'.format(str(e)))
-                raise e
+                raise Exception(e)
 
             # For each result
             logger.info('Received {} tasks'.format(len(results)))
@@ -533,12 +533,18 @@ def rebuildScanInfo(task):
         try:
             if os.path.exists(video_dir):
                 shutil.rmtree(video_dir)
+
+            # Wait for a second: the previous call can sometimes returns early
+            time.sleep(5)
             os.makedirs(video_dir + '\imu_basler')
             success = True
-        except IOError:
+        except IOError as e:
+            log('Rebuilding IO Error: {}'.format(e))
+            raise Exception(e)
             pass
         except Exception as e:
-            raise log('An error occured rebuilding scan info: {}'.format(e))
+            log('A serious error has occured rebuilding scan info: {}'.format(e))
+            raise Exception(e)
 
 
     # Download log files
@@ -803,7 +809,7 @@ if __name__ == '__main__':
     try:
         # RVM Generation
         if 'rvm' in roletype or 'jumpbox' in roletype:
-            generateRVM(args)
+            preprocess(args)
 
         # Preprocessing
         elif 'preproc' in roletype:
