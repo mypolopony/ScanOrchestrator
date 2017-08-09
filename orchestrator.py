@@ -525,13 +525,19 @@ def generateRVM(args):
 
 @announce
 def rebuildScanInfo(task):
-    try:
-        if os.path.exists(video_dir):
-            shutil.rmtree(video_dir)
-        os.makedirs(video_dir)
-        os.makedirs(video_dir + '\imu_basler')
-    except:
-        pass
+    # Robust directory creation here
+    success = False
+    while not success:
+        try:
+            if os.path.exists(video_dir):
+                shutil.rmtree(video_dir)
+            os.makedirs(video_dir + '\imu_basler')
+            success = True
+        except IOError:
+            pass
+        except Exception as e:
+            raise log('An error occured rebuilding scan info: {}'.format(e))
+
 
     # Download log files
     for scan in task['scanids']:
@@ -553,18 +559,18 @@ def preprocess(args):
     Preprocessing method
     '''
     while True:
-        # The task
-        task = receivefromKombu('preprocess')
-
-        # Notify
-        log('Received task: {}'.format(task))
-
-        # Start MATLAB
-        mlab = matlabProcess()
-
         try:
+            # The task
+            task = receivefromKombu('preprocess')
+
+            # Notify
+            log('Received task: {}'.format(task))
+
             # Rebuild base scan info
             rebuildScanInfo(task)
+
+            # Start MATLAB
+            mlab = matlabProcess()
 
             # Download the tarfiles
             for tar in task['tarfiles']:
