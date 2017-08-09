@@ -141,6 +141,7 @@ def handleAWSMessage(result):
         # When tasks are received, they are temporarily marked as 'taken' but it is up to this process to actually
         # delete them or, failing that, default to releasing them back to the queue
 
+
 @announce
 def poll(args):
     start = datetime.datetime.now()
@@ -373,6 +374,7 @@ def receivefromServiceBus(service_bus, queue, lock=False):
 
     return msg
 
+
 @announce
 def sendtoRMQ(queue, message):
     '''
@@ -394,6 +396,7 @@ def sendtoRMQ(queue, message):
                           body=json.dumps(message))
     # Close the channel
     channel.close()
+
 
 @announce
 def emitSNSMessage(message, context=None, topic='statuslog'):
@@ -454,6 +457,7 @@ def receivefromKombu(queue, num = 1):
         # Otherwise, return a list of tasks
         else:
             return msgs
+
 
 @announce
 def sendtoKombu(queue, message):
