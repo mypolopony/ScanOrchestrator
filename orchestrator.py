@@ -613,7 +613,7 @@ def preprocess(args):
 
             # Generate subtasks. We are going to give each MATLAB instance a particular subset of
             # files
-            subtasks = np.array_split(tarfiles, int(len(task['tarfiles'])/NUM_MATLAB_INSTANCES))
+            subtars = np.array_split(tarfiles, int(len(task['tarfiles'])/NUM_MATLAB_INSTANCES))
 
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
@@ -624,7 +624,7 @@ def preprocess(args):
             for instance in range(NUM_MATLAB_INSTANCES):
                 # Pick up subtasks
                 subtask = task
-                subtask['tarfiles'] = subtasks[instance]
+                subtask['tarfiles'] = subtars[instance]
 
                 # Run
                 worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocess', subtask])
