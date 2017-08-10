@@ -450,7 +450,6 @@ def generateRVM(args):
             # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
             log('Calculating RVM', task['session_name'])
             mlab.runTask(task, nargout=0)
-            task['rvm_uri'] = s3uri
 
             # Check for completeness
             data = pd.read_csv(localuri, header=0)
