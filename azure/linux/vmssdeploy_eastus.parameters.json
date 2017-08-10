@@ -17,26 +17,26 @@
     "adminPassword": {
       "value": "AgriData2Win!"
     },
-    "sourceImageVhdUri":{
+    "sourceImageVhdUri": {
       "value": "https://kggamowstorage.blob.core.windows.net/vhds/linux_080817.vhd"
     },
-    "destinationFolder":{
-        "value": "/home/agridata"
+    "destinationFolder": {
+      "value": "/home/agridata"
     },
-    "serviceName":{
-        "value": "myservice"
+    "serviceName": {
+      "value": "myservice"
     },
-    "customScriptName":{
-        "value": "run.sh"
+    "customScriptName": {
+      "value": "run.sh"
     },
-    "appPackage":{
-        "value": "package.tar.gz"
+    "appPackage": {
+      "value": "package.tar.gz"
     },
     "scanOrchestratorBranch": {
-         "value": "develop"
+      "value": "develop"
     },
     "deepLearningBranch": {
-         "value": "dev2"
+      "value": "dev2"
     }
   }
 }

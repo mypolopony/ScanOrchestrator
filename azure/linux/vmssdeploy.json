@@ -47,45 +47,45 @@
     },
     "appPackage": {
       "type": "string",
-      "metadata":{
+      "metadata": {
         "description": "The source of the application package to copy using the configuration.sh script it should be inside the _artifacts/app folder"
       },
       "defaultValue": "package.tar.gz"
     },
     "destinationFolder": {
       "type": "string",
-      "metadata":{
-        "description":"path were the appPackage will be copied inside the Linux machine"
+      "metadata": {
+        "description": "path were the appPackage will be copied inside the Linux machine"
       },
       "defaultValue": "/nodeserver"
     },
     "serviceName": {
       "type": "string",
-      "metadata":{
-        "description":"name of the service that needs restart when the new package is copied"
+      "metadata": {
+        "description": "name of the service that needs restart when the new package is copied"
       },
       "defaultValue": "mainsite.service"
     },
-    "customScriptName":{
-      "type":"string",
+    "customScriptName": {
+      "type": "string",
       "metadata": {
         "description": "name of the custom script to be run by bash"
       },
       "defaultValue": "updateapp.sh"
     },
     "_artifactsLocation": {
-        "type": "string",
-        "metadata": {
-            "description": "The base URI where artifacts required by this template are located. When the template is deployed using the accompanying scripts, a private location in the subscription will be used and this value will be automatically generated."
-        },
-        "defaultValue": "https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/201-vmss-linux-customimage-autoscale"
+      "type": "string",
+      "metadata": {
+        "description": "The base URI where artifacts required by this template are located. When the template is deployed using the accompanying scripts, a private location in the subscription will be used and this value will be automatically generated."
+      },
+      "defaultValue": "https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/201-vmss-linux-customimage-autoscale"
     },
     "_artifactsLocationSasToken": {
-        "type": "securestring",
-        "metadata": {
-            "description": "The sasToken required to access _artifactsLocation.  When the template is deployed using the accompanying scripts, a sasToken will be automatically generated."
-        },
-        "defaultValue": ""
+      "type": "securestring",
+      "metadata": {
+        "description": "The sasToken required to access _artifactsLocation.  When the template is deployed using the accompanying scripts, a sasToken will be automatically generated."
+      },
+      "defaultValue": ""
     },
     "scanOrchestratorBranch": {
       "type": "string",
@@ -101,7 +101,7 @@
     }
   },
   "variables": {
-    "vmssName":  "[concat(resourceGroup().name, 'vmss')]",
+    "vmssName": "[concat(resourceGroup().name, 'vmss')]",
     "namingInfix": "[toLower(substring(concat(variables('vmssName'), uniqueString(resourceGroup().id)), 0, 9))]",
     "longNamingInfix": "[toLower(variables('vmssName'))]",
     "jumpBoxName": "[concat(variables('namingInfix'), 'jbox')]",
@@ -316,16 +316,15 @@
                       "https://agridatacomputestorage.blob.core.windows.net/scripts/run.sh"
                     ]
                   },
-                    "protectedSettings": {
-                        "commandToExecute": "[concat('bash ',parameters('customScriptName'), ' ', parameters('scanOrchestratorBranch'), ' ', parameters('deepLearningBranch'))]",
-                        "storageAccountName":"agridatacomputestorage",
-                        "storageAccountKey":"HTqbKnZ/9/lo+G1ohr+KUYteOZSsrh4yqkgIc0KwlaXc+lx6egTVsG2qHCYDm5B4efTT0KX+wk+bNZmZmgrNfA=="
-                    }
+                  "protectedSettings": {
+                    "commandToExecute": "[concat('bash ',parameters('customScriptName'), ' ', parameters('scanOrchestratorBranch'), ' ', parameters('deepLearningBranch'))]",
+                    "storageAccountName": "agridatacomputestorage",
+                    "storageAccountKey": "HTqbKnZ/9/lo+G1ohr+KUYteOZSsrh4yqkgIc0KwlaXc+lx6egTVsG2qHCYDm5B4efTT0KX+wk+bNZmZmgrNfA=="
+                  }
                 }
               }
             ]
           }
-
         }
       }
     }
