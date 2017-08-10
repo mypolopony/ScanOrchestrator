@@ -18,7 +18,7 @@ echo DELETE=$DELETE  CREATE=$CREATE LOC=$LOC
 
 
 
-RG="AEdetection"
+RG="BEdetection"
 OUTDIR=./output
 DEPLOYMENT_NAME=$RG-depl
 mkdir -p $OUTDIR
@@ -30,15 +30,16 @@ fi
 
 if [ "$CREATE" -eq "1" ];then
     paramsJson=$(cat  $SRC_DIR/vmssdeploy_$LOC.parameters.json | jq '.parameters')
-    echo creating resource group
+    echo az group create -n $RG   -l $LOC > $OUTDIR/$RG-output.json
     az group create -n $RG   -l $LOC > $OUTDIR/$RG-output.json
-    echo creating storage account $STORAGE
+
 
     templateFile=$SRC_DIR/vmssdeploy.json
     paramsJson=$(cat  $SRC_DIR/vmssdeploy_$LOC.parameters.json | jq '.parameters')
     echo $paramsJson
 
     #az group deployment validate -g $RG   --template-file $templateFile --parameters "$paramsJson" --verbose
+    echo az group deployment create -g $RG  -n $DEPLOYMENT_NAME  --template-file $templateFile --parameters "$paramsJson" --verbose >  $OUTDIR/$DEPLOYMENT_NAME-output.json
     az group deployment create -g $RG  -n $DEPLOYMENT_NAME  --template-file $templateFile --parameters "$paramsJson" --verbose >  $OUTDIR/$DEPLOYMENT_NAME-output.json
 
 fi

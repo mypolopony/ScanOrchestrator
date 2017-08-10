@@ -17,8 +17,18 @@
     "adminPassword": {
       "value": "AgriData2Win!"
     },
-    "sourceImageVhdUri": {
-      "value": "https://agridatacomputestorage.blob.core.windows.net/images/linux_0802.vhd"
+
+    "resourcesStorageAccount": {
+       "value": "agridatacomputestorage"
+    },
+    "resourcesStorageKey": {
+       "value": "HTqbKnZ/9/lo+G1ohr+KUYteOZSsrh4yqkgIc0KwlaXc+lx6egTVsG2qHCYDm5B4efTT0KX+wk+bNZmZmgrNfA=="
+    },
+    "customScriptUri": {
+       "value": "https://agridatacomputestorage.blob.core.windows.net/scripts/run.sh"
+    },
+    "sourceImageVhdUri":{
+      "value": "https://agridatacomputestorage.blob.core.windows.net/images/linux_080817.vhd"
     },
     "destinationFolder": {
       "value": "/home/agridata"
