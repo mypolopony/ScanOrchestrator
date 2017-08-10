@@ -96,14 +96,13 @@ fh.setFormatter(formatter)
 logger.addHandler(ch)         # For sanity's sake, toggle console-handler and file-handler, but not both
 logger.addHandler(fh)
 
-# Canonical indows paths
+# Canonical windows paths
 base_windows_path = r'C:\AgriData\Projects\\'
 video_dir = base_windows_path + 'videos'
 
 # Parameters                            # To calculate the number of separate tasks, 
 SHARD_FACTOR = 4                        # divide the number of rows by this factor
 NUM_MATLAB_INSTANCES = SHARD_FACTOR     # Each machine will spwn this number of MATLAB instances
-RESULTS_PREFIX = 'azure'
 
 
 def announce(func, *args, **kwargs):
@@ -535,6 +534,7 @@ def generateRVM(args):
                 for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
                     task['tarfiles'] = [s for s in shard if s]
                     task['num_retries'] = 0                 # Set as clean
+                    task['role'] = 'preprocess'
                     sendtoKombu('preprocess', task)
 
                 log('RVM task complete', task['session_name'])
@@ -604,12 +604,12 @@ def preprocess(args):
 
             # Untar
             mlab = matlabProcess()
-            mlab.my_untar(video_dir, nargout=0)
+            mlab.my_untar(video_dir, task['session_name'], nargout=0)
             mlab.quit()
 
             # Generate subtasks. We are going to give each MATLAB instance a particular subset of
             # files
-            subtars = np.array_split(tarfiles, int(len(task['tarfiles'])/NUM_MATLAB_INSTANCES))
+            subtars = np.array_split(task['tarfiles'], NUM_MATLAB_INSTANCES)
 
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
@@ -620,10 +620,10 @@ def preprocess(args):
             for instance in range(NUM_MATLAB_INSTANCES):
                 # Pick up subtasks
                 subtask = task
-                subtask['tarfiles'] = subtars[instance]
+                subtask['tarfiles'] = list(subtars[instance])
 
                 # Run
-                worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocess', subtask])
+                worker = multiprocess.Process(target=launchMatlabTasks, args=[subtask])
                 worker.start()
                 workers.append(worker)
 
@@ -693,7 +693,7 @@ def process(args):
             for task in multi_task:
                 for zipfile in task['detection_params']['folders']:
                     scanid = '_'.join(zipfile.split('_')[0:2])
-                    key = '{}/results/farm_{}/block_{}/{}/detection/{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), RESULTS_PREFIX, zipfile)
+                    key = '{}/results/farm_{}/block_{}/{}/detection/{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), task['session_name'], zipfile)
                     log('Downloading {}'.format(key), task['session_name'])
                     s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, zipfile))
                 worker = multiprocess.Process(target=launchMatlabTasks, args=['process', task])
@@ -810,7 +810,7 @@ if __name__ == '__main__':
     try:
         # RVM Generation
         if 'rvm' in roletype or 'jumpbox' in roletype:
-            generateRVM(args)
+            preprocess(args)
 
         # Preprocessing
         elif 'preproc' in roletype:
