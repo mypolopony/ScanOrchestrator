@@ -64,3 +64,45 @@ Elapsed time is 9.0 seconds
 This example will submit a job with 6 task(s) to the cluster.
 Elapsed time is 9.0 seconds
 Average time is 8.9 seconds
+
+
+
+
+
+Sequential Blackjack --
+Elapsed time is 18.5 seconds
+Elapsed time is 18.5 seconds
+Elapsed time is 18.8 seconds
+Elapsed time is 18.4 seconds
+Elapsed time is 18.7 seconds
+Elapsed time is 18.7 seconds
+Elapsed time is 17.9 seconds
+Elapsed time is 18.0 seconds
+Elapsed time is 17.5 seconds
+Elapsed time is 17.8 seconds
+Average time is 18.3 seconds
+
+
+
+Distributed Blackjack --
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 27.6 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 24.5 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 24.6 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 24.5 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 23.6 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 23.5 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 24.5 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 24.6 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 24.5 seconds
+This example will submit a job with 4 task(s) to the cluster.
+Elapsed time is 24.6 seconds
+Average time is 24.6 seconds

@@ -17,6 +17,9 @@ cp C:\AgriData\Projects\aws\credentials ~\.aws\
 [Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAJCTBYUIK37F3OUYA", "Machine")
 [Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "Machine")
 
+## Pip Dependencies (bake into future images)
+pip install pika
+pip install kombu
 
 ### Update ScanOrchestrator
 echo "$(Get-Date): Updating ScanOrchestrator" >> C:\Users\agridata\startup.log
@@ -25,7 +28,7 @@ git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/ScanOrchestrator.git"
 git gc --prune=now
 git fetch --all
-git reset --hard origin/everett-wheeler 
+git reset --hard origin/queues
 
 
 ### Update MatlabCore

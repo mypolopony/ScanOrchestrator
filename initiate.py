@@ -2,28 +2,27 @@ import datetime
 import time
 import json
 from pprint import pprint
-from azure.servicebus import ServiceBusService, Message, Queue
-service_bus = ServiceBusService(service_namespace='agridataqueues2',
-                                shared_access_key_name='sharedaccess',
-                                shared_access_key_value='eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA=')
+
+import pika
+connection = pika.BlockingConnection(pika.URLParameters('amqp://agridata:agridata@boringmachine/'))
+channel = connection.channel()
+
+from kombu import Connection
+
+def sendtoKombu(queue, message):
+    with Connection('amqp://agridata:agridata@boringmachine:5672//') as kbu:
+        q = kbu.SimpleQueue(queue)
+        q.put(task)
+        q.close()
 
 # Task definition - Start with RVM
-""""
-task = {
-   'clientid'     : '5953469d1fb359d2a7a66287',
-   'farmname'     : 'UpperRange',
-   'scanids'      : ['2017-06-30_10-01'],
-   'blockname'    : 'G2',
-   'role'         : 'rvm',
-   'test'         : True
-}
-"""
 task = {
    'clientid'     : '5953469d1fb359d2a7a66287',
    'farmname'     : 'Quintessa',
    'scanids'      : ['2017-07-11_09-57', '2017-07-11_13-59', '2017-07-11_09-57', '2017-07-11_13-59', '2017-07-12_08-19', '2017-07-12_09-04'],
    'blockname'    : 'Dragons Terrace',
    'role'         : 'rvm',
+   'session_name' : datetime.datetime.strftime(datetime.datetime.now(),'%m.%d.%H.%M'),
    'test'         : True
 }
 
@@ -45,4 +44,5 @@ task['detection_params'] =  dict(
 '''
 
 # Send the task
-service_bus.send_queue_message(task['role'], Message(json.dumps(task)))
+#channel.basic_publish(exchange='', routing_key=task['role'], body=json.dumps(task))
+sendtoKombu(task['role'], task)

@@ -1,5 +1,7 @@
 .DS_STORE
 .idea*
 *.pyc
+*.log
+*.mat
 extern/
 data/

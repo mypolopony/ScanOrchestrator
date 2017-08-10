@@ -1,68 +1,46 @@
 #!/usr/bin/python
 
 import ConfigParser
+import argparse
+import glob
 import json
 import logging
-import subprocess
-import tarfile
-import glob
-import sys
 import os
 import re
-import time
-import boto3
 import shutil
 import socket
+import subprocess
+import tarfile
+import time
 import traceback
-import requests
-import StringIO
-import datetime
-import glob
-import argparse
-import multiprocess
 
-import pandas as pd
+import boto3
+import multiprocess
 import numpy as np
-from collections import namedtuple
-from bson.objectid import ObjectId
+import pandas as pd
+import requests
 from botocore.exceptions import ClientError
+from bson.objectid import ObjectId
+from kombu import Connection
 
 # AgriData
-from utils.models_min import *
 from utils.connection import *
 
-
-#some relative paths
-from inspect import getsourcefile
-current_path = os.path.abspath(getsourcefile(lambda:0))
-parent_dir = os.path.split(os.path.dirname(current_path))[0]
-sys.path.insert(0, parent_dir)
-source_dir=os.path.dirname(current_path)
-
 # Operational parameters
-WAIT_TIME   = 20    # AWS wait time for messages
-NUM_MSGS    = 10    # Number of messages to grab at a time
-RETRY_DELAY = 60    # Number of seconds to wait upon encountering an error
+WAIT_TIME = 20  # AWS wait time for messages
+NUM_MSGS = 10  # Number of messages to grab at a time
+RETRY_DELAY = 60  # Number of seconds to wait upon encountering an error
 
 # Load config file
 config = ConfigParser.ConfigParser()
 if os.name == 'nt':
     import matlab.engine
+
     config.read(r'C:\AgriData\Projects\ScanOrchestrator\utils\poller.conf')
 else:
-    assert(os.path.basename(os.getcwd()) == 'ScanOrchestrator')
+    assert (os.path.basename(os.getcwd()) == 'ScanOrchestrator')
     assert (os.path.isfile('./utils/poller.conf'))
     config.read('utils/poller.conf')
-    #override options with value for data dir
-    """
-    if os.path.isfile('./utils/poller.conf'):
-        config2 = ConfigParser.ConfigParser()
-        config2.read('./utils/poller.conf')
-        for s  in config2.sections():
-            for k,v in config2.items(s):
-                config2.set(s, k, v)
-    """
-
 
 # Temporary location for collateral in processing
 tmpdir = config.get('env', 'tmpdir')
@@ -86,18 +64,11 @@ queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 # AWS Resources: SNS
 aws_arns = dict()
 aws_arns['statuslog'] = 'arn:aws:sns:us-west-2:090780547013:statuslog'
-sns = boto3.client('sns', region_name=config.get('sns','region'))
-
-# Azure Service Bus
-from azure.servicebus import ServiceBusService, Message, Queue
-service_bus = ServiceBusService(service_namespace='agridataqueues',
-                                shared_access_key_name='sharedaccess',
-                                shared_access_key_value='cWonhEE3LIQ2cqf49mAL2uIZPV/Ig85YnyBtdb1z+xo=')
-
+sns = boto3.client('sns', region_name=config.get('sns', 'region'))
 
 # Initialize logging
 logger = logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
-                    datefmt='%a, %d %b %Y %H:%M:%S')
+                             datefmt='%a, %d %b %Y %H:%M:%S')
 logger = logging.getLogger('default')
 logger.setLevel(logging.DEBUG)
 
@@ -115,10 +86,16 @@ ch.setFormatter(formatter)
 fh.setFormatter(formatter)
 
 # Add handlers
-# logger.addHandler(ch)         # For sanity's sake, toggle console-handler and file-handler, but not both
+logger.addHandler(ch)  # For sanity's sake, toggle console-handler and file-handler, but not both
+logger.addHandler(fh)
 
-# Canonical indows paths
-video_dir = r'C:\AgriData\Projects\videos'
+# Canonical windows paths
+base_windows_path = r'C:\AgriData\Projects\\'
+video_dir = base_windows_path + 'videos'
+
+# Parameters                            # To calculate the number of separate tasks,
+SHARD_FACTOR = 4  # divide the number of rows by this factor
+NUM_MATLAB_INSTANCES = SHARD_FACTOR  # Each machine will spwn this number of MATLAB instances
 
 
 def announce(func, *args, **kwargs):
@@ -142,10 +119,10 @@ def handleAWSMessage(result):
 
     # Split key into relevant types
     task = dict()
-    task['clientid']    = obj['key'].split('/')[0]
-    task['scanid']      = obj['key'].split('/')[1]
-    task['filename']    = obj['key'].split('/')[2]
-    task['size']        = float(obj['size']) / 1024.0
+    task['clientid'] = obj['key'].split('/')[0]
+    task['scanid'] = obj['key'].split('/')[1]
+    task['filename'] = obj['key'].split('/')[2]
+    task['size'] = float(obj['size']) / 1024.0
 
     logger.info('\tWorking on {} ({} MB)'.format(task['filename'], task['size']))
 
@@ -155,6 +132,7 @@ def handleAWSMessage(result):
         # Delete task / Re-enque task on fail
         # When tasks are received, they are temporarily marked as 'taken' but it is up to this process to actually
         # delete them or, failing that, default to releasing them back to the queue
+
 
 @announce
 def poll(args):
@@ -171,16 +149,16 @@ def poll(args):
             except Exception as e:
                 logger.error(traceback.print_exc())
                 logger.error('A problem occured: {}'.format(str(e)))
-                raise e
+                raise Exception(e)
 
             # For each result
             logger.info('Received {} tasks'.format(len(results)))
             for ridx, result in enumerate(results):
                 try:
                     logger.info('Queueing task {}/{}'.format(ridx, len(results)))
-                    task = handleAWSMessage(result)             # Parse clientid and scanid
-                    task['role'] = 'rvm'                        # Tag with the first task step
-                    sendtoServiceBus(args.service_bus, 'rvm',json.dumps(task))    # Send to the RVM queue
+                    task = handleAWSMessage(result)  # Parse clientid and scanid
+                    task['role'] = 'rvm'  # Tag with the first task step
+                    sendtoRabbitMQ('rvm', task)  # Send to the RVM queue
                 except:
                     logger.error(traceback.print_exc())
                     logger.exception('Error while handling messge: {}'.format(result.body))
@@ -219,11 +197,12 @@ def transformScan(scan):
     # be downloaded later. This process is expected to take some time, as resource on S3
     # cannot be moved but must be copied.
     pattern_cam = re.compile('[0-9]{8}')
-    for fidx, file in enumerate(s3.list_objects(Bucket=config.get('s3','bucket'),
+    for fidx, file in enumerate(s3.list_objects(Bucket=config.get('s3', 'bucket'),
                                                 Prefix='{}/{}'.format(scan.client, scan.scanid))['Contents']):
 
         # Exclude the folder itself
-        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)) and not file['Key'].startswith(scan.scanid):
+        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)) and not file['Key'].startswith(
+                scan.scanid):
             # Extract camera and timestamp for rearrangement
             camera = re.search(pattern_cam, file['Key']).group()
             time = '_'.join([file['Key'].split('_')[-2], file['Key'].split('_')[-1]])
@@ -247,13 +226,14 @@ def transformScan(scan):
                 s3r.Object(config.get('s3', 'bucket'), newfile).load()
             except:
                 logger.info('Renaming {} --> {}'.format(file['Key'], newfile))
-                s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(CopySource={'Bucket': config.get('s3', 'bucket'),
-                                                                                      'Key': file['Key']})
+                s3r.Object(config.get('s3', 'bucket'), newfile).copy_from(
+                    CopySource={'Bucket': config.get('s3', 'bucket'),
+                                'Key': file['Key']})
 
-            # Tthe Great Rename Fiasco of 2017 was brought about by this line. As files in the old format were deleted,
-            # boxes in the field began to began to re-upload imagery, starting with the earliest scans. The line is kept
-            # here as an historical exhibit.
-            # s3r.Object(config.get('s3', 'bucket'), file['Key']).delete()
+                # Tthe Great Rename Fiasco of 2017 was brought about by this line. As files in the old format were deleted,
+                # boxes in the field began to began to re-upload imagery, starting with the earliest scans. The line is kept
+                # here as an historical exhibit.
+                # s3r.Object(config.get('s3', 'bucket'), file['Key']).delete()
 
     # Download files required for tar inspection and cv update
     # Temporary file destination
@@ -263,22 +243,22 @@ def transformScan(scan):
 
     # Rsync scan to temporary folder
     logger.info('Downloading scan files. . . this can take a while')
-    
+
     # Download only the tars and csvs that have been renamed
     subprocess.call(['rclone',
-                    '--include', '{}*'.format(scan.scanid),
+                     '--include', '{}*'.format(scan.scanid),
                      '--config', '{}/.config/rclone/rclone.conf'.format(os.path.expanduser('~')),
-                     'copy', '{}:{}/{}/{}'.format(config.get('rclone','profile'),
-                                                   config.get('s3','bucket'),
-                                                   str(scan.client),
-                                                   str(scan.scanid)), dest])
+                     'copy', '{}:{}/{}/{}'.format(config.get('rclone', 'profile'),
+                                                  config.get('s3', 'bucket'),
+                                                  str(scan.client),
+                                                  str(scan.scanid)), dest])
 
     ## Add filenames column to CSV
     logger.info('Filling in CSV columns. . . this can also take a while. . .')
     offset = 0
     for csv in glob.glob(dest + '/{}*.csv'.format(scan.scanid)):
-        camera  = re.search(pattern_cam, csv).group()
-        log     = pd.read_csv(csv)
+        camera = re.search(pattern_cam, csv).group()
+        log = pd.read_csv(csv)
         archives = sorted(glob.glob(dest + '/*' + camera + '*.tar.gz'))
         try:
             for idx, tf in enumerate(archives):
@@ -290,11 +270,11 @@ def transformScan(scan):
                 print('{} : {}/{}'.format(camera, idx, len(archives)))
                 try:
                     # These are the recalculated frame numbers, i.e. line numbers in the log
-                    framenos = [int(m.name.replace('.jpg','')) - offset for m in tarfile.open(tf).getmembers()]
+                    framenos = [int(m.name.replace('.jpg', '')) - offset for m in tarfile.open(tf).getmembers()]
                     # Occasionally, there are more tar files than there are lines in the CSV, 
                     # but always no more than one (due to log file / image file race)
                     framenos = [f for f in framenos if f < len(log)]
-                    log.loc[framenos,'filename'] = tf
+                    log.loc[framenos, 'filename'] = tf
                 except:
                     logger.warning('Tar file {} could not be opened'.format(tf))
             log.to_csv(csv)
@@ -308,9 +288,9 @@ def transformScan(scan):
                      '--config', '{}/.config/rclone/rclone.conf'.format(os.path.expanduser('~')),
                      'copy', dest,
                      '{}:{}/{}/{}/'.format(config.get('rclone', 'profile'),
-                                                   config.get('s3', 'bucket'),
-                                                   str(scan.client),
-                                                   str(scan.scanid))])
+                                           config.get('s3', 'bucket'),
+                                           str(scan.client),
+                                           str(scan.scanid))])
 
     ## Delete from local
     # Using 'dest' explicitly will delete the scan folder but not the client folder. Here, we
@@ -328,74 +308,35 @@ def initiateScanProcess(scan):
     ## Check for formatting (old style -> new style)
     # These are the keys (files) in the scan directory
     s3base = '{}/{}'.format(str(scan.client), str(scan.scanid))
-    keys = [obj['Key'] for obj in s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=s3base)['Contents']]
+    keys = [obj['Key'] for obj in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=s3base)['Contents']]
 
     # IF there are no files that start with scanid, then we should convert!
     if not len([k for k in keys if k.split('/')[-1].startswith(scan.scanid)]):
         transformScan(scan)
-    # print('This feature disabled; a more intelligent service is required to perform transformation')
+        # print('This feature disabled; a more intelligent service is required to perform transformation')
 
-    # The scan is uploaded and ready to be placed in the 'ready' or 'rvm' queue, where it
-    # may be be evaluated for 'goodness'
+        # The scan is uploaded and ready to be placed in the 'ready' or 'rvm' queue, where it
+        # may be be evaluated for 'goodness'
 
 
 @announce
-def handleFailedTask(args,  queue, task):
+def handleFailedTask(queue, task):
     '''
     Behavior for failed tasks
     '''
-    MAX_RETRIES = 9         # Under peek.lock conditions, Azure sets a default of 10
+    MAX_RETRIES = 9  # Under peek.lock conditions, Azure sets a default of 10
 
     if 'num_retries' in task.keys() and task['num_retries'] >= MAX_RETRIES:
-        log(args, 'Max retries met for task, sending to DLQ: {}'.format(task))
-        sendtoServiceBus(args.service_bus, 'dlq', task)
+        log('Max retries met for task, sending to DLQ: {}'.format(task))
+        sendtoRabbitMQ('dlq', task)
     else:
         # Num_retries should exist, so this check is just for safety
         task['num_retries'] += 1
-        log(args, 'Task FAILED. Re-enqueing: {}'.format(task))
+        log('Task FAILED. Re-enqueing: {}'.format(task), task['session_name'])
 
         # Delete error message and reenqueue
         del task['message']
-        resendtoServiceBus(args.service_bus, queue, task)
-
-
-
-@announce
-def resendtoServiceBus(service_bus, queue, msg):
-    '''
-    This is plainly just a wrapper for a message to a service bus, maybe other messaging things will happen here
-    '''
-    service_bus.send_queue_message(queue, Message(json.dumps(msg)))
-
-
-@announce
-def sendtoServiceBus(service_bus, queue, msg):
-    '''
-    This is plainly just a wrapper for a message to a service bus, maybe other messaging things will happen here
-    '''
-    msg['num_retries'] = 0              # Reset number of retries
-    service_bus.send_queue_message(queue, Message(json.dumps(msg)))
-
-
-@announce
-def receivefromServiceBus(service_bus, queue, lock=False):
-    '''
-    A generic way of asking for work to do, based on the task. The default behavior, for longer running processes,
-    is for peek_lock to be False, which means deleting the message when it is received. This means that the
-    task process is responsible for re-enqueing the task if it fails. This 
-    '''
-    incoming = None
-    while not incoming:
-        incoming = service_bus.receive_queue_message(queue, peek_lock=lock).body
-
-    # Here, we can accept either properly formatted JSON strings or, if necessary, convert the
-    # quotes to make them compliant.
-    try:
-        msg = json.loads(incoming)
-    except:
-        msg = json.loads(incoming.replace("'",'"').replace('u"','"'))
-
-    return msg
+        sendtoRabbitMQ(queue, task)
 
 
 @announce
@@ -404,38 +345,72 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
 
     # Ensure type (change to JSON)
     if type(message) == str:
-        _message = dict()				# Save as temp variable
+        _message = dict()  # Save as temp variable
         _message = {'info': message}
-        message = _message				# Unwrap
+        message = _message  # Unwrap
 
     # Main payload
     payload = {
-        'message'   : message,
-        'topic_arn' : aws_arns[topic],
-        'context'   : context
+        'message': message,
+        'topic_arn': aws_arns[topic],
+        'context': context
     }
 
     # Emit the message
     response = sns.publish(
-        TopicArn    =  aws_arns[topic],
-        Message     =  json.dumps(payload),                 # SNS likes strings
-        Subject     =  '{} message'.format(topic)
+        TopicArn=aws_arns[topic],
+        Message=json.dumps(payload),  # SNS likes strings
+        Subject='{} message'.format(topic)
     )
 
 
 @announce
-def log(args, message):
-    # Let's send this message to the dashboard 
+def log(message, session_name=''):
+    '''
+    Let's send this message to the dashboard
+    '''
+    # TODO: Instead of sending session, we should send the task itself
     payload = dict()
-    payload['session_name']=args.session_name
     payload['hostname'] = socket.gethostname()
     payload['ip'] = socket.gethostbyname(payload['hostname'])
     payload['message'] = message
+    payload['session_name'] = session_name
 
     try:
-        r = requests.post('http://dash.agridata.ai/orchestrator', json = payload)
+        r = requests.post('http://dash.agridata.ai/orchestrator', json=payload)
     except Exception as e:
         logger.warning('Boringmachine not reachable: {}'.format(e))
+
+
+@announce
+def receivefromRabbitMQ(queue, num=1):
+    msgs = list()
+    with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
+                                                    config.get('rmq', 'password'),
+                                                    config.get('rmq', 'hostname'))) as kbu:
+        q = kbu.SimpleQueue(queue)
+        while (len(msgs) < num and q.qsize > 0):
+            message = q.get(block=True)
+            message.ack()
+            msgs.append(message.payload)
+        q.close()
+
+        # If only one task is requested, release it from the list
+        if num == 1:
+            return msgs[0]
+        # Otherwise, return a list of tasks
+        else:
+            return msgs
+
+
+@announce
+def sendtoRabbitMQ(queue, message):
+    with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
+                                                    config.get('rmq', 'password'),
+                                                    config.get('rmq', 'hostname'))) as kbu:
+        q = kbu.SimpleQueue(queue)
+        q.put(message)
+        q.close()
 
 
 @announce
@@ -443,18 +418,18 @@ def generateRVM(args):
     '''
     Given a set of scans (or one scan), generate a row video map.
     '''
-    # Parameters                # To calculate the number of separate tasks, 
-    SHARD_FACTOR = 3            # divide the number of rows by this factor
-
-    # Start MATLAB
-    mlab = matlabProcess()
 
     while True:
-        try:
-            log(args, 'Waiting for task')
-            task = receivefromServiceBus(args.service_bus, 'rvm')
-            log(args, 'Received RVM task')
+        # The task
+        task = receivefromRabbitMQ('rvm')
 
+        # Notify
+        log('Received task: {}'.format(task), task['session_name'])
+
+        # Start MATLAB
+        mlab = matlabProcess()
+
+        try:
             # Obtain the scan
             try:
                 scan = Scan.objects.get(client=task['clientid'], scanid=task['scanids'][0])
@@ -462,10 +437,10 @@ def generateRVM(args):
                 scan = Scan.objects.get(client=ObjectId(task['clientid']), scanid=task['scanids'][0])
 
             block = Block.objects.get(id=scan.blocks[0])
-            task['blockid']     = str(block.id)
-            task['blockname']   = block.name
-            task['farmid']      = str(block.farm)
-            task['farmname']    = Farm.objects.get(id=block.farm).name.replace(' ','')
+            task['blockid'] = str(block.id)
+            task['blockname'] = block.name
+            task['farmid'] = str(block.farm)
+            task['farmname'] = Farm.objects.get(id=block.farm).name.replace(' ', '')
 
             # Check staging database for previous scans of this block
             # staged = db.staging.find({'block': scan.blocks[0]})
@@ -473,54 +448,70 @@ def generateRVM(args):
             #    task['scanids'] = task['scanids'] + [s['_id'] for s in staged]
 
             # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
-            log(args, 'Calculating RVM')
-            s3uri, localuri = mlab.runTask('rvm', task['clientid'], task['scanids'], task)
+            log('Calculating RVM', task['session_name'])
+            s3uri, localuri = mlab.runTask(task)
             task['rvm_uri'] = s3uri
 
             # Check for completeness
             data = pd.read_csv(localuri, header=0)
-            rows_found = len(set([(r, d) for r,d in zip(data['rows'],data['direction'])])) / 2
+            rows_found = len(set([(r, d) for r, d in zip(data['rows'], data['direction'])])) / 2
             if rows_found < block.num_rows * 0.5:
-                emitSNSMessage('RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
+                emitSNSMessage(
+                    'RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
             elif rows_found > block.num_rows:
-                emitSNSMessage('Too many rows found (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
+                emitSNSMessage(
+                    'Too many rows found (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
             else:
                 # Generate tar files and eliminate NaNs
                 tarfiles = pd.Series.unique(data['file'])
 
                 # Split tarfiles
-                for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
+                for shard in np.array_split(tarfiles, int(len(tarfiles) / SHARD_FACTOR)):
                     task['tarfiles'] = [s for s in shard if s]
-                    task['num_retries'] = 0         # Set as clean
-                    task['time_stamp']='%s' % datetime.datetime.now()
-                    sendtoServiceBus(args.service_bus, 'preprocess', task)
+                    task['num_retries'] = 0  # Set as clean
+                    task['role'] = 'preprocess'
+                    sendtoRabbitMQ('preprocess', task)
 
-                log(args, 'RVM task complete')
+                log('RVM task complete', task['session_name'])
         except Exception as err:
             emitSNSMessage('Failure on {}'.format(str(err)))
             pass
 
+
 @announce
 def rebuildScanInfo(task):
-    try:
-        if os.path.exists(video_dir):
-            shutil.rmtree(video_dir)
-        os.makedirs(video_dir)
-        os.makedirs(video_dir + '\imu_basler')
-    #kgeorge: selwyn, please find the exception that is occuring here and catch that
-    except:
-        pass
+    # Robust directory creation here
+    success = False
+    while not success:
+        try:
+            if os.path.exists(video_dir):
+                shutil.rmtree(video_dir)
+
+            # Wait for a second: the previous call can sometimes returns early
+            time.sleep(5)
+            os.makedirs(video_dir + '\imu_basler')
+            success = True
+        except IOError as e:
+            log('Rebuilding IO Error: {}'.format(e), task['session_name'])
+            raise Exception(e)
+            pass
+        except Exception as e:
+            log('A serious error has occured rebuilding scan info: {}'.format(e), task['session_name'])
+            raise Exception(e)
+
     # Download log files
     for scan in task['scanids']:
-        for file in s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
+        for file in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/{}'.format(task['clientid'], scan))[
+            'Contents']:
             key = file['Key'].split('/')[-1]
             if 'csv' in key and key.startswith(scan):
-                s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'], os.path.join(video_dir, 'imu_basler', key))
+                s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'],
+                                                                     os.path.join(video_dir, 'imu_basler', key))
 
     # Download the RVM, VPR
     key = '/'.join(task['rvm_uri'].split('/')[3:])
     s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
-    key = key.replace('rvm.csv','vpr.csv')
+    key = key.replace('rvm.csv', 'vpr.csv')
     s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
 
 
@@ -529,100 +520,81 @@ def preprocess(args):
     '''
     Preprocessing method
     '''
-
-    # Here is the number of children to spawn
-    NUM_MATLAB_INSTANCES = 4
-
     while True:
         try:
-            log(args, 'Waiting for task')
-            task = receivefromServiceBus(args.service_bus, 'preprocess')
-            log(args, 'Received preprocessing task: {}'.format(task))
+            # The task
+            task = receivefromRabbitMQ('preprocess')
+
+            # Notify
+            log('Received task: {}'.format(task), task['session_name'])
 
             # Rebuild base scan info
             rebuildScanInfo(task)
 
-            #foo
             # Download the tarfiles
             for tar in task['tarfiles']:
                 scanid = '_'.join(tar.split('_')[0:2])
                 key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
-                log(args, 'Downloading {}'.format(key))
-                s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, tar))
+                log('Downloading {}'.format(key), task['session_name'])
+                s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, tar))
 
             # Untar
             mlab = matlabProcess()
-            mlab.my_untar(video_dir, nargout=0)
+            mlab.my_untar(video_dir, task['session_name'], nargout=0)
             mlab.quit()
 
-            
-            log(args, 'Unloaded tar files {}'.format(task['tarfiles']))
-            #foo
+            # Generate subtasks. We are going to give each MATLAB instance a particular subset of
+            # files
+            subtars = np.array_split(task['tarfiles'], NUM_MATLAB_INSTANCES)
+
             # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
             # because the multiprocessing library could not directly be called as some of the objects were
             # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
             # the function wrapper is necessary anymore
-            log(args, 'Preprocessing {} archives with {} MATLAB instances'.format(len(task['tarfiles']), NUM_MATLAB_INSTANCES))
+            log('Preprocessing {} archives with {} MATLAB instances'.format(len(task['tarfiles']),
+                                                                            NUM_MATLAB_INSTANCES), task['session_name'])
             workers = list()
             for instance in range(NUM_MATLAB_INSTANCES):
-                worker = multiprocess.Process(target=launchMatlabTasks, args=['preprocess', task])
+                # Pick up subtasks
+                subtask = task
+                subtask['tarfiles'] = list(subtars[instance])
+
+                # Run
+                worker = multiprocess.Process(target=launchMatlabTasks, args=[subtask])
                 worker.start()
                 workers.append(worker)
 
                 # Short delay to stagger workers
-                time.sleep(2)
+                time.sleep(5)
 
             for worker in workers:
                 worker.join()
 
-            log(args, 'All MATLAB instances have finished')
-
-            # Pre file upload, recreate relevant parts of analysis_struct
-            analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
-            analysis_struct['video_folder'] = video_dir
-
-            # S3 results path
-            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''))
-
-            # Hand-off to detection
-            zips = glob.glob(analysis_struct['video_folder'] + '/*.zip')
-            log(args, 'DEBUG: {}'.format(glob.glob(analysis_struct['video_folder'])))
-            log(args, 'Success, found {} zip files. Creating Detection tasks.'.format(len(zips)))
-            for zipfile in zips:
-                detectiontask = task
-                detectiontask['detection_params'] =  dict(
-                    bucket='agridatadepot',
-                    base_url_path='{}/results/farm_{}/block_{}/temp'.format(task['clientid'],task['farmname'].replace(' ',''), task['blockname'].replace(' ', '')),
-                    input_path='preprocess-frames',
-                    output_path='detection',
-                    caffemodel_s3_url_cluster='s3://deeplearning_data/models/best/post-bloom_8_4_2017_100000.caffemodel',
-                    caffemodel_s3_url_trunk='s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel',
-                    s3_aws_access_key_id='AKIAJC7XVEAQELBKAANQ',
-                    s3_aws_secret_access_key='YlPBiE9s9LV5+ruhKqQ0wsZgj3ZFp6psF6p5OBpZ',
-                    session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S.%f').replace('.','-'),
-                    folders=[ os.path.basename(zipfile) ])
-                detectiontask['num_retries'] = 0         # Set as clean
-                sendtoServiceBus(args.service_bus, 'detection', detectiontask)
+            log('All MATLAB instances have finished', task['session_name'])
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-            sendtoServiceBus(args.service_bus, 'preprocess', task)
+            sendtoRabbitMQ('preprocess', task)
             pass
         except Exception as e:
-            task['message'] = traceback.print_exc() + ' : ' + e
-            handleFailedTask(args,  'preprocess', task)
+            task['message'] = e
+            handleFailedTask('preprocess', task)
             pass
 
 
-@announce 
-def launchMatlabTasks(taskname, task):
+@announce
+def launchMatlabTasks(task):
     '''
     A separate wrapper for multiple matlabs. It is called by multiprocess, which has the capability to
     pickle (actually, dill) a wider range of objects (like function wrappers)
     '''
-    mlab = matlabProcess()
-    mlab.runTask(taskname, task['clientid'], task['scanids'], task)
-    mlab.quit()
-
+    try:
+        mlab = matlabProcess()
+        mlab.runTask(task)
+        mlab.quit()
+    except Exception as e:
+        task['message'] = e
+        handleFailedTask('preprocess', task)
+        pass
 
 
 @announce
@@ -632,11 +604,11 @@ def detection(args):
     '''
 
     from deepLearning.infra import detect_s3_az
-    #logger.info('Config read: type:{}'.format(dict(config['env'])))
+    # logger.info('Config read: type:{}'.format(dict(config['env'])))
     while True:
         try:
             log(args, 'Waiting for task')
-            task = receivefromServiceBus(args.service_bus, 'detection')
+            task = receivefromRabbitMQ('detection')
             log(args, 'Received detection task: {}'.format(task))
 
             t = task.get('detection_params', [])
@@ -659,12 +631,12 @@ def detection(args):
             assert (len(s3keys) <= 1)
             task['detection_params']['result'] = s3keys if not s3keys  else  s3keys[0]
             log(args, 'Success. Completed detection: {}'.format(task['detection_params']['result']))
-            sendtoServiceBus(args.service_bus, 'process', task)
+            sendtoRabbitMQ('process', task)
         except Exception, e:
             tb = traceback.format_exc()
             logger.error(tb)
             task['message'] = str(e)
-            log('args, Task FAILED. Reenqueueing... ({})'.format(task))
+            log('args, Task FAILED. Re-enqueueing... ({})'.format(task))
             handleFailedTask(args, 'detection', task)
             pass
 
@@ -674,33 +646,32 @@ def process(args):
     '''
     Processing method
     '''
-
-    # Here is the number of children to spawn
-    NUM_MATLAB_INSTANCES = 4
-
     while True:
+        # The tasks
+        multi_task = receivefromRabbitMQ('process', num=NUM_MATLAB_INSTANCES)
+
+        # Notify
+        log('Received task: {}'.format(task), task['session_name'])
+
+        # Start MATLAB
+        mlab = matlabProcess()
+
         try:
-            log(args, 'Waiting for task')
-            task = receivefromServiceBus(args.service_bus, 'process')
-            multi_task = [task]
-            log(args, 'Received processing task')
-
-            # Rebuild base scan info
-            rebuildScanInfo(task)
-
-            # Wait for a group of scans equal to the number of MATLAB instances
-            while len(multi_task) < NUM_MATLAB_INSTANCES and service_bus.get_queue('process').message_count > 0:
-                multi_task.append(receivefromServiceBus(args.service_bus, 'process'))
+            # Rebuild base scan info (just use the first task)
+            rebuildScanInfo(multi_task[0])
 
             # Launch tasks
-            log(args, 'Processing group of {} archives'.format(len(multi_task)))
+            log('Processing group of {} archives'.format(len(multi_task)), task['session_name'])
             workers = list()
             for task in multi_task:
                 for zipfile in task['detection_params']['folders']:
                     scanid = '_'.join(zipfile.split('_')[0:2])
-                    key = '{}/results/farm_{}/block_{}/temp/detection/{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), zipfile)
-                    log(args, 'Downloading {}'.format(key))
-                    s3r.Bucket(config.get('s3','bucket')).download_file(key, os.path.join(video_dir, zipfile))
+                    key = '{}/results/farm_{}/block_{}/{}/detection/{}'.format(task['clientid'],
+                                                                               task['farmname'].replace(' ', ''),
+                                                                               task['blockname'].replace(' ', ''),
+                                                                               task['session_name'], zipfile)
+                    log('Downloading {}'.format(key), task['session_name'])
+                    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, zipfile))
                 worker = multiprocess.Process(target=launchMatlabTasks, args=['process', task])
                 worker.start()
                 workers.append(worker)
@@ -711,24 +682,26 @@ def process(args):
             for worker in workers:
                 worker.join()
 
-            log(args, 'All MATLAB instances have finished')
+            log('All MATLAB instances have finished', task['session_name'])
 
             # Pre file upload, recreate relevant parts of analysis_struct
             analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
             analysis_struct['video_folder'] = video_dir
 
             # S3 results path
-            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''))
+            analysis_struct[
+                's3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(
+                task['clientid'], task['farmname'].replace(' ', ''), task['blockname'].replace(' ', ''))
 
             # Now what?
-            log(args, 'Processing done. {}'.format(task))
+            log('Processing done. {}'.format(task), task['session_name'])
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-            sendtoServiceBus(args.service_bus, 'process', task)
+            sendtoRabbitMQ('process', task)
             pass
         except Exception as e:
             task['message'] = e
-            handleFailedTask(args,  'process', task)
+            handleFailedTask('process', task)
             pass
 
 
@@ -771,41 +744,29 @@ def matlabProcess(startpath=r'C:\AgriData\Projects'):
 
 @announce
 def getComputerInfoString():
-	# Grab
-	ret = subprocess.check_output('ipconfig')
+    # Grab
+    ret = subprocess.check_output('ipconfig')
 
-	# FOrmat
-	ignore = [' . ','\r','\n']
-	for i in ignore:
-		ret = ret.replace(i,'')
+    # Format
+    ignore = [' . ', '\r', '\n']
+    for i in ignore:
+        ret = ret.replace(i, '')
 
-	return ret
+    return ret
 
 
 def parse_args():
-    parser=argparse.ArgumentParser('orchestrator')
-    default_role='Unknown'
-    default_session='drgntrrc1'
-    default_service_namespace = 'agridataqueues2'
-    default_shared_access_key_name = 'sharedaccess'
-    default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
-    parser.add_argument('-n', '--service_namespace', help='service namespace', dest='service_namespace',
-                        default=default_service_namespace)
-    parser.add_argument('-k', '--shared_access_key_name', help='shared_access_key_name', dest='shared_access_key_name',
-                        default=default_shared_access_key_name)
-    parser.add_argument('-v', '--shared_access_key_value', help='shared_access_key_value', dest='shared_access_key_value',
-                        default=default_shared_access_key_value)
+    parser = argparse.ArgumentParser('orchestrator')
+    default_role = 'Unknown'
+    default_session = 'drgntrrc1'
+
     parser.add_argument('-r', '--role', help='role', dest='role',
                         default=default_role)
     parser.add_argument('-s', '--session_name', help='session_name', dest='session_name',
                         default=default_session)
+
     args = parser.parse_args()
-    args.service_bus = ServiceBusService(service_namespace=args.service_namespace,
-                                shared_access_key_name=args.shared_access_key_name,
-                                shared_access_key_value=args.shared_access_key_value)
     return args
-
-
 
 
 if __name__ == '__main__':
@@ -818,22 +779,19 @@ if __name__ == '__main__':
 
     args = parse_args()
     roletype = identifyRole()
-    #if role is specified by args then that takes precedence, kg
-    if args.role != 'Unknown':
-        roletype=args.role
-    log(args, 'I\'m awake! Role type is {}'.format(roletype))
+    log('I\'m awake! Role type is {}'.format(roletype))
 
     try:
-        # Preprocessing
-        if 'preproc' in roletype:
-            preprocess(args)
-
         # RVM Generation
-        elif 'rvm' in roletype or 'jumpbox' in roletype:
+        if 'rvm' in roletype or 'jumpbox' in roletype:
             generateRVM(args)
 
+        # Preprocessing
+        elif 'preproc' in roletype:
+            preprocess(args)
+
         # Detection
-        elif roletype == 'detection':
+        elif 'detection' in roletype:
             detection(args)
 
         # Process
@@ -859,5 +817,4 @@ if __name__ == '__main__':
         else:
             emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
     except Exception as e:
-        #emitSNSMessage(str(e))
-        raise
+        emitSNSMessage(str(e))
