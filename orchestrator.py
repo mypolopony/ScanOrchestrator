@@ -452,7 +452,8 @@ def generateRVM(args):
             mlab.runTask(task, nargout=0)
 
             # Check for completeness
-            data = pd.read_csv(localuri, header=0)
+            local_uri = os.path.join(video_dir, 'rvm.csv')
+            data = pd.read_csv(local_uri, header=0)
             rows_found = len(set([(r, d) for r, d in zip(data['rows'], data['direction'])])) / 2
             if rows_found < block.num_rows * 0.5:
                 emitSNSMessage(
