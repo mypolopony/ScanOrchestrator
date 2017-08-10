@@ -509,7 +509,7 @@ def rebuildScanInfo(task):
                                                                      os.path.join(video_dir, 'imu_basler', key))
 
     # Download the RVM, VPR
-    s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientname'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), task.session_name)
+    s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), task['session_name'])
     for csvfile in ['rvm.csv', 'vpr.csv']:
         s3r.Bucket(config.get('s3', 'bucket')).download_file(s3_result_path + csvfile, os.path.join(video_dir, csvfile))
 
