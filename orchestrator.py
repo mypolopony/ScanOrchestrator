@@ -10,18 +10,18 @@ import re
 import time
 import boto3
 import shutil
-import pickle
 import socket
 import traceback
 import requests
-
+import StringIO
+import datetime
 import glob
 import argparse
 import multiprocess
 
 import pandas as pd
 import numpy as np
-
+from collections import namedtuple
 from bson.objectid import ObjectId
 from botocore.exceptions import ClientError
 from kombu import Connection
@@ -41,6 +41,8 @@ if os.name == 'nt':
     import matlab.engine
     config.read(r'C:\AgriData\Projects\ScanOrchestrator\utils\poller.conf')
 else:
+    assert(os.path.basename(os.getcwd()) == 'ScanOrchestrator')
+    assert (os.path.isfile('./utils/poller.conf'))
     config.read('utils/poller.conf')
 
 # Temporary location for collateral in processing
@@ -66,12 +68,6 @@ queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 aws_arns = dict()
 aws_arns['statuslog'] = 'arn:aws:sns:us-west-2:090780547013:statuslog'
 sns = boto3.client('sns', region_name=config.get('sns','region'))
-
-# Azure Service Bus
-from azure.servicebus import ServiceBusService, Message, Queue
-service_bus = ServiceBusService(config.get('service_bus', 'service_namespace'),
-                                config.get('service_bus', 'shared_access_key_name'),
-                                config.get('service_bus', 'shared_access_key_value'))
 
 # Initialize logging
 logger = logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
@@ -100,7 +96,7 @@ logger.addHandler(fh)
 base_windows_path = r'C:\AgriData\Projects\\'
 video_dir = base_windows_path + 'videos'
 
-# Parameters                            # To calculate the number of separate tasks, 
+# Parameters                            # To calculate the number of separate tasks,
 SHARD_FACTOR = 4                        # divide the number of rows by this factor
 NUM_MATLAB_INSTANCES = SHARD_FACTOR     # Each machine will spwn this number of MATLAB instances
 
@@ -139,7 +135,6 @@ def handleAWSMessage(result):
         # Delete task / Re-enque task on fail
         # When tasks are received, they are temporarily marked as 'taken' but it is up to this process to actually
         # delete them or, failing that, default to releasing them back to the queue
-
 
 @announce
 def poll(args):
@@ -345,59 +340,6 @@ def handleFailedTask(queue, task):
 
 
 @announce
-def sendtoServiceBus(service_bus, queue, msg):
-    '''
-    This is plainly just a wrapper for a message to a service bus, maybe other messaging things will happen here
-    '''
-    msg['num_retries'] = 0              # Reset number of retries
-    service_bus.send_queue_message(queue, Message(json.dumps(msg)))
-
-
-@announce
-def receivefromServiceBus(service_bus, queue, lock=False):
-    '''
-    A generic way of asking for work to do, based on the task. The default behavior, for longer running processes,
-    is for peek_lock to be False, which means deleting the message when it is received. This means that the
-    task process is responsible for re-enqueing the task if it fails. This 
-    '''
-    incoming = None
-    while not incoming:
-        incoming = service_bus.receive_queue_message(queue, peek_lock=lock).body
-
-    # Here, we can accept either properly formatted JSON strings or, if necessary, convert the
-    # quotes to make them compliant.
-    try:
-        msg = json.loads(incoming)
-    except:
-        msg = json.loads(incoming.replace("'",'"').replace('u"','"'))
-
-    return msg
-
-
-@announce
-def sendtoRMQ(queue, message):
-    '''
-    Here we send a message to a RabbitMQ queue. Opening new channels does involve
-    presumably some overhead, so in the future, batch messaging may be useful
-    '''
-    if type(message) is not dict:
-        message = json.dumps(message)
-
-    # Open the channel
-    conn = pika.BlockingConnection(pika.URLParameters('amqp://{}:{}@{}/'.format(
-                                config.get('rmq', 'username'),
-                                config.get('rmq', 'password'),
-                                config.get('rmq', 'hostname'))))
-    channel = conn.channel()
-    # Send
-    channel.basic_publish(exchange='',
-                          routing_key=queue,
-                          body=json.dumps(message))
-    # Close the channel
-    channel.close()
-
-
-@announce
 def emitSNSMessage(message, context=None, topic='statuslog'):
     # A simple notification payload, sent to all of a topic's subscribed endpoints
 
@@ -423,16 +365,16 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
 
 
 @announce
-def log(message, session_id=''):
+def log(message, session_name=''):
     '''
-    Let's send this message to the dashboard 
+    Let's send this message to the dashboard
     '''
     # TODO: Instead of sending session, we should send the task itself
     payload = dict()
     payload['hostname'] = socket.gethostname()
     payload['ip'] = socket.gethostbyname(payload['hostname'])
     payload['message'] = message
-    payload['session_name'] = session_id
+    payload['session_name'] = session_name
 
     try:
         r = requests.post('http://dash.agridata.ai/orchestrator', json = payload)
@@ -446,7 +388,7 @@ def receivefromKombu(queue, num = 1):
     with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
                                                     config.get('rmq', 'password'),
                                                     config.get('rmq', 'hostname'))) as kbu:
-    	q = kbu.SimpleQueue(queue)
+        q = kbu.SimpleQueue(queue)
         while(len(msgs) < num and q.qsize > 0):
             message = q.get(block=True)
             message.ack()
@@ -520,15 +462,6 @@ def generateRVM(args):
             else:
                 # Generate tar files and eliminate NaNs
                 tarfiles = pd.Series.unique(data['file'])
-
-                # Save this RVM .mat locally; it only helps for interactive sessions but is useful to
-                # recreate preprocessing tasks without having to re-run the RVM (provided it exists
-                # already on S3)
-                save_folder = base_windows_path + '\save'
-                if not os.path.exists(save_folder):
-                    os.mkdir(save_folder)
-                with open(save_folder + '\{}-rvm.mat'.format(task['blockname']),'wb') as savefile:
-                    pickle.dump({'task': task, 'tarfiles': tarfiles}, savefile)
 
                 # Split tarfiles
                 for shard in np.array_split(tarfiles, int(len(tarfiles)/SHARD_FACTOR)):
@@ -665,7 +598,43 @@ def detection(args):
     '''
     Detection method
     '''
-    print('Koshyland')
+
+    from deepLearning.infra import detect_s3_az
+    #logger.info('Config read: type:{}'.format(dict(config['env'])))
+    while True:
+        try:
+            log(args, 'Waiting for task')
+            task = receivefromKombu('detection')
+            log(args, 'Received detection task: {}'.format(task))
+
+            t = task.get('detection_params', [])
+            t.update(dict(caffemodel_s3_url_cluster=str(t['caffemodel_s3_url_cluster']),
+                          caffemodel_s3_url_trunk=str(t['caffemodel_s3_url_trunk'])))
+            arg_list = []
+
+            for k, v in t.iteritems():
+                arg_list.append('--' + k)
+                if type(v) == list:
+                    arg_list.extend(v)
+                else:
+                    arg_list.append(v)
+
+            args_detect = detect_s3_az.parse_args(arg_list)
+            logger.info(('detection process %r, %r' % (task, args_detect)))
+            s3keys = detect_s3_az.main(args_detect)
+
+            # for now we expect only one element
+            assert (len(s3keys) <= 1)
+            task['detection_params']['result'] = s3keys if not s3keys  else  s3keys[0]
+            log(args, 'Success. Completed detection: {}'.format(task['detection_params']['result']))
+            sendtoServiceBus(args.service_bus, 'process', task)
+        except Exception, e:
+            tb = traceback.format_exc()
+            logger.error(tb)
+            task['message'] = str(e)
+            log('args, Task FAILED. Reenqueueing... ({})'.format(task))
+            handleFailedTask(args, 'detection', task)
+            pass
 
 
 @announce
@@ -779,21 +748,24 @@ def getComputerInfoString():
 
 def parse_args():
     parser=argparse.ArgumentParser('orchestrator')
-
-    default_service_namespace = 'agridataqueues'
+    default_role='Unknown'
+    default_session='drgntrrc1'
+    default_service_namespace = 'agridataqueues2'
     default_shared_access_key_name = 'sharedaccess'
-    default_shared_access_key_value = 'cWonhEE3LIQ2cqf49mAL2uIZPV/Ig85YnyBtdb1z+xo='
+    default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
     parser.add_argument('-n', '--service_namespace', help='service namespace', dest='service_namespace',
                         default=default_service_namespace)
     parser.add_argument('-k', '--shared_access_key_name', help='shared_access_key_name', dest='shared_access_key_name',
                         default=default_shared_access_key_name)
     parser.add_argument('-v', '--shared_access_key_value', help='shared_access_key_value', dest='shared_access_key_value',
                         default=default_shared_access_key_value)
+    parser.add_argument('-r', '--role', help='role', dest='role',
+                        default=default_role)
+    parser.add_argument('-s', '--session_name', help='session_name', dest='session_name',
+                        default=default_session)
     args = parser.parse_args()
-    args.service_bus = ServiceBusService(service_namespace=args.service_namespace,
-                                shared_access_key_name=args.shared_access_key_name,
-                                shared_access_key_value=args.shared_access_key_value)
     return args
+
 
 if __name__ == '__main__':
     # Initial decision points. It is important that these do not return anything. This requires that each task stream
@@ -843,5 +815,4 @@ if __name__ == '__main__':
         else:
             emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
     except Exception as e:
-        # TODO: Capture other signals to close the RMQ connection?
-        emitSNSMessage('Fatal error: ' + str(e))
+        emitSNSMessage(str(e))
