@@ -769,7 +769,7 @@ def getComputerInfoString():
     # Grab
     ret = subprocess.check_output('ipconfig')
 
-    # FOrmat
+    # Format
     ignore = [' . ','\r','\n']
     for i in ignore:
         ret = ret.replace(i,'')
@@ -810,7 +810,7 @@ if __name__ == '__main__':
     try:
         # RVM Generation
         if 'rvm' in roletype or 'jumpbox' in roletype:
-            preprocess(args)
+            generateRVM(args)
 
         # Preprocessing
         elif 'preproc' in roletype:
