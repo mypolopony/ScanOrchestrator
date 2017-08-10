@@ -509,10 +509,9 @@ def rebuildScanInfo(task):
                                                                      os.path.join(video_dir, 'imu_basler', key))
 
     # Download the RVM, VPR
-    key = '/'.join(task['rvm_uri'].split('/')[3:])
-    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
-    key = key.replace('rvm.csv', 'vpr.csv')
-    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
+    s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientname'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), task.session_name)
+    for csvfile in ['rvm.csv', 'vpr.csv']:
+        s3r.Bucket(config.get('s3', 'bucket')).download_file(s3_result_path + csvfile, os.path.join(video_dir, csvfile))
 
 
 @announce
@@ -689,8 +688,7 @@ def process(args):
             analysis_struct['video_folder'] = video_dir
 
             # S3 results path
-            analysis_struct[
-                's3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(
+            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(
                 task['clientid'], task['farmname'].replace(' ', ''), task['blockname'].replace(' ', ''))
 
             # Now what?
