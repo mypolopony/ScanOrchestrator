@@ -1,51 +1,31 @@
-import pandas as pd
+import csv
 import subprocess
+import seaborn as sns
+from datetime import datetime
+import time
+from dateutil import parser
+from pymongo import MongoClient
 
-tasktypes = {
-    'Successfully':        'green',
-    'Preprocessing':       'purple',
-    'Un-tarring':          'red',
-    'Downloading':         'pink',
-    'Task':                'blue',
-    'Received':            'yellow',
-    'All':                 'purple',
-    'RVM':                 'orange',
-    'Calculating':         'brown',
-    'I\'m':                'black'
-}
+dbname = 'status'
+server = 'boringmachine'
+port = 27017
 
-# Export the logs with conditions
-# mongoexport -h boringmachine --db status --collection orchestrator --fields ip,hostname,message,timestamp,session_name --query '{"session_name":"08.09.22.11", hostname: /preproc0/i }' --sort '{_id: -1}' --limit 3000 --type=csv > /tmp/rhetoric.csv
+c = MongoClient('mongodb://' + server + ':' + str(port) + '/' + dbname)
+db = c[dbname]
 
 session_name = '08.10.13.52'
 filename = '/tmp/rhetoric.csv'
+results = list(db.orchestrator.find({'session_name': session_name}))
 
-print(' '.join(['mongoexport',
-                 '--host', 'boringmachine',
-                 '--db', 'status',
-                 '--collection', 'orchestrator',
-                 '--fields', 'ip,hostname,message,timestamp,session_name',
-                 '--query', '\'{"session_name":"08.10.13.52", hostname: /preproc0/i }\'',
-                 '--sort', '\'{_id: -1}\'',
-                 '--limit', '5000',
-                 '--type', 'csv',
-                 '--out', filename]))
+tasktypes = set([msg.split(' ')[0] for msg in [r['message'] for r in results]])
+colors = dict(zip(tasktypes, sns.color_palette('deep', len(tasktypes))))
 
-subprocess.call(['mongoexport',
-                 '--host', 'boringmachine',
-                 '--db', 'status',
-                 '--collection', 'orchestrator',
-                 '--fields', 'ip,hostname,message,timestamp,session_name',
-                 '--query', '\'{"session_name":"08.10.13.52", hostname: /preproc0/i }\'',
-                 '--sort', '\'{_id: -1}\'',
-                 '--limit', '5000',
-                 '--type', 'csv',
-                 '--out', filename])
-
-data = pd.read_csv(filename)
-
-data['hostname'] = [hostname.replace('-matlab','') for hostname in data['hostname']]
-data['tasktype'] = [msg.split(' ')[0] for msg in data['message']]
-data['color'] = [tasktypes[tasktype] for tasktype in data['tasktype']]
-
-data.to_csv(filename.replace('.csv','-plotly.csv'))
+with open(filename, 'wb') as outfile:
+    writer = csv.writer(outfile , quoting=csv.QUOTE_ALL)
+    writer.writerow(['timestamp','hostname','ip','message','tasktype','color','message'])
+    for item in results:
+        item['timestamp'] = int(time.mktime(parser.parse(item['timestamp']).timetuple()))
+        item['hostname'] = item['hostname'].replace('-matlab','')
+        item['tasktype'] = item['message'].split(' ')[0]
+        item['color'] = colors[item['tasktype']]
+        writer.writerow([item['timestamp'],item['hostname'],item['ip'],item['message'],item['tasktype'],item['color'],item['message']])
