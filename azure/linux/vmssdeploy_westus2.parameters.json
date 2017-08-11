@@ -9,7 +9,7 @@
       "value": "16.04-LTS"
     },
     "instanceCount": {
-      "value": 6
+      "value": 24
     },
     "adminUsername": {
       "value": "agridata"
@@ -18,7 +18,7 @@
       "value": "AgriData2Win!"
     },
     "sourceImageVhdUri": {
-      "value": "https://agridatacomputestorage.blob.core.windows.net/images/linux_0802.vhd"
+      "value": "https://agridatacomputestorage.blob.core.windows.net/images/linux_080817.vhd"
     },
     "destinationFolder": {
       "value": "/home/agridata"
@@ -33,7 +33,7 @@
       "value": "package.tar.gz"
     },
     "scanOrchestratorBranch": {
-      "value": "everett-wheeler"
+      "value": "master"
     },
     "deepLearningBranch": {
       "value": "dev2"

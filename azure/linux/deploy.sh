@@ -2,9 +2,9 @@
 
 
 
-DELETE=0
-CREATE=1
-LOC=eastus
+DELETE=1
+CREATE=0
+LOC=westus2
 while getopts d:c:l: opts; do
    case ${opts} in
       d) DELETE=${OPTARG} ;;
@@ -18,7 +18,7 @@ echo DELETE=$DELETE  CREATE=$CREATE LOC=$LOC
 
 
 
-RG="AEdetection"
+RG="detection"
 OUTDIR=./output
 DEPLOYMENT_NAME=$RG-depl
 mkdir -p $OUTDIR
@@ -26,6 +26,14 @@ SRC_DIR=.
 
 if [[ -z KEPLONG ]]; then
     echo ivide sukhamaaNu
+fi
+
+if [ "$DELETE" -eq "1" ];then
+    echo deleting resources
+    echo az group deployment delete -g $RG  -n $DEPLOYMENT_NAME
+    az group deployment delete -g $RG  -n $DEPLOYMENT_NAME
+    echo az group delete -n $RG
+    az group delete -n $RG
 fi
 
 if [ "$CREATE" -eq "1" ];then
@@ -42,16 +50,3 @@ if [ "$CREATE" -eq "1" ];then
      az group deployment create -g $RG  -n $DEPLOYMENT_NAME  --template-file $templateFile --parameters "$paramsJson" --verbose >  $OUTDIR/$DEPLOYMENT_NAME-output.json
 
 fi
-
-
-
-
-if [ "$DELETE" -eq "1" ];then
-    echo deleting resources
-    echo az group deployment delete -g $RG  -n $DEPLOYMENT_NAME
-    az group deployment delete -g $RG  -n $DEPLOYMENT_NAME
-    echo az group delete -n $RG
-    az group delete -n $RG
-fi
-
-
