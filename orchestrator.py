@@ -424,7 +424,7 @@ def generateRVM(args):
         task = receivefromRabbitMQ('rvm')
 
         # Notify
-        log('Received task: {}'.format(task), task['session_name'])
+        log('Received RVM task: {}'.format(task), task['session_name'])
 
         # Start MATLAB
         mlab = matlabProcess()
@@ -525,7 +525,7 @@ def preprocess(args):
             task = receivefromRabbitMQ('preprocess')
 
             # Notify
-            log('Received task: {}'.format(task), task['session_name'])
+            log('Received preprocessing task: {}'.format(task), task['session_name'])
 
             # Rebuild base scan info
             rebuildScanInfo(task)
