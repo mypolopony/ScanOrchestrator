@@ -71,6 +71,7 @@ export -f git_sync
 sudo systemctl stop myservice
 
 
+pip install psutil
 
 # Update as agridata
 su -p -c "git_sync $1 $2" - $RUNAS
