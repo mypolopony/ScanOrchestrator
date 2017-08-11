@@ -680,15 +680,13 @@ def detection(args):
     while True:
         try:
             log('Waiting for task')
-            task = receivefromRabbitMQ(args, 'detection')
+            # Because MATLAB uses raw HTTP, we have to convert to json explicitly
+            task = json.loads(receivefromRabbitMQ(args, 'detection'))
             log('Received detection task: {}'.format(task), task['session_name'])
      
-            t = task.get('detection_params', [])
-            t.update(dict(caffemodel_s3_url_cluster=str(t['caffemodel_s3_url_cluster']),
-                          caffemodel_s3_url_trunk=str(t['caffemodel_s3_url_trunk'])))
             arg_list = []
 
-            for k, v in t.iteritems():
+            for k, v in task.iteritems():
                 arg_list.append('--' + k)
                 if type(v) == list:
                     arg_list.extend(v)
