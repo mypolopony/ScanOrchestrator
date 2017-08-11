@@ -32,16 +32,39 @@ WAIT_TIME = 20  # AWS wait time for messages
 NUM_MSGS = 10  # Number of messages to grab at a time
 RETRY_DELAY = 60  # Number of seconds to wait upon encountering an error
 
+
+
+def update_config(src_config, tgt_config):
+    for section_name in tgt_config.sections():
+        if not config.has_section(section_name):
+            config.add_section(section_name)
+        for name, value in tgt_config.items(section_name):
+            tgt_config.set(section_name, name, value)
+def debug_config(config):
+    ret=[]
+    for section_name in config.sections():
+        for name, value in config.items(section_name):
+            s = (section_name, name, value)
+            ret.append(s)
+    return ret
+
 # Load config file
 config = ConfigParser.ConfigParser()
+config_parent_dir = '.'
 if os.name == 'nt':
+    config_parent_dir = r'C:\AgriData\Projects\ScanOrchestrator'
     import matlab.engine
-
-    config.read(r'C:\AgriData\Projects\ScanOrchestrator\utils\poller.conf')
 else:
     assert (os.path.basename(os.getcwd()) == 'ScanOrchestrator')
-    assert (os.path.isfile('./utils/poller.conf'))
-    config.read('utils/poller.conf')
+config_path = os.path.join(config_parent_dir, 'utils', 'poller.conf')
+assert (os.path.isfile(config_path))
+config.read(config_path)
+overriding_config_path = os.path.join(config_parent_dir, 'data', 'overriding.conf')
+if os.path.isfile(overriding_config_path):
+    config2 = ConfigParser.ConfigParser()
+    config2.read(overriding_config_path)
+    update_config(config2, config)
+
 
 # Temporary location for collateral in processing
 tmpdir = config.get('env', 'tmpdir')
@@ -422,7 +445,8 @@ def generateRVM(args):
 
     while True:
         # The task
-        task = receivefromRabbitMQ('rvm')
+        queuename = 'rvm_%s' % args.session_name
+        task = receivefromRabbitMQ(queuename)
 
         # Notify
         log('Received RVM task: {}'.format(task), task['session_name'])
@@ -523,7 +547,8 @@ def preprocess(args):
     while True:
         try:
             # The task
-            task = receivefromRabbitMQ('preprocess')
+            queuename='preprocess_%s' % args.session_name
+            task = receivefromRabbitMQ(queuename)
 
             # Notify
             log('Received preprocessing task: {}'.format(task), task['session_name'])
@@ -619,7 +644,8 @@ def detection(args):
     while True:
         try:
             log(args, 'Waiting for task')
-            task = receivefromRabbitMQ('detection')
+            queuename='detection_%s' % args.session_name
+            task = receivefromRabbitMQ(queuename)
             log(args, 'Received detection task: {}'.format(task))
 
             t = task.get('detection_params', [])
@@ -659,7 +685,8 @@ def process(args):
     '''
     while True:
         # The tasks
-        multi_task = receivefromRabbitMQ('process', num=NUM_MATLAB_INSTANCES)
+        queuename='process_%s' % args.session_name
+        multi_task = receivefromRabbitMQ(queuename, num=NUM_MATLAB_INSTANCES)
 
         # Notify
         log('Received task: {}'.format(task), task['session_name'])
@@ -766,10 +793,18 @@ def getComputerInfoString():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser('orchestrator')
-    default_role = 'Unknown'
-    default_session = 'drgntrrc1'
-
+    parser=argparse.ArgumentParser('orchestrator')
+    default_role='Unknown'
+    default_session='drgntrrc2'
+    default_service_namespace = 'agridataqueues2'
+    default_shared_access_key_name = 'sharedaccess'
+    default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
+    parser.add_argument('-n', '--service_namespace', help='service namespace', dest='service_namespace',
+                        default=default_service_namespace)
+    parser.add_argument('-k', '--shared_access_key_name', help='shared_access_key_name', dest='shared_access_key_name',
+                        default=default_shared_access_key_name)
+    parser.add_argument('-v', '--shared_access_key_value', help='shared_access_key_value', dest='shared_access_key_value',
+                        default=default_shared_access_key_value)
     parser.add_argument('-r', '--role', help='role', dest='role',
                         default=default_role)
     parser.add_argument('-s', '--session_name', help='session_name', dest='session_name',
@@ -786,9 +821,13 @@ if __name__ == '__main__':
     # to handle adverse or successful events.
 
     # What task are we meant to do? This is based on instance names
-
+    logger.info('config: {}'.format(config))
     args = parse_args()
-    roletype = identifyRole()
+    roletype = args.role
+
+    if args.role == 'Unknown':
+        roletype = identifyRole()
+
     log('I\'m awake! Role type is {}'.format(roletype))
 
     try:

@@ -17,20 +17,29 @@
     "adminPassword": {
       "value": "AgriData2Win!"
     },
-    "sourceImageVhdUri": {
-      "value": "https://kggamowstorage.blob.core.windows.net/vhds/linux_080817.vhd"
-    },
     "destinationFolder": {
       "value": "/home/agridata"
     },
     "serviceName": {
       "value": "myservice"
     },
-    "customScriptName": {
-      "value": "run.sh"
-    },
     "appPackage": {
       "value": "package.tar.gz"
+    },
+    "resourcesStorageAccount": {
+       "value": "kggamowstorage"
+    },
+    "resourcesStorageKey": {
+       "value": "6/4+Knuevixrn8yavNZounqjwD3R+JskykNUpAF3B7lQBJZTgYh28xXxHpjUKjB3m/sPKr0T1f5tmtKdqwJ8NQ=="
+    },
+    "customScriptUri": {
+       "value": "https://kggamowstorage.blob.core.windows.net/scriptslinux/run.sh"
+    },
+    "sourceImageVhdUri":{
+      "value": "https://kggamowstorage.blob.core.windows.net/vhds/linux_080817.vhd"
+    },
+    "customScriptName":{
+        "value": "run.sh"
     },
     "scanOrchestratorBranch": {
       "value": "develop"

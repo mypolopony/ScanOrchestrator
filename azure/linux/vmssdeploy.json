@@ -91,12 +91,33 @@
       "type": "string",
       "metadata": {
         "description": "The first argument to the extension script"
-      }
+      },
+      "defaultValue": ""
     },
     "deepLearningBranch": {
       "type": "string",
       "metadata": {
         "description": "The second argument to the extension script"
+      },
+      "defaultValue": ""
+    },
+    "resourcesStorageAccount": {
+      "type": "string",
+      "metadata": {
+        "description": "The resource storage account name"
+      },
+      "defaultValue": ""
+    },
+    "resourcesStorageKey": {
+      "type": "string",
+      "metadata": {
+        "description": "The key to the resource storage account"
+      }
+    },
+    "customScriptUri": {
+      "type": "string",
+      "metadata": {
+        "description": "The url to th script in the resource storage account"
       }
     }
   },
@@ -313,14 +334,14 @@
                   "autoUpgradeMinorVersion": true,
                   "settings": {
                     "fileUris": [
-                      "https://agridatacomputestorage.blob.core.windows.net/scripts/run.sh"
+                      "[parameters('customScriptUri')]"
                     ]
                   },
-                  "protectedSettings": {
-                    "commandToExecute": "[concat('bash ',parameters('customScriptName'), ' ', parameters('scanOrchestratorBranch'), ' ', parameters('deepLearningBranch'))]",
-                    "storageAccountName": "agridatacomputestorage",
-                    "storageAccountKey": "HTqbKnZ/9/lo+G1ohr+KUYteOZSsrh4yqkgIc0KwlaXc+lx6egTVsG2qHCYDm5B4efTT0KX+wk+bNZmZmgrNfA=="
-                  }
+                    "protectedSettings": {
+                        "commandToExecute": "[concat('bash ',parameters('customScriptName'), ' ', parameters('scanOrchestratorBranch'), ' ', parameters('deepLearningBranch'))]",
+                        "storageAccountName":"[parameters('resourcesStorageAccount')]",
+                        "storageAccountKey":"[parameters('resourcesStorageKey')]"
+                    }
                 }
               }
             ]
