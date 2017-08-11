@@ -540,6 +540,23 @@ def rebuildScanInfo(task):
 
 
 @announce
+def monitorMatlabs(workers):
+    # Monitor the number of MATLAB processes
+    matlabs = NUM_MATLAB_INSTANCES
+    while matlabs > 0:
+        log('MATLAB instances still alive: {}. Waiting for two minutes.'.format(matlabs),  task['session_name'])
+        time.sleep(120)
+        matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matlab.exe'])
+        
+    # All of the MATLABs are done, let's kill any lingering workers
+    for worker in workers:
+        try:
+            worker.terminate()
+        except:
+            log('Terminate failed but that''s okay',  task['session_name'])
+
+
+@announce
 def preprocess(args):
     '''
     Preprocessing method
@@ -592,21 +609,9 @@ def preprocess(args):
                 # Short delay to stagger workers
                 time.sleep(5)
 
-            # Monitor the number of MATLAB processes
-            matlabs = NUM_MATLAB_INSTANCES
-            while matlabs > 0:
-                log('MATLAB instances still alive: {}. Waiting for two minutes.'.format(matlabs),  task['session_name'])
-                time.sleep(120)
-                matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matlab.exe'])
+            # Blocking call to wait for workers to finish. MATLABs will send to detection
+            monitorMatlabs(workers)
 
-            # All of the MATLABs are done, let's kill any lingering workers
-            for worker in workers:
-                try:
-                    worker.terminate()
-                except:
-                    log('Terminate failed but that''s okay',  task['session_name'])
-
-            log('All MATLAB instances have finished', task['session_name'])
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
             sendtoRabbitMQ('preprocess', task)
@@ -677,7 +682,6 @@ def detection(args):
             handleFailedTask(args, 'detection', task)
             pass
 
-
 @announce
 def process(args):
     '''
@@ -717,21 +721,9 @@ def process(args):
                 # Delay is recommended to keep MATLAB processes from stepping on one another
                 time.sleep(4)
 
-            for worker in workers:
-                worker.join()
+            # Blocking call to wait for workers to finish. MATLABs will send to postprocess
+            monitorMatlabs(workers)
 
-            log('All MATLAB instances have finished', task['session_name'])
-
-            # Pre file upload, recreate relevant parts of analysis_struct
-            analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
-            analysis_struct['video_folder'] = video_dir
-
-            # S3 results path
-            analysis_struct['s3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(
-                task['clientid'], task['farmname'].replace(' ', ''), task['blockname'].replace(' ', ''))
-
-            # Now what?
-            log('Processing done. {}'.format(task), task['session_name'])
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
             sendtoRabbitMQ('process', task)
