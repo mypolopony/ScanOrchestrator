@@ -1,19 +1,19 @@
 #!/usr/bin/python
-
+import os
+import sys
 import ConfigParser
 import argparse
 import glob
 import json
 import logging
-import os
 import re
 import shutil
 import socket
 import subprocess
 import tarfile
 import time
-import psutil
 import traceback
+import psutil
 
 import boto3
 import multiprocess
@@ -24,6 +24,16 @@ from botocore.exceptions import ClientError
 from bson.objectid import ObjectId
 from kombu import Connection
 
+
+#some relative paths needed for detection in linux
+#it needto access files in ../deepLearning module
+if os.name == 'posix':
+    from inspect import getsourcefile
+    current_path = os.path.abspath(getsourcefile(lambda:0))
+    parent_dir = os.path.split(os.path.dirname(current_path))[0]
+    sys.path.insert(0, parent_dir)
+    source_dir=os.path.dirname(current_path)
+
 # AgriData
 from utils.connection import *
 
@@ -33,13 +43,20 @@ NUM_MSGS = 10  # Number of messages to grab at a time
 RETRY_DELAY = 60  # Number of seconds to wait upon encountering an error
 
 
-
+#Load config file
+'''
+get all section, key, val triples from src_config and copy(overwrite) tgt_config
+'''
 def update_config(src_config, tgt_config):
-    for section_name in tgt_config.sections():
-        if not config.has_section(section_name):
-            config.add_section(section_name)
-        for name, value in tgt_config.items(section_name):
+    for section_name in src_config.sections():
+        if not tgt_config.has_section(section_name):
+            tgt_config.add_section(section_name)
+        for name, value in src_config.items(section_name):
             tgt_config.set(section_name, name, value)
+
+'''
+return all section, key, val triples as  a list
+'''
 def debug_config(config):
     ret=[]
     for section_name in config.sections():
@@ -48,23 +65,22 @@ def debug_config(config):
             ret.append(s)
     return ret
 
-# Load config file
 config = ConfigParser.ConfigParser()
-config_parent_dir = '.'
+config_dir = '.'
 if os.name == 'nt':
-    config_parent_dir = r'C:\AgriData\Projects\ScanOrchestrator'
+    config_dir = r'C:\AgriData\Projects\ScanOrchestrator'
     import matlab.engine
 else:
     assert (os.path.basename(os.getcwd()) == 'ScanOrchestrator')
-config_path = os.path.join(config_parent_dir, 'utils', 'poller.conf')
+config_path = os.path.join(config_dir, 'utils', 'poller.conf')
 assert (os.path.isfile(config_path))
 config.read(config_path)
-overriding_config_path = os.path.join(config_parent_dir, 'data', 'overriding.conf')
+overriding_config_path = os.path.join(config_dir, 'data', 'overriding.conf')
 if os.path.isfile(overriding_config_path):
     config2 = ConfigParser.ConfigParser()
     config2.read(overriding_config_path)
+    #copy/overwrite section,key, vaue triples from config2 to config
     update_config(config2, config)
-
 
 # Temporary location for collateral in processing
 tmpdir = config.get('env', 'tmpdir')
@@ -156,7 +172,8 @@ def handleAWSMessage(result):
         # Delete task / Re-enque task on fail
         # When tasks are received, they are temporarily marked as 'taken' but it is up to this process to actually
         # delete them or, failing that, default to releasing them back to the queue
-
+def compute_q_name(args, base_queue_name):
+    return base_queue_name if args.session_name == 'Unknown' else '%s_%s' % ( base_queue_name, args.session_name)
 
 @announce
 def poll(args):
@@ -182,7 +199,7 @@ def poll(args):
                     logger.info('Queueing task {}/{}'.format(ridx, len(results)))
                     task = handleAWSMessage(result)  # Parse clientid and scanid
                     task['role'] = 'rvm'  # Tag with the first task step
-                    sendtoRabbitMQ('rvm', task)  # Send to the RVM queue
+                    sendtoRabbitMQ(args,'rvm', task)  # Send to the RVM queue
                 except:
                     logger.error(traceback.print_exc())
                     logger.exception('Error while handling messge: {}'.format(result.body))
@@ -344,7 +361,7 @@ def initiateScanProcess(scan):
 
 
 @announce
-def handleFailedTask(queue, task):
+def handleFailedTask(args, queue, task):
     '''
     Behavior for failed tasks
     '''
@@ -352,7 +369,7 @@ def handleFailedTask(queue, task):
 
     if 'num_retries' in task.keys() and task['num_retries'] >= MAX_RETRIES:
         log('Max retries met for task, sending to DLQ: {}'.format(task))
-        sendtoRabbitMQ('dlq', task)
+        sendtoRabbitMQ(args,'dlq', task)
     else:
         # Num_retries should exist, so this check is just for safety
         task['num_retries'] += 1
@@ -360,7 +377,7 @@ def handleFailedTask(queue, task):
 
         # Delete error message and reenqueue
         del task['message']
-        sendtoRabbitMQ(queue, task)
+        sendtoRabbitMQ(args,queue, task)
 
 
 @announce
@@ -407,12 +424,13 @@ def log(message, session_name=''):
 
 
 @announce
-def receivefromRabbitMQ(queue, num=1):
+def receivefromRabbitMQ(args, queue, num=1):
+    modified_queue_name=compute_q_name(args, queue)
     msgs = list()
     with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
                                                     config.get('rmq', 'password'),
                                                     config.get('rmq', 'hostname'))) as kbu:
-        q = kbu.SimpleQueue(queue)
+        q = kbu.SimpleQueue(modified_queue_name)
         while (len(msgs) < num and q.qsize > 0):
             message = q.get(block=True)
             message.ack()
@@ -428,11 +446,13 @@ def receivefromRabbitMQ(queue, num=1):
 
 
 @announce
-def sendtoRabbitMQ(queue, message):
+def sendtoRabbitMQ(args,queue, message):
+    modified_queue_name=compute_q_name(args, queue)
     with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
                                                     config.get('rmq', 'password'),
                                                     config.get('rmq', 'hostname'))) as kbu:
-        q = kbu.SimpleQueue(queue)
+        
+        q = kbu.SimpleQueue(modified_queue_name)
         q.put(message)
         q.close()
 
@@ -445,11 +465,10 @@ def generateRVM(args):
 
     while True:
         # The task
-        queuename = 'rvm_%s' % args.session_name
-        task = receivefromRabbitMQ(queuename)
+        task = receivefromRabbitMQ(args, 'rvm')
 
         # Notify
-        log('Received RVM task: {}'.format(task), task['session_name'])
+        log('Received task: {}'.format(task), task['session_name'])
 
         # Start MATLAB
         mlab = matlabProcess()
@@ -495,7 +514,7 @@ def generateRVM(args):
                     task['tarfiles'] = [s for s in shard if s]
                     task['num_retries'] = 0  # Set as clean
                     task['role'] = 'preprocess'
-                    sendtoRabbitMQ('preprocess', task)
+                    sendtoRabbitMQ(args, 'preprocess', task)
 
                 log('RVM task complete', task['session_name'])
         except Exception as err:
@@ -544,16 +563,16 @@ def monitorMatlabs(workers, task):
     # Monitor the number of MATLAB processes
     matlabs = NUM_MATLAB_INSTANCES
     while matlabs > 0:
-        log('MATLAB instances still alive: {}. Waiting for two minutes.'.format(matlabs),  task['session_name'])
+        log('MATLAB instances still alive: {}. Waiting for two minutes.'.format(matlabs), task['session_name'])
         time.sleep(120)
         matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matlab.exe'])
-        
+
     # All of the MATLABs are done, let's kill any lingering workers
     for worker in workers:
         try:
             worker.terminate()
         except:
-            log('Terminate failed but that''s okay',  task['session_name'])
+            log('Terminate failed but that''s okay', task['session_name'])
 
 
 @announce
@@ -564,11 +583,10 @@ def preprocess(args):
     while True:
         try:
             # The task
-            queuename='preprocess_%s' % args.session_name
-            task = receivefromRabbitMQ(queuename)
+            task = receivefromRabbitMQ(args, 'preprocess')
 
             # Notify
-            log('Received preprocessing task: {}'.format(task), task['session_name'])
+            log('Received task: {}'.format(task), task['session_name'])
 
             # Rebuild base scan info
             rebuildScanInfo(task)
@@ -614,11 +632,11 @@ def preprocess(args):
 
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-            sendtoRabbitMQ('preprocess', task)
+            sendtoRabbitMQ(args,'preprocess', task)
             pass
         except Exception as e:
             task['message'] = e
-            handleFailedTask('preprocess', task)
+            handleFailedTask(args, 'preprocess', task)
             pass
 
 
@@ -630,11 +648,11 @@ def launchMatlabTasks(task):
     '''
     try:
         mlab = matlabProcess()
-        mlab.runTask(task, nargout=0)
+        mlab.runTask(task)
         mlab.quit()
     except Exception as e:
         task['message'] = e
-        handleFailedTask('preprocess', task)
+        handleFailedTask(args, 'preprocess', task)
         pass
 
 
@@ -643,16 +661,14 @@ def detection(args):
     '''
     Detection method
     '''
-
     from deepLearning.infra import detect_s3_az
     # logger.info('Config read: type:{}'.format(dict(config['env'])))
     while True:
         try:
             log(args, 'Waiting for task')
-            queuename='detection_%s' % args.session_name
-            task = receivefromRabbitMQ(queuename)
+            task = receivefromRabbitMQ(args, 'detection')
             log(args, 'Received detection task: {}'.format(task))
-
+     
             t = task.get('detection_params', [])
             t.update(dict(caffemodel_s3_url_cluster=str(t['caffemodel_s3_url_cluster']),
                           caffemodel_s3_url_trunk=str(t['caffemodel_s3_url_trunk'])))
@@ -673,7 +689,7 @@ def detection(args):
             assert (len(s3keys) <= 1)
             task['detection_params']['result'] = s3keys if not s3keys  else  s3keys[0]
             log(args, 'Success. Completed detection: {}'.format(task['detection_params']['result']))
-            sendtoRabbitMQ('process', task)
+            sendtoRabbitMQ(args,'process', task)
         except Exception, e:
             tb = traceback.format_exc()
             logger.error(tb)
@@ -682,6 +698,7 @@ def detection(args):
             handleFailedTask(args, 'detection', task)
             pass
 
+
 @announce
 def process(args):
     '''
@@ -689,8 +706,7 @@ def process(args):
     '''
     while True:
         # The tasks
-        queuename='process_%s' % args.session_name
-        multi_task = receivefromRabbitMQ(queuename, num=NUM_MATLAB_INSTANCES)
+        multi_task = receivefromRabbitMQ(args, 'process', num=NUM_MATLAB_INSTANCES)
 
         # Notify
         log('Received task: {}'.format(task), task['session_name'])
@@ -726,11 +742,11 @@ def process(args):
 
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-            sendtoRabbitMQ('process', task)
+            sendtoRabbitMQ(args,'process', task)
             pass
         except Exception as e:
             task['message'] = e
-            handleFailedTask('process', task)
+            handleFailedTask(args, 'process', task)
             pass
 
 
@@ -787,7 +803,7 @@ def getComputerInfoString():
 def parse_args():
     parser=argparse.ArgumentParser('orchestrator')
     default_role='Unknown'
-    default_session='drgntrrc2'
+    default_session='trash'
     default_service_namespace = 'agridataqueues2'
     default_shared_access_key_name = 'sharedaccess'
     default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
@@ -813,14 +829,20 @@ if __name__ == '__main__':
     # to handle adverse or successful events.
 
     # What task are we meant to do? This is based on instance names
-    logger.info('config: {}'.format(config))
     args = parse_args()
+    #override the args.session_name with session_name from config
+    #this is a hacky way to pass arguments to a service
+    try:
+        session_name_from_config=config.get('args', 'session_name')
+        args.session_name=session_name_from_config
+    except ConfigParser.NoSectionError, e:
+        pass
     roletype = args.role
 
     if args.role == 'Unknown':
         roletype = identifyRole()
 
-    log('I\'m awake! Role type is {}'.format(roletype))
+    log('I\'m awake! Role type is {}, with configuration {} and args {}'.format(roletype, debug_config(config), args))
 
     try:
         # RVM Generation
