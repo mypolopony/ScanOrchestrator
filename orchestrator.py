@@ -682,6 +682,7 @@ def detection(args):
             log('Waiting for task')
             # Because MATLAB uses raw HTTP, we have to convert to json explicitly
             task = json.loads(receivefromRabbitMQ(args, 'detection'))
+            task['blockname'] = task['blockname'].replace(' ','')       # TODO: This is temporary fix for Corona North
             log('Received detection task: {}'.format(task), task['session_name'])
      
             arg_list = []
