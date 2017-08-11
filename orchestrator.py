@@ -425,24 +425,38 @@ def log(message, session_name=''):
 
 @announce
 def receivefromRabbitMQ(args, queue, num=1):
+    '''
+    Connection to receive from RabbitMQ. The default sever timeout is 60 seconds and it is
+    best not to have connections open past that time period, so here we open a connection,
+    attempt to grab a task (or tasks) and on failing and close it if we get nothing, or
+    not enough messages. This prevents connections remaining open and becoming stale.
+
+    An admin can clear the connections (close all) by executing:
+        sudo rabbitmqadmin -f tsv -q list connections name | while read conn ; do sudo rabbitmqadmin -q close connection name="${conn}" ; done
+    Or closing them individually via the administration console
+    '''
     modified_queue_name=compute_q_name(args, queue)
     msgs = list()
-    with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
-                                                    config.get('rmq', 'password'),
-                                                    config.get('rmq', 'hostname'))) as kbu:
-        q = kbu.SimpleQueue(modified_queue_name)
-        while (len(msgs) < num and q.qsize > 0):
-            message = q.get(block=True)
-            message.ack()
-            msgs.append(message.payload)
-        q.close()
+    while len(msgs) < num:
+        try:
+            with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
+                                                            config.get('rmq', 'password'),
+                                                            config.get('rmq', 'hostname'))) as kbu:
+                q = kbu.SimpleQueue(modified_queue_name)
+                while (len(msgs) < num and q.qsize > 0):
+                    message = q.get()
+                    message.ack()
+                    msgs.append(message.payload)
+                q.close()
+        except q.Empty:
+            time.sleep(90)
 
-        # If only one task is requested, release it from the list
-        if num == 1:
-            return msgs[0]
-        # Otherwise, return a list of tasks
-        else:
-            return msgs
+    # If only one task is requested, release it from the list
+    if num == 1:
+        return msgs[0]
+    # Otherwise, return a list of tasks
+    else:
+        return msgs
 
 
 @announce
