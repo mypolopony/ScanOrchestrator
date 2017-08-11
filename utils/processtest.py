@@ -1,7 +1,8 @@
-from multiprocess import Pool, current_process, freeze_support
+import multiprocess
 import time
 import matlab.engine
 import psutil
+import numpy as np
 
 def launchMatlabTasks(task):
     '''
@@ -13,8 +14,7 @@ def launchMatlabTasks(task):
         mlab.processtest(task)
         mlab.quit()
     except Exception as e:
-        task['message'] = e
-        handleFailedTask('preprocess', task)
+        print(e)
         pass
 
 def matlabProcess(startpath=r'C:\AgriData\Projects'):
@@ -23,7 +23,7 @@ def matlabProcess(startpath=r'C:\AgriData\Projects'):
     my hope is that it becomes a pain to pass around. The Windows path is a safe default that probably should be offloaded
     elsewhere since it
     '''
-    logger.info('Starting MATLAB. . .')
+    print('Starting MATLAB. . .')
     mlab = matlab.engine.start_matlab()
     mlab.addpath(mlab.genpath(startpath))
 
@@ -41,18 +41,22 @@ def calculate(n):
 if __name__ == '__main__': 
     subtasks = xrange(10)
 
+    workers = list()
     for st in subtasks:
         worker = multiprocess.Process(target=launchMatlabTasks, args=[st])
         worker.start()
-
-        time.sleep(4)
+        workers.append(worker)
 
     matlabs = np.Inf            # So many matlabs
     while matlabs > 0:
         print('Waiting. . . {} MATLABS still alive'.format(matlabs))
         time.sleep(3)
-        matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matalab.exe'])
+        matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matlab.exe'])
 
+    for worker in workers:
+        worker.terminate()
+    
     print('All MATLABS have finished')
+
 
         
