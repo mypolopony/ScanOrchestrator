@@ -568,7 +568,7 @@ def preprocess(args):
                 time.sleep(5)
 
             # Monitor the number of MATLAB processes
-            matlabs = np.Inf
+            matlabs = NUM_MATLAB_INSTANCES
             while matlabs > 0:
                 log('{} MATLAB instances still alive. Waiting for two minutes.'.format(matlabs),  task['session_name'])
                 time.sleep(120)
