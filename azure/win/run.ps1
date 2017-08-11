@@ -1,9 +1,3 @@
-param(
-    [string]$scanOrchestratorBranch="everett-wheeler",
-    [string]$matlabCoreBranch="master"
-)
-
-
 ### Signon
 echo "$(Get-Date): Starting" > C:\Users\agridata\startup.log
 echo $env:username >> C:\Users\agridata\startup.log
@@ -23,31 +17,28 @@ cp C:\AgriData\Projects\aws\credentials ~\.aws\
 [Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAJCTBYUIK37F3OUYA", "Machine")
 [Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "Machine")
 
+## Pip Dependencies (bake into future images)
+pip install kombu
+pip install psutil
 
 ### Update ScanOrchestrator
-echo "$(Get-Date): Updating ScanOrchestrator $scanOrchestratorBranch" >> C:\Users\agridata\startup.log
+echo "$(Get-Date): Updating ScanOrchestrator" >> C:\Users\agridata\startup.log
 cd C:\AgriData\Projects\ScanOrchestrator
 git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/ScanOrchestrator.git"
 git gc --prune=now
 git fetch --all
-#assuming temp branch doesnt exist
-$temp_branch= -join("temp_", $scanOrchestratorBranch)
-git checkout -b $temp_branch
-git reset --hard origin/$scanOrchestratorBranch 
+git reset --hard origin/master
 
 
 ### Update MatlabCore
-echo "$(Get-Date): Updating MatlabCore $matlabCoreBranch" >> C:\Users\agridata\startup.log
+echo "$(Get-Date): Updating MatlabCore" >> C:\Users\agridata\startup.log
 cd C:\AgriData\Projects\MatlabCore
 git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/MatlabCore.git"
 git gc --prune=now
 git fetch --all
-#assuming temp branch doesnt exist
-$temp_branch= -join("temp_", $matlabCoreBranch)
-git checkout -b $temp_branch
-git reset --hard origin/$matlabCoreBranch
+git reset --hard origin/master
 
 
 ### Copy extern
