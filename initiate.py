@@ -2,11 +2,6 @@ import datetime
 import time
 import json
 from pprint import pprint
-
-import pika
-connection = pika.BlockingConnection(pika.URLParameters('amqp://agridata:agridata@boringmachine/'))
-channel = connection.channel()
-
 from kombu import Connection
 
 def sendtoKombu(queue, message):
