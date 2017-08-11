@@ -679,9 +679,9 @@ def detection(args):
     # logger.info('Config read: type:{}'.format(dict(config['env'])))
     while True:
         try:
-            log(args, 'Waiting for task')
+            log('Waiting for task')
             task = receivefromRabbitMQ(args, 'detection')
-            log(args, 'Received detection task: {}'.format(task))
+            log('Received detection task: {}'.format(task), task['session_name'])
      
             t = task.get('detection_params', [])
             t.update(dict(caffemodel_s3_url_cluster=str(t['caffemodel_s3_url_cluster']),
@@ -702,13 +702,13 @@ def detection(args):
             # for now we expect only one element
             assert (len(s3keys) <= 1)
             task['detection_params']['result'] = s3keys if not s3keys  else  s3keys[0]
-            log(args, 'Success. Completed detection: {}'.format(task['detection_params']['result']))
+            log('Success. Completed detection: {}'.format(task['detection_params']['result']), task['session_name'])
             sendtoRabbitMQ(args,'process', task)
         except Exception, e:
             tb = traceback.format_exc()
             logger.error(tb)
             task['message'] = str(e)
-            log('args, Task FAILED. Re-enqueueing... ({})'.format(task))
+            log('args, Task FAILED. Re-enqueueing... ({})'.format(task), task['session_name'])
             handleFailedTask(args, 'detection', task)
             pass
 
