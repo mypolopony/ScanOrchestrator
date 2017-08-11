@@ -566,8 +566,19 @@ def preprocess(args):
                 # Short delay to stagger workers
                 time.sleep(5)
 
+            # Monitor the number of MATLAB processes
+            matlabs = np.Inf
+            while matlabs > 0:
+                log('{} MATLAB instances still alive. Waiting for two minutes.',  task['session_name'])
+                time.sleep(120)
+                matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matlab.exe'])
+
+            # All of the MATLABs are done, 
             for worker in workers:
-                worker.join()
+                try:
+                    worker.terminate()
+                except:
+                    log('Terminate failed but that''s okay',  task['session_name'])
 
             log('All MATLAB instances have finished', task['session_name'])
         except ClientError:
