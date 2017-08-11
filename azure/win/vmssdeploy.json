@@ -56,7 +56,8 @@
       "type": "string",
       "metadata": {
         "description": "The source of the blob containing the custom image, must be in the same region of the deployment."
-      }
+      },
+      "defaultValue": ""
     },
     "appPackage": {
       "type": "string",
@@ -78,13 +79,6 @@
         "description":"name of the service that needs restart when the new package is copied"
       },
       "defaultValue": "mainsite.service"
-    },
-    "customScriptName":{
-      "type":"string",
-      "metadata": {
-        "description": "name of the custom script to be run by bash"
-      },
-      "defaultValue": "updateapp.sh"
     },
     "_artifactsLocation": {
         "type": "string",
@@ -145,6 +139,56 @@
         "description": "The path used for the load balancer health probe"
       },
       "defaultValue": "/iisstart.htm"
+    },
+    "customScriptUri": {
+      "type": "string",
+      "metadata": {
+        "description": "The url to th script in the resource storage account"
+      },
+      "defaultValue": ""
+    },
+    "customScriptName": {
+      "type": "string",
+      "metadata": {
+        "description": "name of the custom script to be run by bash"
+      },
+      "defaultValue": "run.ps1"
+    },
+    "scanOrchestratorBranch": {
+      "type": "string",
+      "metadata": {
+        "description": "The first argument to the extension script"
+      },
+      "defaultValue": ""
+    },
+    "matlabCoreBranch": {
+      "type": "string",
+      "metadata": {
+        "description": "The second argument to the extension script"
+      },
+      "defaultValue": ""
+    },
+
+    "session_name": {
+      "type": "string",
+      "metadata": {
+        "description": "The second argument to the extension script"
+      },
+      "defaultValue": ""
+    },
+    "resourcesStorageAccount": {
+      "type": "string",
+      "metadata": {
+        "description": "The resource storage account name"
+      },
+      "defaultValue": ""
+    },
+    "resourcesStorageKey": {
+      "type": "string",
+      "metadata": {
+        "description": "The key to the resource storage account"
+      },
+      "defaultValue": ""
     }
   },
   "variables": {
@@ -371,13 +415,13 @@
                                     "autoUpgradeMinorVersion": true,
                                     "settings": {
                                       "fileUris": [
-                                        "https://kggamowstorage.blob.core.windows.net/scriptswin/run.ps1"
+                                        "[parameters('customScriptUri')]"
                                       ]
                                     },
                                     "protectedSettings": {
-                                      "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File ./run.ps1  -scanOrchestratorBranch develop -matlabCoreBranch kg-dev",
-                                      "storageAccountName": "kggamowstorage",
-                                      "storageAccountKey": "6/4+Knuevixrn8yavNZounqjwD3R+JskykNUpAF3B7lQBJZTgYh28xXxHpjUKjB3m/sPKr0T1f5tmtKdqwJ8NQ=="
+                                      "commandToExecute": "[concat('powershell.exe -ExecutionPolicy Unrestricted -File ', parameters('customScriptName'), ' ',  ' -scanOrchestratorBranch ',  parameters('scanOrchestratorBranch'), '  -matlabCoreBranch   ', parameters('matlabCoreBranch'), '  -session_name  ', parameters('session_name')",
+                                      "storageAccountName":"[parameters('resourcesStorageAccount')]",
+                                      "storageAccountKey":"[parameters('resourcesStorageKey')]"
                                     }
                                 },
                                 "name": "configurationextension"

@@ -29,12 +29,12 @@ if [[ -z KEPLONG ]]; then
 fi
 
 if [ "$CREATE" -eq "1" ];then
-    paramsJson=$(cat  $SRC_DIR/vmssdeploy.parameters.json | jq '.parameters')
+    paramsJson=$(cat  $SRC_DIR/vmssdeploy_$LOC.parameters.json | jq '.parameters')
     echo creating resource group $RG
     az group create -n $RG   -l $LOC > $OUTDIR/$RG-output.json
 
     templateFile=$SRC_DIR/vmssdeploy.json
-    paramsJson=$(cat  $SRC_DIR/vmssdeploy.parameters.json | jq '.parameters')
+    paramsJson=$(cat  $SRC_DIR/vmssdeploy_$LOC.parameters.json | jq '.parameters')
     #paramsJson=$( echo "$paramsJson"  | jq "{_artifactsLocation: {value: "\"$blobEndpoint$STORAGE_CONT"\"}, _artifactsLocationSasToken: {value: \"?"$sasToken"\"}} + ." )
     echo $paramsJson
 

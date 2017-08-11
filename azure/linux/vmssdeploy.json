@@ -66,13 +66,6 @@
       },
       "defaultValue": "mainsite.service"
     },
-    "customScriptName": {
-      "type": "string",
-      "metadata": {
-        "description": "name of the custom script to be run by bash"
-      },
-      "defaultValue": "updateapp.sh"
-    },
     "_artifactsLocation": {
       "type": "string",
       "metadata": {
@@ -112,13 +105,29 @@
       "type": "string",
       "metadata": {
         "description": "The key to the resource storage account"
-      }
+      },
+      "defaultValue": "run.sh"
     },
     "customScriptUri": {
       "type": "string",
       "metadata": {
         "description": "The url to th script in the resource storage account"
-      }
+      },
+      "defaultValue": "run.sh"
+    },
+    "customScriptName": {
+      "type": "string",
+      "metadata": {
+        "description": "name of the custom script to be run by bash"
+      },
+      "defaultValue": "run.sh"
+    },
+    "session_name": {
+      "type": "string",
+      "metadata": {
+        "description": "The second argument to the extension script"
+      },
+      "defaultValue": ""
     }
   },
   "variables": {
@@ -338,7 +347,7 @@
                     ]
                   },
                     "protectedSettings": {
-                        "commandToExecute": "[concat('bash ',parameters('customScriptName'), ' ', parameters('scanOrchestratorBranch'), ' ', parameters('deepLearningBranch'))]",
+                        "commandToExecute": "[concat('bash ',parameters('customScriptName'), ' ', parameters('scanOrchestratorBranch'), ' ', parameters('deepLearningBranch'), ' ', parameters('session_name'))]",
                         "storageAccountName":"[parameters('resourcesStorageAccount')]",
                         "storageAccountKey":"[parameters('resourcesStorageKey')]"
                     }

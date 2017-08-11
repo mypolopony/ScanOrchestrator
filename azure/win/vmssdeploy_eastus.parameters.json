@@ -3,28 +3,28 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "vmSku": {
-      "value": "Standard_NC6"
-    },
-    "ubuntuOSVersion": {
-      "value": "16.04-LTS"
+      "value": "Standard_D4S_V3"
     },
     "instanceCount": {
-      "value": 12
+      "value": 15
     },
     "adminUsername": {
       "value": "agridata"
     },
     "adminPassword": {
-      "value": "AgriData2Win!"
+      "value": "BattleOfHastings1066"
     },
-    "destinationFolder": {
-      "value": "/home/agridata"
+    "destinationFolder":{
+        "value": "/home/agridata"
     },
-    "serviceName": {
-      "value": "myservice"
+    "serviceName":{
+        "value": "myservice"
     },
-    "appPackage": {
-      "value": "package.tar.gz"
+    "appPackage":{
+        "value": "package.tar.gz"
+    },
+    "osType":{
+        "value": "Windows"
     },
     "resourcesStorageAccount": {
        "value": "kggamowstorage"
@@ -33,20 +33,19 @@
        "value": "6/4+Knuevixrn8yavNZounqjwD3R+JskykNUpAF3B7lQBJZTgYh28xXxHpjUKjB3m/sPKr0T1f5tmtKdqwJ8NQ=="
     },
     "customScriptUri": {
-
-       "value": "https://kggamowstorage.blob.core.windows.net/scriptslinux/run.sh"
+       "value":   "https://kggamowstorage.blob.core.windows.net/scriptswin/run.ps1"
     },
     "sourceImageVhdUri":{
-      "value": "https://kggamowstorage.blob.core.windows.net/vhds/osdisk_a252c56f7f.vhd"
+        "value":"https://kggamowstorage.blob.core.windows.net/vhds/computeos.vhd"
     },
     "customScriptName":{
-        "value": "run.sh"
+        "value": "run.ps1"
     },
     "scanOrchestratorBranch": {
       "value": "develop"
     },
-    "deepLearningBranch": {
-      "value": "dev2"
+    "matlabCoreBranch": {
+      "value": "kg-dev"
     },
     "session_name": {
       "value": "kg1"
