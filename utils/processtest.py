@@ -1,6 +1,7 @@
 from multiprocess import Pool, current_process, freeze_support
 import time
 import matlab.engine
+import psutil
 
 def launchMatlabTasks(task):
     '''
@@ -38,11 +39,20 @@ def calculate(n):
     print('{}: Returning'.format(current_process))
 
 if __name__ == '__main__': 
-    freeze_support()
-    pool = Pool(4)
     subtasks = xrange(10)
-    results = pool.imap_unordered(dummytask, subtasks)
 
-    while True:
-        time.sleep(10)
-        print('waiting')
+    for st in subtasks:
+        worker = multiprocess.Process(target=launchMatlabTasks, args=[st])
+        worker.start()
+
+        time.sleep(4)
+
+    matlabs = np.Inf            # So many matlabs
+    while matlabs > 0:
+        print('Waiting. . . {} MATLABS still alive'.format(matlabs))
+        time.sleep(3)
+        matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matalab.exe'])
+
+    print('All MATLABS have finished')
+
+        
