@@ -29,12 +29,15 @@ def sendtoRabbitMQ(queue, message):
 
 
 outdir = '/Users/mypolopony/AgriData/picklejar'
-target = 'dlq'
+target = 'detection_coronanorth'
+replace = True
 tag = datetime.strftime(datetime.now(), '%D-%T').replace('/','').replace(':','')
 max_num = 999
-
-sendtoRabbitMQ(target, {'hello':'goodbye'})
 
 messages = receivefromRabbitMQ(target, max_num)
 with open(os.path.join(outdir, target + '-' + tag + '.dat'), 'wb') as dump:
     pickle.dump(messages, dump)
+
+if replace:
+    for msg in messages:
+        sendtoRabbitMQ(target, msg)
