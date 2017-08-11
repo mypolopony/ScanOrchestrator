@@ -12,6 +12,7 @@ import socket
 import subprocess
 import tarfile
 import time
+import psutil
 import traceback
 
 import boto3
@@ -569,7 +570,7 @@ def preprocess(args):
             # Monitor the number of MATLAB processes
             matlabs = np.Inf
             while matlabs > 0:
-                log('{} MATLAB instances still alive. Waiting for two minutes.',  task['session_name'])
+                log('{} MATLAB instances still alive. Waiting for two minutes.'.format(matlabs),  task['session_name'])
                 time.sleep(120)
                 matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matlab.exe'])
 
