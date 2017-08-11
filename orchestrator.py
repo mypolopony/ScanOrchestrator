@@ -540,7 +540,7 @@ def rebuildScanInfo(task):
 
 
 @announce
-def monitorMatlabs(workers):
+def monitorMatlabs(workers, task):
     # Monitor the number of MATLAB processes
     matlabs = NUM_MATLAB_INSTANCES
     while matlabs > 0:
@@ -610,7 +610,7 @@ def preprocess(args):
                 time.sleep(5)
 
             # Blocking call to wait for workers to finish. MATLABs will send to detection
-            monitorMatlabs(workers)
+            monitorMatlabs(workers, task)
 
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
@@ -722,7 +722,7 @@ def process(args):
                 time.sleep(4)
 
             # Blocking call to wait for workers to finish. MATLABs will send to postprocess
-            monitorMatlabs(workers)
+            monitorMatlabs(workers, task)
 
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
