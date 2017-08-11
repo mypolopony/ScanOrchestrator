@@ -574,7 +574,7 @@ def preprocess(args):
                 time.sleep(120)
                 matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matlab.exe'])
 
-            # All of the MATLABs are done, 
+            # All of the MATLABs are done, let's kill any lingering workers
             for worker in workers:
                 try:
                     worker.terminate()
