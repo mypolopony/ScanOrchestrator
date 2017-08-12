@@ -132,6 +132,7 @@ logger.addHandler(fh)
 # Canonical windows paths
 base_windows_path = r'C:\AgriData\Projects\\'
 video_dir = base_windows_path + 'videos'
+results_dir = base_windows_path + 'results'
 
 # Parameters                            # To calculate the number of separate tasks,
 SHARD_FACTOR = 4  # divide the number of rows by this factor
@@ -377,7 +378,7 @@ def handleFailedTask(args, queue, task):
 
         # Delete error message and reenqueue
         del task['message']
-        sendtoRabbitMQ(args,queue, task)
+        sendtoRabbitMQ(args, queue, task)
 
 
 @announce
@@ -424,7 +425,7 @@ def log(message, session_name=''):
 
 
 @announce
-def receivefromRabbitMQ(args, queue):
+def receivefromRabbitMQ(args, queue, num=1):
     '''
     Connection to receive from RabbitMQ. The default sever timeout is 60 seconds and it is
     best not to have connections open past that time period, so here we open a connection,
@@ -436,8 +437,8 @@ def receivefromRabbitMQ(args, queue):
     Or closing them individually via the administration console
     '''
     modified_queue_name=compute_q_name(args, queue)
-    message = None
-    while not message:
+    messages = list()
+    while len(messages) < num:
         try:
             with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
                                                             config.get('rmq', 'password'),
@@ -445,12 +446,22 @@ def receivefromRabbitMQ(args, queue):
                 q = kbu.SimpleQueue(modified_queue_name)
                 message = q.get(timeout=10)
                 message.ack()
+                # TODO: Detection sends tasks as strings as well? This could probably be JSON
+                messages.append(message.payload)
                 q.close()
         # If there's nothing to grab, just wait and try again
         except q.Empty:
-            time.sleep(90)
-
-    return message.payload
+            # But if we have *something* might as well return it
+            if num > 1 and messages:
+                return messages
+            else:
+                time.sleep(90)
+                pass
+    # Return
+    if num > 1:
+        return messages
+    else:
+        return messages[0]
 
 
 @announce
@@ -538,6 +549,9 @@ def rebuildScanInfo(task):
         try:
             if os.path.exists(video_dir):
                 shutil.rmtree(video_dir)
+
+            if os.path.exists(results_dir):
+                shutil.rmtree(results_dir)
 
             # Wait for a second: the previous call can sometimes returns early
             time.sleep(5)
@@ -628,7 +642,7 @@ def preprocess(args):
                 subtask['tarfiles'] = list(subtars[instance])
 
                 # Run
-                worker = multiprocess.Process(target=launchMatlabTasks, args=[subtask])
+                worker = multiprocess.Process(target=launchMatlabTasks, args=[args, subtask])
                 worker.start()
                 workers.append(worker)
 
@@ -649,18 +663,18 @@ def preprocess(args):
 
 
 @announce
-def launchMatlabTasks(task):
+def launchMatlabTasks(args, task):
     '''
     A separate wrapper for multiple matlabs. It is called by multiprocess, which has the capability to
     pickle (actually, dill) a wider range of objects (like function wrappers)
     '''
     try:
         mlab = matlabProcess()
-        mlab.runTask(task)
+        mlab.runTask(task, nargout=0)
         mlab.quit()
     except Exception as e:
         task['message'] = e
-        handleFailedTask(args, 'preprocess', task)
+        handleFailedTask(args, task['role'], task)
         pass
 
 
@@ -716,32 +730,32 @@ def process(args):
     Processing method
     '''
     while True:
-        # The tasks
+        # The task
         multi_task = receivefromRabbitMQ(args, 'process', num=NUM_MATLAB_INSTANCES)
 
-        # Notify
-        log('Received task: {}'.format(task), task['session_name'])
+        # Change roletype
+        for m in multi_task:
+            m['role'] = 'process'
 
-        # Start MATLAB
-        mlab = matlabProcess()
+        # Notify
+        log('Received detection tasks: {}'.format([m['detection_params']['result'] for m in multi_task]), multi_task[0]['session_name'])
 
         try:
             # Rebuild base scan info (just use the first task)
             rebuildScanInfo(multi_task[0])
 
             # Launch tasks
-            log('Processing group of {} archives'.format(len(multi_task)), task['session_name'])
+            log('Processing group of {} archives'.format(len(multi_task)), multi_task[0]['session_name'])
             workers = list()
             for task in multi_task:
                 for zipfile in task['detection_params']['folders']:
-                    scanid = '_'.join(zipfile.split('_')[0:2])
                     key = '{}/results/farm_{}/block_{}/{}/detection/{}'.format(task['clientid'],
                                                                                task['farmname'].replace(' ', ''),
                                                                                task['blockname'].replace(' ', ''),
                                                                                task['session_name'], zipfile)
                     log('Downloading {}'.format(key), task['session_name'])
                     s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, zipfile))
-                worker = multiprocess.Process(target=launchMatlabTasks, args=['process', task])
+                worker = multiprocess.Process(target=launchMatlabTasks, args=[args, task])
                 worker.start()
                 workers.append(worker)
 
@@ -814,7 +828,7 @@ def getComputerInfoString():
 def parse_args():
     parser=argparse.ArgumentParser('orchestrator')
     default_role='Unknown'
-    default_session='trash'
+    default_session='coronanorth'
     default_service_namespace = 'agridataqueues2'
     default_shared_access_key_name = 'sharedaccess'
     default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
