@@ -679,23 +679,26 @@ def detection(args):
     # logger.info('Config read: type:{}'.format(dict(config['env'])))
     while True:
         try:
-            log(args, 'Waiting for task')
+            log('Waiting for task')
             task = receivefromRabbitMQ(args, 'detection')
-            log(args, 'Received detection task: {}'.format(task))
-     
-            t = task.get('detection_params', [])
-            t.update(dict(caffemodel_s3_url_cluster=str(t['caffemodel_s3_url_cluster']),
-                          caffemodel_s3_url_trunk=str(t['caffemodel_s3_url_trunk'])))
+            if type(task) != dict:
+                task = json.loads(task)
+            log('Received detection task: {}'.format(task), task['session_name'])
+ 
             arg_list = []
 
-            for k, v in t.iteritems():
+            # The task may come in unicode -- let's change to regular string
+            for k, v in task['detection_params'].iteritems():
                 arg_list.append('--' + k)
                 if type(v) == list:
-                    arg_list.extend(v)
+                    for vi in v:
+                        arg_list.append(str(vi))
                 else:
-                    arg_list.append(v)
+                    arg_list.append(str(v))
+                    
 
             args_detect = detect_s3_az.parse_args(arg_list)
+            print(args_detect)
             logger.info(('detection process %r, %r' % (task, args_detect)))
             s3keys = detect_s3_az.main(args_detect)
 
