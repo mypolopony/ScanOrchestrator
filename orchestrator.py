@@ -730,21 +730,21 @@ def process(args):
     Processing method
     '''
     while True:
-        # The task
-        multi_task = receivefromRabbitMQ(args, 'process', num=NUM_MATLAB_INSTANCES)
-
-        # Change roletype
-        # TODO: Does this really require using idx / enumerate? For some reason, multi_task is not cooperating otherwise
-        for idx,m in enumerate(multi_task):
-            if type(m) == unicode:
-                # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
-                multi_task[idx] = json.loads(m.replace("u'", "'").replace("'", '"'))
-            multi_task[idx]['role'] = 'process'
-
-        # Notify
-        log('Received processing tasks: {}'.format([multi_task[0]['detection_params']['result'] for m in multi_task]), multi_task[0]['session_name'])
-
         try:
+            # The task
+            multi_task = receivefromRabbitMQ(args, 'process', num=NUM_MATLAB_INSTANCES)
+
+            # Change roletype
+            # TODO: Does this really require using idx / enumerate? For some reason, multi_task is not cooperating otherwise
+            for idx,m in enumerate(multi_task):
+                if type(m) == unicode:
+                    # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
+                    multi_task[idx] = json.loads(m.replace("u'", "'").replace("'", '"'))
+                multi_task[idx]['role'] = 'process'
+
+            # Notify
+            log('Received processing tasks: {}'.format([multi_task[0]['detection_params']['result'] for m in multi_task]), multi_task[0]['session_name'])
+
             # Rebuild base scan info (just use the first task)
             rebuildScanInfo(multi_task[0])
 
