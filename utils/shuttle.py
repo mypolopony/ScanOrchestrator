@@ -24,15 +24,20 @@ def sendtoRabbitMQ(queue, message):
 
 
 outdir = '/Users/mypolopony/AgriData/picklejar'
-target = 'detection_coronanorth'
+target = 'preprocess_coronanorth'
 replace = True
+copy = False
 tag = datetime.strftime(datetime.now(), '%D-%T').replace('/','').replace(':','')
 max_num = 999
 
-messages = receivefromRabbitMQ(target)
-with open(os.path.join(outdir, target + '-' + tag + '.dat'), 'wb') as dump:
-    pickle.dump(messages, dump)
+datafile = os.path.join(outdir, target + '-' + tag + '.dat')
+
+if copy:
+    messages = receivefromRabbitMQ(target)
+    with open(datafile, 'wb') as dump:
+        pickle.dump(messages, dump)
 
 if replace:
+    messages = pickle.load(open(datafile, 'rb'))
     for msg in messages:
         sendtoRabbitMQ(target, msg)
