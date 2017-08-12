@@ -734,8 +734,12 @@ def process(args):
         multi_task = receivefromRabbitMQ(args, 'process', num=NUM_MATLAB_INSTANCES)
 
         # Change roletype
-        for m in multi_task:
-            m['role'] = 'process'
+        # TODO: Does this really require using idx / enumerate? For some reason, multi_task is not cooperating otherwise
+        for idx,m in enumerate(multi_task):
+            if type(m) == unicode:
+                # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
+                multi_task[idx] = json.loads(m.replace("u'", "'").replace("'", '"'))
+            multi_task[idx]['role'] = 'process'
 
         # Notify
         log('Received detection tasks: {}'.format([m['detection_params']['result'] for m in multi_task]), multi_task[0]['session_name'])
