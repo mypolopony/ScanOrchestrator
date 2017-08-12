@@ -871,7 +871,7 @@ if __name__ == '__main__':
             preprocess(args)
 
         # Detection
-        elif 'detection' in roletype:
+        elif 'posix' in roletype or 'detection' in roletype:
             detection(args)
 
         # Process
