@@ -424,7 +424,7 @@ def log(message, session_name=''):
 
 
 @announce
-def receivefromRabbitMQ(args, queue, num=1):
+def receivefromRabbitMQ(args, queue):
     '''
     Connection to receive from RabbitMQ. The default sever timeout is 60 seconds and it is
     best not to have connections open past that time period, so here we open a connection,
@@ -436,27 +436,21 @@ def receivefromRabbitMQ(args, queue, num=1):
     Or closing them individually via the administration console
     '''
     modified_queue_name=compute_q_name(args, queue)
-    msgs = list()
-    while len(msgs) < num:
+    message = None
+    while not message:
         try:
             with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
                                                             config.get('rmq', 'password'),
                                                             config.get('rmq', 'hostname'))) as kbu:
                 q = kbu.SimpleQueue(modified_queue_name)
-                while (len(msgs) < num and q.qsize > 0):
-                    message = q.get()
-                    message.ack()
-                    msgs.append(message.payload)
+                message = q.get(timeout=10)
+                message.ack()
                 q.close()
+        # If there's nothing to grab, just wait and try again
         except q.Empty:
             time.sleep(90)
 
-    # If only one task is requested, release it from the list
-    if num == 1:
-        return msgs[0]
-    # Otherwise, return a list of tasks
-    else:
-        return msgs
+    return message.payload
 
 
 @announce
