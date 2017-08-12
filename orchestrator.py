@@ -581,11 +581,11 @@ def rebuildScanInfo(task):
 
 
 @announce
-def monitorMatlabs(workers, task):
+def monitorMatlabs(workers, session_name):
     # Monitor the number of MATLAB processes
     matlabs = NUM_MATLAB_INSTANCES
     while matlabs > 0:
-        log('MATLAB instances still alive: {}. Waiting for two minutes.'.format(matlabs), task['session_name'])
+        log('MATLAB instances still alive: {}. Waiting for two minutes.'.format(matlabs), session_name)
         time.sleep(120)
         matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matlab.exe'])
 
@@ -594,7 +594,7 @@ def monitorMatlabs(workers, task):
         try:
             worker.terminate()
         except:
-            log('Terminate failed but that''s okay', task['session_name'])
+            log('Terminate failed but that''s okay', session_name)
 
 
 @announce
@@ -650,7 +650,7 @@ def preprocess(args):
                 time.sleep(5)
 
             # Blocking call to wait for workers to finish. MATLABs will send to detection
-            monitorMatlabs(workers, task)
+            monitorMatlabs(workers, task['session_name'])
 
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
@@ -763,7 +763,7 @@ def process(args):
                 time.sleep(4)
 
             # Blocking call to wait for workers to finish. MATLABs will send to postprocess
-            monitorMatlabs(workers, task)
+            monitorMatlabs(workers, task['session_name'])
 
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
@@ -872,7 +872,7 @@ if __name__ == '__main__':
     try:
         # RVM Generation
         if 'rvm' in roletype or 'jumpbox' in roletype:
-            generateRVM(args)
+            process(args)
 
         # Preprocessing
         elif 'preproc' in roletype:
