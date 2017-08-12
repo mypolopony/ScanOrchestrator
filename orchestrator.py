@@ -733,6 +733,7 @@ def process(args):
         try:
             # The task
             multi_task = receivefromRabbitMQ(args, 'process', num=NUM_MATLAB_INSTANCES)
+            session_name = multi_task[0]['session_name']
 
             # Change roletype
             # TODO: Does this really require using idx / enumerate? For some reason, multi_task is not cooperating otherwise
@@ -749,7 +750,7 @@ def process(args):
             rebuildScanInfo(multi_task[0])
 
             # Launch tasks
-            log('Processing group of {} archives'.format(len(multi_task)), multi_task[0]['session_name'])
+            log('Processing group of {} archives'.format(len(multi_task)), session_name)
             workers = list()
             for task in multi_task:
                 for zipfile in task['detection_params']['folders']:
@@ -767,15 +768,15 @@ def process(args):
                 time.sleep(4)
 
             # Blocking call to wait for workers to finish. MATLABs will send to postprocess
-            monitorMatlabs(workers, task['session_name'])
+            monitorMatlabs(workers,session_name)
 
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-            sendtoRabbitMQ(args,'process', task)
+            sendtoRabbitMQ(args,'dlq', multi_task)
             pass
         except Exception as e:
-            task['message'] = e
-            handleFailedTask(args, 'process', task)
+            log('FAILED: {}'.format(str(e)), multi_task[0]['session_name'])
+            sendtoRabbitMQ(args, 'dlq', multi_task)
             pass
 
 
