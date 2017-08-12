@@ -742,7 +742,7 @@ def process(args):
             multi_task[idx]['role'] = 'process'
 
         # Notify
-        log('Received detection tasks: {}'.format([m['detection_params']['result'] for m in multi_task]), multi_task[0]['session_name'])
+        log('Received processing tasks: {}'.format([m['detection_params']['result'] for m in multi_task]), multi_task[0]['session_name'])
 
         try:
             # Rebuild base scan info (just use the first task)
