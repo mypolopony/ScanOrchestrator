@@ -13,7 +13,6 @@ import subprocess
 import tarfile
 import time
 import traceback
-import psutil
 
 import boto3
 import multiprocess
@@ -361,7 +360,7 @@ def initiateScanProcess(scan):
 
 
 @announce
-def handleFailedTask(args, queue, task):
+def handleFailedTask(queue, task):
     '''
     Behavior for failed tasks
     '''
@@ -425,38 +424,24 @@ def log(message, session_name=''):
 
 @announce
 def receivefromRabbitMQ(args, queue, num=1):
-    '''
-    Connection to receive from RabbitMQ. The default sever timeout is 60 seconds and it is
-    best not to have connections open past that time period, so here we open a connection,
-    attempt to grab a task (or tasks) and on failing and close it if we get nothing, or
-    not enough messages. This prevents connections remaining open and becoming stale.
-
-    An admin can clear the connections (close all) by executing:
-        sudo rabbitmqadmin -f tsv -q list connections name | while read conn ; do sudo rabbitmqadmin -q close connection name="${conn}" ; done
-    Or closing them individually via the administration console
-    '''
     modified_queue_name=compute_q_name(args, queue)
     msgs = list()
-    while len(msgs) < num:
-        try:
-            with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
-                                                            config.get('rmq', 'password'),
-                                                            config.get('rmq', 'hostname'))) as kbu:
-                q = kbu.SimpleQueue(modified_queue_name)
-                while (len(msgs) < num and q.qsize > 0):
-                    message = q.get()
-                    message.ack()
-                    msgs.append(message.payload)
-                q.close()
-        except q.Empty:
-            time.sleep(90)
+    with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
+                                                    config.get('rmq', 'password'),
+                                                    config.get('rmq', 'hostname'))) as kbu:
+        q = kbu.SimpleQueue(modified_queue_name)
+        while (len(msgs) < num and q.qsize > 0):
+            message = q.get(block=True)
+            message.ack()
+            msgs.append(message.payload)
+        q.close()
 
-    # If only one task is requested, release it from the list
-    if num == 1:
-        return msgs[0]
-    # Otherwise, return a list of tasks
-    else:
-        return msgs
+        # If only one task is requested, release it from the list
+        if num == 1:
+            return msgs[0]
+        # Otherwise, return a list of tasks
+        else:
+            return msgs
 
 
 @announce
@@ -507,11 +492,11 @@ def generateRVM(args):
 
             # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
             log('Calculating RVM', task['session_name'])
-            mlab.runTask(task, nargout=0)
+            s3uri, localuri = mlab.runTask(task)
+            task['rvm_uri'] = s3uri
 
             # Check for completeness
-            local_uri = os.path.join(video_dir, 'rvm.csv')
-            data = pd.read_csv(local_uri, header=0)
+            data = pd.read_csv(localuri, header=0)
             rows_found = len(set([(r, d) for r, d in zip(data['rows'], data['direction'])])) / 2
             if rows_found < block.num_rows * 0.5:
                 emitSNSMessage(
@@ -528,7 +513,7 @@ def generateRVM(args):
                     task['tarfiles'] = [s for s in shard if s]
                     task['num_retries'] = 0  # Set as clean
                     task['role'] = 'preprocess'
-                    sendtoRabbitMQ(args, 'preprocess', task)
+                    sendtoRabbitMQ(args,'preprocess', task)
 
                 log('RVM task complete', task['session_name'])
         except Exception as err:
@@ -567,26 +552,10 @@ def rebuildScanInfo(task):
                                                                      os.path.join(video_dir, 'imu_basler', key))
 
     # Download the RVM, VPR
-    s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), task['session_name'])
-    for csvfile in ['rvm.csv', 'vpr.csv']:
-        s3r.Bucket(config.get('s3', 'bucket')).download_file(s3_result_path + csvfile, os.path.join(video_dir, csvfile))
-
-
-@announce
-def monitorMatlabs(workers, task):
-    # Monitor the number of MATLAB processes
-    matlabs = NUM_MATLAB_INSTANCES
-    while matlabs > 0:
-        log('MATLAB instances still alive: {}. Waiting for two minutes.'.format(matlabs), task['session_name'])
-        time.sleep(120)
-        matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matlab.exe'])
-
-    # All of the MATLABs are done, let's kill any lingering workers
-    for worker in workers:
-        try:
-            worker.terminate()
-        except:
-            log('Terminate failed but that''s okay', task['session_name'])
+    key = '/'.join(task['rvm_uri'].split('/')[3:])
+    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
+    key = key.replace('rvm.csv', 'vpr.csv')
+    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, key.split('/')[-1]))
 
 
 @announce
@@ -641,16 +610,17 @@ def preprocess(args):
                 # Short delay to stagger workers
                 time.sleep(5)
 
-            # Blocking call to wait for workers to finish. MATLABs will send to detection
-            monitorMatlabs(workers, task)
+            for worker in workers:
+                worker.join()
 
+            log('All MATLAB instances have finished', task['session_name'])
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
             sendtoRabbitMQ(args,'preprocess', task)
             pass
         except Exception as e:
             task['message'] = e
-            handleFailedTask(args, 'preprocess', task)
+            handleFailedTask('preprocess', task)
             pass
 
 
@@ -666,7 +636,7 @@ def launchMatlabTasks(task):
         mlab.quit()
     except Exception as e:
         task['message'] = e
-        handleFailedTask(args, 'preprocess', task)
+        handleFailedTask('preprocess', task)
         pass
 
 
@@ -679,39 +649,36 @@ def detection(args):
     # logger.info('Config read: type:{}'.format(dict(config['env'])))
     while True:
         try:
-            log('Waiting for task')
+            log(args, 'Waiting for task')
             task = receivefromRabbitMQ(args, 'detection')
-            if type(task) != dict:
-                task = json.loads(task)
-            log('Received detection task: {}'.format(task), task['session_name'])
- 
+            log(args, 'Received detection task: {}'.format(task))
+     
+            t = task.get('detection_params', [])
+            t.update(dict(caffemodel_s3_url_cluster=str(t['caffemodel_s3_url_cluster']),
+                          caffemodel_s3_url_trunk=str(t['caffemodel_s3_url_trunk'])))
             arg_list = []
 
-            # The task may come in unicode -- let's change to regular string
-            for k, v in task['detection_params'].iteritems():
+            for k, v in t.iteritems():
                 arg_list.append('--' + k)
                 if type(v) == list:
-                    for vi in v:
-                        arg_list.append(str(vi))
+                    arg_list.extend(v)
                 else:
-                    arg_list.append(str(v))
-                    
+                    arg_list.append(v)
 
             args_detect = detect_s3_az.parse_args(arg_list)
-            print(args_detect)
             logger.info(('detection process %r, %r' % (task, args_detect)))
             s3keys = detect_s3_az.main(args_detect)
 
             # for now we expect only one element
             assert (len(s3keys) <= 1)
             task['detection_params']['result'] = s3keys if not s3keys  else  s3keys[0]
-            log('Success. Completed detection: {}'.format(task['detection_params']['result']), task['session_name'])
+            log(args, 'Success. Completed detection: {}'.format(task['detection_params']['result']))
             sendtoRabbitMQ(args,'process', task)
         except Exception, e:
             tb = traceback.format_exc()
             logger.error(tb)
             task['message'] = str(e)
-            log('args, Task FAILED. Re-enqueueing... ({})'.format(task), task['session_name'])
+            log('args, Task FAILED. Re-enqueueing... ({})'.format(task))
             handleFailedTask(args, 'detection', task)
             pass
 
@@ -754,16 +721,29 @@ def process(args):
                 # Delay is recommended to keep MATLAB processes from stepping on one another
                 time.sleep(4)
 
-            # Blocking call to wait for workers to finish. MATLABs will send to postprocess
-            monitorMatlabs(workers, task)
+            for worker in workers:
+                worker.join()
 
+            log('All MATLAB instances have finished', task['session_name'])
+
+            # Pre file upload, recreate relevant parts of analysis_struct
+            analysis_struct = dict.fromkeys(['video_folder', 's3_result_path'])
+            analysis_struct['video_folder'] = video_dir
+
+            # S3 results path
+            analysis_struct[
+                's3_result_path'] = 's3://agridatadepot.s3.amazonaws.com/{}/results/farm_{}/block_{}'.format(
+                task['clientid'], task['farmname'].replace(' ', ''), task['blockname'].replace(' ', ''))
+
+            # Now what?
+            log('Processing done. {}'.format(task), task['session_name'])
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
             sendtoRabbitMQ(args,'process', task)
             pass
         except Exception as e:
             task['message'] = e
-            handleFailedTask(args, 'process', task)
+            handleFailedTask('process', task)
             pass
 
 
@@ -820,7 +800,7 @@ def getComputerInfoString():
 def parse_args():
     parser=argparse.ArgumentParser('orchestrator')
     default_role='Unknown'
-    default_session='trash'
+    default_session='sessionkg'
     default_service_namespace = 'agridataqueues2'
     default_shared_access_key_name = 'sharedaccess'
     default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
@@ -850,7 +830,7 @@ if __name__ == '__main__':
     #override the args.session_name with session_name from config
     #this is a hacky way to pass arguments to a service
     try:
-        session_name_from_config=config.get('args', 'session_name')
+        session_name_from_config==config.get('args', 'session_name')
         args.session_name=session_name_from_config
     except ConfigParser.NoSectionError, e:
         pass
