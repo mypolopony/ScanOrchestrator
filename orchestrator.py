@@ -730,22 +730,27 @@ def process(args):
     Processing method
     '''
     while True:
-        # The task
-        multi_task = receivefromRabbitMQ(args, 'process', num=NUM_MATLAB_INSTANCES)
-
-        # Change roletype
-        for m in multi_task:
-            m['role'] = 'process'
-
-        # Notify
-        log('Received processing tasks: {}'.format([m['detection_params']['result'] for m in multi_task]), multi_task[0]['session_name'])
-
         try:
+            # The task
+            multi_task = receivefromRabbitMQ(args, 'process', num=NUM_MATLAB_INSTANCES)
+            session_name = multi_task[0]['session_name']
+
+            # Change roletype
+            # TODO: Does this really require using idx / enumerate? For some reason, multi_task is not cooperating otherwise
+            for idx,m in enumerate(multi_task):
+                if type(m) == unicode:
+                    # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
+                    multi_task[idx] = json.loads(m.replace("u'", "'").replace("'", '"'))
+                multi_task[idx]['role'] = 'process'
+
+            # Notify
+            log('Received processing tasks: {}'.format([multi_task[0]['detection_params']['result'] for m in multi_task]), multi_task[0]['session_name'])
+
             # Rebuild base scan info (just use the first task)
             rebuildScanInfo(multi_task[0])
 
             # Launch tasks
-            log('Processing group of {} archives'.format(len(multi_task)), multi_task[0]['session_name'])
+            log('Processing group of {} archives'.format(len(multi_task)), session_name)
             workers = list()
             for task in multi_task:
                 for zipfile in task['detection_params']['folders']:
@@ -763,15 +768,15 @@ def process(args):
                 time.sleep(4)
 
             # Blocking call to wait for workers to finish. MATLABs will send to postprocess
-            monitorMatlabs(workers, task['session_name'])
+            monitorMatlabs(workers,session_name)
 
         except ClientError:
             # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-            sendtoRabbitMQ(args,'process', task)
+            sendtoRabbitMQ(args,'dlq', multi_task)
             pass
         except Exception as e:
-            task['message'] = e
-            handleFailedTask(args, 'process', task)
+            log('FAILED: {}'.format(str(e)), multi_task[0]['session_name'])
+            sendtoRabbitMQ(args, 'dlq', multi_task)
             pass
 
 
