@@ -24,9 +24,9 @@ def sendtoRabbitMQ(queue, message):
 
 
 outdir = '/Users/mypolopony/AgriData/picklejar'
-target = 'preprocess_coronanorth'
+target = 'dlq_coronanorth'
 replace = True
-copy = False
+copy = True
 tag = datetime.strftime(datetime.now(), '%D-%T').replace('/','').replace(':','')
 max_num = 999
 
