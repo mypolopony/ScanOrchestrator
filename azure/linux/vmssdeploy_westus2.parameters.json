@@ -9,7 +9,7 @@
       "value": "16.04-LTS"
     },
     "instanceCount": {
-      "value": 6
+      "value": 12
     },
     "adminUsername": {
       "value": "agridata"
@@ -17,7 +17,6 @@
     "adminPassword": {
       "value": "AgriData2Win!"
     },
-
     "resourcesStorageAccount": {
        "value": "agridatacomputestorage"
     },
@@ -28,7 +27,7 @@
        "value": "https://agridatacomputestorage.blob.core.windows.net/scripts/run.sh"
     },
     "sourceImageVhdUri":{
-      "value": "https://agridatacomputestorage.blob.core.windows.net/images/linux_080817.vhd"
+      "value": "https://agridatacomputestorage.blob.core.windows.net/images/linux_081217.vhd"
     },
     "destinationFolder": {
       "value": "/home/agridata"
@@ -43,10 +42,13 @@
       "value": "package.tar.gz"
     },
     "scanOrchestratorBranch": {
-      "value": "everett-wheeler"
+      "value": "master"
     },
     "deepLearningBranch": {
       "value": "dev2"
+    },
+    "session_name": {
+      "value": "coronanorth-postfix"
     }
   }
 }
