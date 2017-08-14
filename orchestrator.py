@@ -753,7 +753,7 @@ def process(args):
             log('Processing group of {} archives'.format(len(multi_task)), session_name)
             workers = list()
             for task in multi_task:
-                for zipfile in task['detection_params']['folders']:
+                for zipfile in task['detection_params']['result']:
                     key = '{}/results/farm_{}/block_{}/{}/detection/{}'.format(task['clientid'],
                                                                                task['farmname'].replace(' ', ''),
                                                                                task['blockname'].replace(' ', ''),
