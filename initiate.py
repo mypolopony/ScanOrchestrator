@@ -49,7 +49,7 @@ def main(args):
     }
 
     # To start at detection, uncomment and modify this code
-
+    '''
     task['role'] = 'detection'
     task['detection_params'] =  dict(
         bucket='agridatadepot',
@@ -63,6 +63,7 @@ def main(args):
         session_name= datetime.datetime.now().strftime('%m-%d-%H-%M-%S'),
         folders=[ '2017-07-12_09-04_22179677_09_16-preprocess-row142-dir2.zip' ]
         )
+    '''
 
     sendtoKombu('%s_%s' % (task['role'], task['session_name']), task)
 
