@@ -555,7 +555,8 @@ def rebuildScanInfo(task):
 
             # Wait for a second: the previous call can sometimes returns early
             time.sleep(5)
-            os.makedirs(video_dir + '\imu_basler')
+            os.makedirs(video_dir + r'\imu_basler')
+            os.makedirs(video_dir + r'\results')
             success = True
         except IOError as e:
             log('Rebuilding IO Error: {}'.format(e), task['session_name'])
@@ -735,12 +736,16 @@ def process(args):
             multi_task = receivefromRabbitMQ(args, 'process', num=NUM_MATLAB_INSTANCES)
             session_name = multi_task[0]['session_name']
 
-            # Change roletype
+            # Change roletype and reformat message
             # TODO: Does this really require using idx / enumerate? For some reason, multi_task is not cooperating otherwise
             for idx,m in enumerate(multi_task):
                 if type(m) == unicode:
                     # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
                     multi_task[idx] = json.loads(m.replace("u'", "'").replace("'", '"'))
+                # The detection params reult is sometimes a string and sometimes a list -- is this because of the above?
+                if type(multi_task[idx]['detection_params']['result']) == unicode:
+                    multi_task[idx]['detection_params']['result'] = [multi_task[idx]['detection_params']['result']]
+
                 multi_task[idx]['role'] = 'process'
 
             # Notify
@@ -754,12 +759,8 @@ def process(args):
             workers = list()
             for task in multi_task:
                 for zipfile in task['detection_params']['result']:
-                    key = '{}/results/farm_{}/block_{}/{}/detection/{}'.format(task['clientid'],
-                                                                               task['farmname'].replace(' ', ''),
-                                                                               task['blockname'].replace(' ', ''),
-                                                                               task['session_name'], zipfile)
-                    log('Downloading {}'.format(key), task['session_name'])
-                    s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, zipfile))
+                    log('Downloading {}'.format(zipfile), task['session_name'])
+                    s3r.Bucket(config.get('s3', 'bucket')).download_file(zipfile, os.path.join(video_dir, os.path.basename(zipfile)))
                 worker = multiprocess.Process(target=launchMatlabTasks, args=[args, task])
                 worker.start()
                 workers.append(worker)
@@ -775,7 +776,7 @@ def process(args):
             sendtoRabbitMQ(args,'dlq', multi_task)
             pass
         except Exception as e:
-            log('FAILED: {}'.format(str(e)), multi_task[0]['session_name'])
+            log('FAILED, SENDING TO DLQ: {}'.format(str(e)), multi_task[0]['session_name'])
             sendtoRabbitMQ(args, 'dlq', multi_task)
             pass
 
