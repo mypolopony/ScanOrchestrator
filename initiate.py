@@ -25,14 +25,6 @@ config_path = os.path.join(config_parent_dir, 'utils', 'poller.conf')
 assert (os.path.isfile(config_path))
 config.read(config_path)
 
-# ANSI escape (to remove color codes from subprocess output)
-ansi_escape = re.compile(r'\x1b[^m]*m')
-
-# Azure connection (keys = ['tenant', 'tokenType', 'expiresOn', 'accessToken', 'subscription'])
-auth = subprocess.check_output(['az', 'account', 'generate-access-id'])
-auth = json.loads(ansi_escape.sub('', auth))
-
-
 def sendtoKombu(queue, task):
     with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
                                                     config.get('rmq', 'password'),
@@ -49,14 +41,6 @@ def parse_args():
     return args
 
 
-def define_resources(args):
-    rgs = [rg['name'] for rg in azurerm.list_resource_groups(token, sid)['value']]
-
-    for role in roles:
-        if '{}_{}'.format(role, args.task.session_name) in rgs:
-            print('')
-
-
 def main(args):
     # Task definition - Start with RVM
     task = {
@@ -66,7 +50,7 @@ def main(args):
         'blockname': 'Corona North',
         'role': 'rvm',
         'session_name': args.session_name,
-        'test': True
+        'test': False
     }
 
     sendtoKombu('%s_%s' % (task['role'], task['session_name']), task)
