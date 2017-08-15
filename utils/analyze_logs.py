@@ -16,14 +16,14 @@ db = c[dbname]
 # Pseudorandom Color
 def get_pseudorandom_color(basis):
     # Initializing enforces all calls resolve to the same pseudorandom set
-    random.seed('agridata')
+    random.seed('selwyn')
 
     # Now we reinitialize based on the basis string
     random.seed(basis)
     return '#%06x' % random.randint(0, 0xFFFFFF)
 
 
-session_name = '08.10.18.57'
+session_name = 'coronanorth'
 filename = '/tmp/rhetoric.csv'
 results = list(db.orchestrator.find({'session_name': session_name}))
 
