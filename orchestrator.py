@@ -608,6 +608,9 @@ def preprocess(args):
             # The task
             task = receivefromRabbitMQ(args, 'preprocess')
 
+            # Fix to eliminate paths in the tarfile
+            task['tarfiles'] = [os.path.basename(t) for t in task['tarfiles']]
+
             # Notify
             log('Received task: {}'.format(task), task['session_name'])
 
