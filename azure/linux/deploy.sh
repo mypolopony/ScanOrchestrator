@@ -2,7 +2,7 @@
 
 
 
-DELETE=1
+DELETE=0
 CREATE=1
 LOC=westus2
 while getopts d:c:l: opts; do

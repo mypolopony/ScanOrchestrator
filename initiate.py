@@ -45,9 +45,9 @@ def main(args):
     # Task definition - Start with RVM
     task = {
         'clientid': '5953469d1fb359d2a7a66287',
-        'farmname': 'Quintessa',
-        'scanids': ['2017-07-12_11-06'],
-        'blockname': 'Corona North',
+        'farmname': 'Three Palms',
+        'scanids': ['2017-07-20_10-03'],
+        'blockname': 'THPME-10',
         'role': 'rvm',
         'session_name': args.session_name,
         'test': False
