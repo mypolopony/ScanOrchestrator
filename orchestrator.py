@@ -530,7 +530,7 @@ def generateRVM(args):
 
                 # Split tarfiles
                 for shard in np.array_split(tarfiles, int(len(tarfiles) / SHARD_FACTOR)):
-                    task['tarfiles'] = [os.path.basename(s) for s in shard if s]
+                    task['tarfiles'] = [s for s in shard if s]
                     task['num_retries'] = 0  # Set as clean
                     task['role'] = 'preprocess'
                     sendtoRabbitMQ(args, 'preprocess', task)
@@ -607,9 +607,6 @@ def preprocess(args):
         try:
             # The task
             task = receivefromRabbitMQ(args, 'preprocess')
-
-            # Fix to eliminate paths in the tarfile
-            task['tarfiles'] = [os.path.basename(t) for t in task['tarfiles']]
 
             # Notify
             log('Received task: {}'.format(task), task['session_name'])
