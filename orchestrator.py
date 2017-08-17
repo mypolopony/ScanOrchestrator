@@ -136,7 +136,8 @@ results_dir = base_windows_path + 'results'
 
 # Parameters                            # To calculate the number of separate tasks,
 SHARD_FACTOR = 4  # divide the number of rows by this factor
-NUM_MATLAB_INSTANCES = SHARD_FACTOR  # Each machine will spwn this number of MATLAB instances
+NUM_MATLAB_INSTANCES = SHARD_FACTOR     # Each machine will spwn this number of MATLAB instances
+task, multi_task = None                 # Avoid annoying failure messages if these are not defined
 
 
 def announce(func, *args, **kwargs):
