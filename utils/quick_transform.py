@@ -12,5 +12,7 @@ scanids = ['2017-07-20_08-57', '2017-07-20_09-10', '2017-07-20_09-28', '2017-07-
 client = '594ce94f1fb3590bef00c927'
 
 for s in scanids:
-    scan = dotdict({'scanid':s, 'client':client})
-    transformScan(scan)
+    # scan = dotdict({'scanid':s, 'client':client})
+    # transformScan(scan)
+
+    

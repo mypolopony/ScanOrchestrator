@@ -23,8 +23,8 @@ def get_pseudorandom_color(basis):
     return '#%06x' % random.randint(0, 0xFFFFFF)
 
 
-session_name = 'coronanorth'
-filename = '/tmp/rhetoric.csv'
+session_name = 'thpcssn3'
+filename = '/tmp/plotly.csv'
 results = list(db.orchestrator.find({'session_name': session_name}))
 
 with open(filename, 'wb') as outfile:

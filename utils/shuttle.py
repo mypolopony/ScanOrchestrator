@@ -24,7 +24,7 @@ def sendtoRabbitMQ(queue, message):
 
 
 outdir = '/Users/mypolopony/AgriData/picklejar'
-target = 'dlq_coronanorth'
+target = 'process_thpme10'
 replace = True
 copy = True
 tag = datetime.strftime(datetime.now(), '%D-%T').replace('/','').replace(':','')
@@ -33,11 +33,14 @@ max_num = 999
 datafile = os.path.join(outdir, target + '-' + tag + '.dat')
 
 if copy:
+    print('Saving messages from {}'.format(target))
     messages = receivefromRabbitMQ(target)
     with open(datafile, 'wb') as dump:
         pickle.dump(messages, dump)
 
 if replace:
+    print('Injecting messages from {}'.format(datafile))
     messages = pickle.load(open(datafile, 'rb'))
-    for msg in messages:
+    for idx, msg in enumerate(messages):
+        print('{}/{}'.format(idx,len(messages)))
         sendtoRabbitMQ(target, msg)
