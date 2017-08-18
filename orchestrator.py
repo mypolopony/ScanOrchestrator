@@ -137,7 +137,8 @@ results_dir = base_windows_path + 'results'
 # Parameters                            # To calculate the number of separate tasks,
 SHARD_FACTOR = 4  # divide the number of rows by this factor
 NUM_MATLAB_INSTANCES = SHARD_FACTOR     # Each machine will spwn this number of MATLAB instances
-task, multi_task = None                 # Avoid annoying failure messages if these are not defined
+task = None                             # Avoid annoying failure messages if these are not defined
+multi_task = None
 
 
 def announce(func, *args, **kwargs):
@@ -835,7 +836,7 @@ def getComputerInfoString():
 def parse_args():
     parser=argparse.ArgumentParser('orchestrator')
     default_role='Unknown'
-    default_session='thpcssn3'
+    default_session='thpcspn3'
     default_service_namespace = 'agridataqueues2'
     default_shared_access_key_name = 'sharedaccess'
     default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
