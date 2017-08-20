@@ -44,14 +44,26 @@ def parse_args():
 def main(args):
     # Task definition - Start with RVM
     task = {
-        'clientid': '5953469d1fb359d2a7a66287',
+        'clientid': '594ce94f1fb3590bef00c927',
         'farmname': 'Three Palms',
-        'scanids': ['2017-07-20_10-03'],
-        'blockname': 'THPME-10',
+        'scanids': ['2017-07-20_13-42'],
+        'blockname': 'THPCS-PN3',
         'role': 'rvm',
         'session_name': args.session_name,
-        'test': False
+        'test': False,
+        'detection_params': {
+            'caffemodel_s3_url_cluster': 's3://deeplearning_data/models/best/cluster_june_15_288000.caffemodel',
+            'caffemodel_s3_url_trunk': 's3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel'
+        }
     }
+
+    # Explicitly create the queues (is this necessary?)
+    with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
+                                                    config.get('rmq', 'password'),
+                                                    config.get('rmq', 'hostname'))) as kbu:
+        for role in roles:
+            simple_queue = kbu.SimpleQueue('_'.join([role, args.session_name]))
+            simple_queue.close()
 
     sendtoKombu('%s_%s' % (task['role'], task['session_name']), task)
 
