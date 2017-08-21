@@ -836,7 +836,7 @@ def getComputerInfoString():
 def parse_args():
     parser=argparse.ArgumentParser('orchestrator')
     default_role='Unknown'
-    default_session='thpcspn3'
+    default_session='3c'
     default_service_namespace = 'agridataqueues2'
     default_shared_access_key_name = 'sharedaccess'
     default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
