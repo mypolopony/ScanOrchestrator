@@ -245,8 +245,7 @@ def transformScan(scan):
                                                 Prefix='{}/{}'.format(scan.client, scan.scanid))['Contents']):
 
         # Exclude the folder itself
-        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)) and not file['Key'].startswith(
-                scan.scanid):
+        if file['Key'] != '{}/{}/'.format(str(scan.client), str(scan.scanid)) and not file['Key'].startswith(scan.scanid):
             # Extract camera and timestamp for rearrangement
             camera = re.search(pattern_cam, file['Key']).group()
             time = '_'.join([file['Key'].split('_')[-2], file['Key'].split('_')[-1]])
@@ -570,8 +569,7 @@ def rebuildScanInfo(task):
 
     # Download log files
     for scan in task['scanids']:
-        for file in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/{}'.format(task['clientid'], scan))[
-            'Contents']:
+        for file in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
             key = file['Key'].split('/')[-1]
             if 'csv' in key and key.startswith(scan):
                 s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'],
@@ -779,6 +777,7 @@ def process(args):
             pass
         except Exception as e:
             log('FAILED, SENDING TO DLQ: {}'.format(str(e)), multi_task[0]['session_name'])
+            log(logger.error(traceback.print_exc()))
             sendtoRabbitMQ(args, 'dlq', multi_task)
             pass
 
@@ -911,6 +910,7 @@ if __name__ == '__main__':
 
         # Error
         else:
-            emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
+            #emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
+            process(args)
     except Exception as e:
         emitSNSMessage(str(e))
