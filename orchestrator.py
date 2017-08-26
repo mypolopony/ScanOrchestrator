@@ -544,7 +544,7 @@ def generateRVM(args):
 
                 log('RVM task complete', task['session_name'])
         except Exception as err:
-            emitSNSMessage('Failure on {}'.format(str(err)))
+            emitSNSMessage('Failure on {}'.format(str(err)), context=traceback.format_exc())
             pass
 
 
@@ -841,7 +841,7 @@ def getComputerInfoString():
 def parse_args():
     parser=argparse.ArgumentParser('orchestrator')
     default_role='Unknown'
-    default_session='4d2'
+    default_session='3c2'
     default_service_namespace = 'agridataqueues2'
     default_shared_access_key_name = 'sharedaccess'
     default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
@@ -919,4 +919,4 @@ if __name__ == '__main__':
             #emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
             process(args)
     except Exception as e:
-        emitSNSMessage(str(e))
+        emitSNSMessage(str(e), context=traceback.format_exc())
