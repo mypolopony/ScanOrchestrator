@@ -9,7 +9,7 @@
       "value": "16.04-LTS"
     },
     "instanceCount": {
-      "value": 12
+      "value": 7
     },
     "adminUsername": {
       "value": "agridata"
@@ -48,7 +48,7 @@
       "value": "dev2"
     },
     "session_name": {
-      "value": "4d2"
+      "value": "coronasouth"
     }
   }
 }

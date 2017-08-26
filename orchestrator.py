@@ -175,8 +175,11 @@ def handleAWSMessage(result):
         # Delete task / Re-enque task on fail
         # When tasks are received, they are temporarily marked as 'taken' but it is up to this process to actually
         # delete them or, failing that, default to releasing them back to the queue
+
+
 def compute_q_name(args, base_queue_name):
     return base_queue_name if args.session_name == 'Unknown' else '%s_%s' % ( base_queue_name, args.session_name)
+
 
 @announce
 def poll(args):
@@ -314,10 +317,13 @@ def transformScan(scan):
                 try:
                     # These are the recalculated frame numbers, i.e. line numbers in the log
                     framenos = [int(m.name.replace('.jpg', '')) - offset for m in tarfile.open(tf).getmembers()]
+                    
                     # Occasionally, there are more tar files than there are lines in the CSV, 
                     # but always no more than one (due to log file / image file race)
                     framenos = [f for f in framenos if f < len(log)]
-                    log.loc[framenos, 'filename'] = tf
+
+                    # Use basename here to avoid full paths in frame log / RVM
+                    log.loc[framenos, 'filename'] = os.path.basename(tf)
                 except:
                     logger.warning('Tar file {} could not be opened'.format(tf))
             log.to_csv(csv)
