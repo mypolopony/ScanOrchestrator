@@ -8,9 +8,11 @@ from pymongo import MongoClient
 
 dbname = 'status'
 server = 'boringmachine'
+username = 'agridata'
+password = 'M5m7xMe2cUNcNn6y$Rz'
 port = 27017
 
-c = MongoClient('mongodb://' + server + ':' + str(port) + '/' + dbname)
+c = MongoClient('mongodb://' + username + ':' + password + '@' + server + ':' + str(port) + '/' + dbname)
 db = c[dbname]
 
 # Pseudorandom Color
@@ -23,7 +25,7 @@ def get_pseudorandom_color(basis):
     return '#%06x' % random.randint(0, 0xFFFFFF)
 
 
-session_name = 'thpcssn3'
+session_name = '4d2'
 filename = '/tmp/plotly.csv'
 results = list(db.orchestrator.find({'session_name': session_name}))
 
