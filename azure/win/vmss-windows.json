@@ -12,7 +12,8 @@
       "type": "int",
       "metadata": {
         "description": "Number of VM instances to create in the scale set"
-      }
+      },
+      "defaultValue": 12
     },
     "vmSize": {
       "type": "string",
@@ -37,7 +38,8 @@
       ],
       "metadata": {
         "description": "The size of the VM instances Created"
-      }
+      },
+      "defaultValue": "Standard_D4_v3"
     },
     "dnsNamePrefix": {
       "type": "string",
@@ -49,19 +51,22 @@
       "type": "string",
       "metadata": {
         "description": "The Username of the administrative user for each VM instance created"
-      }
+      },
+      "defaultValue": "agridata"
     },
     "adminPassword": {
       "type": "securestring",
       "metadata": {
         "description": "The Password of the administrative user for each VM instance created"
-      }
+      },
+      "defaultValue": "BattleOfHastings1066"
     },
     "sourceImageVhdUri": {
       "type": "string",
       "metadata": {
         "description": "The source of the blob containing the custom image"
-      }
+      },
+      "defaultValue": "https://agridatacomputestorage.blob.core.windows.net/images/computeos_august2017.vhd"
     },
     "frontEndLBPort": {
       "type": "int",

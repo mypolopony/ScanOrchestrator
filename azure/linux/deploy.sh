@@ -18,7 +18,7 @@ echo DELETE=$DELETE  CREATE=$CREATE LOC=$LOC
 
 
 
-RG="detection4d2"
+RG="detection"
 OUTDIR=./output
 DEPLOYMENT_NAME=$RG
 mkdir -p $OUTDIR
