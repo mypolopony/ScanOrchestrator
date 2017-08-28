@@ -30,14 +30,13 @@ s3r = boto3.resource('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secr
 block = '4D'
 farm = 'Quatacker-Burns'
 client = '591daa81e1cf4d8cbfbb1bf6'
-session_name = '4d2'
+session_name = '4d3'
 s3prefix = '{}/results/farm_{}/block_{}/{}'.format(client, farm, block, session_name)
 
 # Series
 roles = ['preprocess-frames','detection','process-frames']
 plots = dict.fromkeys(roles)
 colors = ['rgb(0, 200, 255)', 'rgb(0, 20, 255)', 'rgb(20, 255, 0)']
-session_name = '4d2'
 
 # Populate series
 for color, role, token in zip(colors, roles, tls.get_credentials_file()['stream_ids']):
@@ -84,8 +83,10 @@ for role in roles:
 while True:
     x = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
     for role in roles:
-        count = len(s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/results/farm_{}/block_{}/{}/{}'.format(client, farm, block, session_name, role))['Contents'])
-        print(count)
+        try:
+            count = len(s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/results/farm_{}/block_{}/{}/{}'.format(client, farm, block, session_name, role))['Contents'])
+        except:
+            count = 0
         plots[role]['meta']['link'].write(dict(x=x, y=count))
     time.sleep(DELAY)
 

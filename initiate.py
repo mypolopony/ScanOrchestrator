@@ -44,10 +44,10 @@ def parse_args():
 def main(args):
     # Task definition - Start with RVM
     task = {
-        'clientid': '594ce94f1fb3590bef00c927',
-        'farmname': 'Three Palms',
-        'scanids': ['2017-07-20_13-42'],
-        'blockname': 'THPCS-PN3',
+        'clientid': '591daa81e1cf4d8cbfbb1bf6',
+        'farmname': 'Quatacker-Burns',
+        'scanids': ['2017-08-17_09-47','2017-08-17_10-25','2017-08-17_11-23','2017-08-17_12-07','2017-08-17_12-33'],
+        'blockname': '4D',
         'role': 'rvm',
         'session_name': args.session_name,
         'test': False,
