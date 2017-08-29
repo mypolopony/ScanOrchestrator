@@ -34,53 +34,32 @@ if os.name == 'posix':
     sys.path.insert(0, parent_dir)
     source_dir=os.path.dirname(current_path)
 
-# AgriData
+# AgriData Database Connection
 from utils.connection import *
 
-# Operational parameters
-WAIT_TIME = 20  # AWS wait time for messages
-NUM_MSGS = 10  # Number of messages to grab at a time
-RETRY_DELAY = 60  # Number of seconds to wait upon encountering an error
+# Operational parameters (for AWS)
+WAIT_TIME = 20      # [AWS] Wait time for messages
+NUM_MSGS = 10       # [AWS] Number of messages to grab at a time
+RETRY_DELAY = 60    # [AWS] Number of seconds to wait upon encountering an error
+CORES = 4           # [GENERAL] Number of cores (= number of MATLAB instances)
 
-
-#Load config file
-'''
-get all section, key, val triples from src_config and copy(overwrite) tgt_config
-'''
-def update_config(src_config, tgt_config):
-    for section_name in src_config.sections():
-        if not tgt_config.has_section(section_name):
-            tgt_config.add_section(section_name)
-        for name, value in src_config.items(section_name):
-            tgt_config.set(section_name, name, value)
-
-'''
-return all section, key, val triples as  a list
-'''
-def debug_config(config):
-    ret=[]
-    for section_name in config.sections():
-        for name, value in config.items(section_name):
-            s = (section_name, name, value)
-            ret.append(s)
-    return ret
-
-config = ConfigParser.ConfigParser()
-config_dir = '.'
+# OS-Specific Setup
 if os.name == 'nt':
+    # Canonical windows paths
+    base_windows_path = r'C:\AgriData\Projects\\'
+    video_dir = base_windows_path + 'videos'
+    results_dir = base_windows_path + 'results'
+
     config_dir = r'C:\AgriData\Projects\ScanOrchestrator'
     import matlab.engine
 else:
     assert (os.path.basename(os.getcwd()) == 'ScanOrchestrator')
+    config_dir = '.'
+
+#Load config file
+config = ConfigParser.ConfigParser()
 config_path = os.path.join(config_dir, 'utils', 'poller.conf')
-assert (os.path.isfile(config_path))
 config.read(config_path)
-overriding_config_path = os.path.join(config_dir, 'data', 'overriding.conf')
-if os.path.isfile(overriding_config_path):
-    config2 = ConfigParser.ConfigParser()
-    config2.read(overriding_config_path)
-    #copy/overwrite section,key, vaue triples from config2 to config
-    update_config(config2, config)
 
 # Temporary location for collateral in processing
 tmpdir = config.get('env', 'tmpdir')
@@ -106,6 +85,10 @@ aws_arns = dict()
 aws_arns['statuslog'] = 'arn:aws:sns:us-west-2:090780547013:statuslog'
 sns = boto3.client('sns', region_name=config.get('sns', 'region'))
 
+# Kombu connection (persistent)
+rabbit_url = '{}:{}@{}'.format(config.get('rmq', 'username'), config.get('rmq', 'password'), config.get('rmq', 'hostname'))
+conn = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
+
 # Initialize logging
 logger = logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
                              datefmt='%a, %d %b %Y %H:%M:%S')
@@ -126,27 +109,50 @@ ch.setFormatter(formatter)
 fh.setFormatter(formatter)
 
 # Add handlers
-logger.addHandler(ch)  # For sanity's sake, toggle console-handler and file-handler, but not both
+logger.addHandler(ch)           # For sanity's sake, toggle console-handler and file-handler, but not both
 logger.addHandler(fh)
 
-# Canonical windows paths
-base_windows_path = r'C:\AgriData\Projects\\'
-video_dir = base_windows_path + 'videos'
-results_dir = base_windows_path + 'results'
-
-# Parameters                            # To calculate the number of separate tasks,
-SHARD_FACTOR = 4  # divide the number of rows by this factor
-NUM_MATLAB_INSTANCES = SHARD_FACTOR     # Each machine will spwn this number of MATLAB instances
-task = None                             # Avoid annoying failure messages if these are not defined
-multi_task = None
+# Miscellany
+task, multi_task = None, None   # Avoid annoying failure messages if these are not defined
 
 
 def announce(func, *args, **kwargs):
+    '''
+    Default decorator to send the current operation to the log
+    '''
     def wrapper(*args, **kwargs):
         logger.info('***** Executing {} *****'.format(func.func_name))
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def establish_connection():
+    revived_connection = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
+    revived_connection.ensure_connection(max_retries=3)
+    channel = fresh_connection.channel()
+    consumer.revive(channel)
+    consumer.consume()
+    print('Fresh connection!')
+    return fresh_connection
+
+
+def process_message(body, message):
+    print('Message received: {}\n\t{}'.format(message,body))
+    message.ack()
+
+
+def list_bound_queues(exchange):
+    '''
+    In a canonical AMQP framework, there is no way of listing an Exchange's bindings. Canonically,
+    publishers publish messages to an exchange and consumers declare queues and determine routing.
+
+    Since a machine will not have access to routing keys (session_names), we must use the Management
+    Plugin and call for a list of the bindings using the HTTP API
+    '''
+    r = requests.get('http://{}:15672/api/bindings/%2f/'.format(rabbit_url))
+    bindings = [binding for binding in r.json() if binding['source'] == exchange]
+    return [Queue(b['destination']) for b in bindings]
 
 
 @announce
@@ -176,13 +182,8 @@ def handleAWSMessage(result):
         # When tasks are received, they are temporarily marked as 'taken' but it is up to this process to actually
         # delete them or, failing that, default to releasing them back to the queue
 
-
-def compute_q_name(args, base_queue_name):
-    return base_queue_name if args.session_name == 'Unknown' else '%s_%s' % ( base_queue_name, args.session_name)
-
-
 @announce
-def poll(args):
+def poll():
     start = datetime.datetime.now()
 
     logger.info('Scan Detector Starting\n\n')
@@ -220,6 +221,80 @@ def poll(args):
 
     logger.debug('Sleeping for {} seconds'.format(RETRY_DELAY))
     time.sleep(RETRY_DELAY)
+
+
+@announce
+def log(message, session_name=''):
+    '''
+    Let's send this message to the dashboard
+    '''
+    # TODO: Instead of sending session, we should send the task itself
+    payload = dict()
+    payload['hostname'] = socket.gethostname()
+    payload['ip'] = socket.gethostbyname(payload['hostname'])
+    payload['message'] = message
+    payload['session_name'] = session_name
+
+    try:
+        r = requests.post('http://dash.agridata.ai/orchestrator', json=payload)
+    except Exception as e:
+        logger.warning('Boringmachine not reachable: {}'.format(e))
+
+
+@announce
+def sendtoRabbitMQ(exchange, queue, message):
+    modified_queue_name=compute_q_name(args, queue)
+    q = kbu.SimpleQueue(modified_queue_name)
+    q.put(message)
+    q.close()
+
+
+@announce
+def handleFailedTask(args, queue, task):
+    '''
+    Behavior for failed tasks
+    '''
+    MAX_RETRIES = 9  # Under peek.lock conditions, Azure sets a default of 10, so let's catch before that
+
+    if 'num_retries' in task.keys() and task['num_retries'] >= MAX_RETRIES:
+        log('Max retries met for task, sending to DLQ: {}'.format(task))
+        sendtoRabbitMQ(args,'dlq', task)
+    else:
+        # Num_retries should exist, so this check is just for safety
+        task['num_retries'] += 1
+        log('Task FAILED. Re-enqueing: {}'.format(task), task['session_name'])
+
+        # Delete error message and reenqueue
+        del task['message']
+        sendtoRabbitMQ(args, queue, task)
+
+
+@announce
+def emitSNSMessage(message, context=None, topic='statuslog'):
+    # A simple notification payload, sent to all of a topic's subscribed endpoints
+
+    # Ensure type (change to JSON)
+    if type(message) == str:
+        _message = dict()  # Save as temp variable
+        _message = {'info': message}
+        message = _message  # Unwrap
+
+    # Main payload
+    payload = {
+        'message': message,
+        'topic_arn': aws_arns[topic],
+        'context': context,
+        'hostname': socket.gethostname(),
+        'ip': socket.gethostbyname(payload['hostname'])
+    }
+
+    # Emit the message
+    response = sns.publish(
+        TopicArn=aws_arns[topic],
+        Message=json.dumps(payload),  # SNS likes strings
+        Subject='{} message'.format(topic)
+    )
+
 
 
 @announce
@@ -348,10 +423,10 @@ def transformScan(scan):
 
 
 @announce
-def initiateScanProcess(scan):
+def convert(scan):
     '''
-    This is the entry point to the processing pipeline. It takes a raw, newly uploaded scan and
-    handles some essential tasks that are required before processing.
+    This is a bouncer for incoming scans before they are transformed. Basically, it only transform the scan
+    if it needs to be transformed
     '''
 
     ## Check for formatting (old style -> new style)
@@ -359,135 +434,18 @@ def initiateScanProcess(scan):
     s3base = '{}/{}'.format(str(scan.client), str(scan.scanid))
     keys = [obj['Key'] for obj in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=s3base)['Contents']]
 
-    # IF there are no files that start with scanid, then we should convert!
+    # If there are no files that start with scanid, then we should convert!
     if not len([k for k in keys if k.split('/')[-1].startswith(scan.scanid)]):
         transformScan(scan)
-        # print('This feature disabled; a more intelligent service is required to perform transformation')
-
-        # The scan is uploaded and ready to be placed in the 'ready' or 'rvm' queue, where it
-        # may be be evaluated for 'goodness'
 
 
 @announce
-def handleFailedTask(args, queue, task):
+def generateRVM(body, message):
     '''
-    Behavior for failed tasks
+    Generate a row video map.
     '''
-    MAX_RETRIES = 9  # Under peek.lock conditions, Azure sets a default of 10
-
-    if 'num_retries' in task.keys() and task['num_retries'] >= MAX_RETRIES:
-        log('Max retries met for task, sending to DLQ: {}'.format(task))
-        sendtoRabbitMQ(args,'dlq', task)
-    else:
-        # Num_retries should exist, so this check is just for safety
-        task['num_retries'] += 1
-        log('Task FAILED. Re-enqueing: {}'.format(task), task['session_name'])
-
-        # Delete error message and reenqueue
-        del task['message']
-        sendtoRabbitMQ(args, queue, task)
-
-
-@announce
-def emitSNSMessage(message, context=None, topic='statuslog'):
-    # A simple notification payload, sent to all of a topic's subscribed endpoints
-
-    # Ensure type (change to JSON)
-    if type(message) == str:
-        _message = dict()  # Save as temp variable
-        _message = {'info': message}
-        message = _message  # Unwrap
-
-    # Main payload
-    payload = {
-        'message': message,
-        'topic_arn': aws_arns[topic],
-        'context': context
-    }
-
-    # Emit the message
-    response = sns.publish(
-        TopicArn=aws_arns[topic],
-        Message=json.dumps(payload),  # SNS likes strings
-        Subject='{} message'.format(topic)
-    )
-
-
-@announce
-def log(message, session_name=''):
-    '''
-    Let's send this message to the dashboard
-    '''
-    # TODO: Instead of sending session, we should send the task itself
-    payload = dict()
-    payload['hostname'] = socket.gethostname()
-    payload['ip'] = socket.gethostbyname(payload['hostname'])
-    payload['message'] = message
-    payload['session_name'] = session_name
-
-    try:
-        r = requests.post('http://dash.agridata.ai/orchestrator', json=payload)
-    except Exception as e:
-        logger.warning('Boringmachine not reachable: {}'.format(e))
-
-
-@announce
-def receivefromRabbitMQ(args, queue, num=1):
-    '''
-    Connection to receive from RabbitMQ. The default sever timeout is 60 seconds and it is
-    best not to have connections open past that time period, so here we open a connection,
-    attempt to grab a task (or tasks) and on failing and close it if we get nothing, or
-    not enough messages. This prevents connections remaining open and becoming stale.
-
-    An admin can clear the connections (close all) by executing:
-        sudo rabbitmqadmin -f tsv -q list connections name | while read conn ; do sudo rabbitmqadmin -q close connection name="${conn}" ; done
-    Or closing them individually via the administration console
-    '''
-    modified_queue_name=compute_q_name(args, queue)
-    messages = list()
-    while len(messages) < num:
-        try:
-            with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
-                                                            config.get('rmq', 'password'),
-                                                            config.get('rmq', 'hostname'))) as kbu:
-                q = kbu.SimpleQueue(modified_queue_name)
-                message = q.get(timeout=10)
-                message.ack()
-                # TODO: Detection sends tasks as strings as well? This could probably be JSON
-                messages.append(message.payload)
-                q.close()
-        # If there's nothing to grab, just wait and try again
-        except q.Empty:
-            # But if we have *something* might as well return it
-            if num > 1 and messages:
-                return messages
-            else:
-                time.sleep(90)
-                pass
-    # Return
-    if num > 1:
-        return messages
-    else:
-        return messages[0]
-
-
-@announce
-def sendtoRabbitMQ(args,queue, message):
-    modified_queue_name=compute_q_name(args, queue)
-    with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
-                                                    config.get('rmq', 'password'),
-                                                    config.get('rmq', 'hostname'))) as kbu:
-        
-        q = kbu.SimpleQueue(modified_queue_name)
-        q.put(message)
-        q.close()
-
-
-@announce
-def generateRVM(args):
-    '''
-    Given a set of scans (or one scan), generate a row video map.
-    '''
+    chan = conn.channel()
+    exchange = Exchange('rvm', channel=chan)
 
     while True:
         # The task
@@ -838,85 +796,100 @@ def getComputerInfoString():
     return ret
 
 
+def windows_client():
+    '''
+    Since Windows machines can perform either preprocessing / processing equally, one strategy is to have
+    any 
+    '''
+
+    # Define consumers
+    rvm_channel = conn.channel()
+    preprocess_channel = conn.channel()
+    process_channel - conn.channel()
+
+    while True:
+        try:
+            with nested(Consumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM], auto_declare=False),
+                        Consumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[preprocess], auto_declare=False),
+                        Consumer(process_channel,list_bound_queues(exchange='process'), callbacks=[process], auto_declare=False)):
+                conn.drain_events(timeout=2)
+        except socket.timeout:
+            pass
+        except conn.connection_errors:
+            emitSNSMessage('Connection has been lost')
+            break
+
+
+def linux_client():
+    '''
+    For the detection machines
+    '''
+    detection_channel = conn.channel()
+    consumer = Consumer(channel=chan, queues=list_bound_queues('detection'), callbacks=[detection], auto_declare=False)
+    consumer.consume()
+
+    while True:
+        try:
+            conn.drain_events(timeout=2)
+        except socket.timeout:
+            pass 
+        except conn.connection_errors:
+            cmitSNSMessage('Connection has been lost')
+            break
+
+
+
+def run(role=None):
+    '''
+    The main entry point, which can either be called via import or executed from the command line
+    '''
+    try:
+        if not role:
+            roletype = identifyRole()
+
+        log('I\'m awake! Role type is {}, with configuration {}'.format(roletype, debug_config(config), args))
+
+        # Specialty roles up front
+        if roletype == 'convert':           # Scan filename / log file conversion
+            for scan in Scan.objects():
+                convert(scan)
+        elif roletype == 'poll':            # AWS poller (for new uploads)
+            poll()
+
+        # RVM / Pprocessing / Preprocessing
+        elif os.name == 'nt':
+            windows_client()
+
+        # Detection
+        elif os.name == 'posix':
+            linux_client()
+
+        # Unknown / Error
+        else:
+            emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
+
+    except Exception as e:
+        emitSNSMessage(str(e), context=traceback.format_exc())
+
+
 def parse_args():
+    '''
+    Add other parameters here
+    '''
     parser=argparse.ArgumentParser('orchestrator')
-    default_role='Unknown'
-    default_session='4d3'
-    default_service_namespace = 'agridataqueues2'
-    default_shared_access_key_name = 'sharedaccess'
-    default_shared_access_key_value = 'eEoOu6rVzuUCAzKJgW5OqzwdVoqiuc2xxl3UEieUQLA='
-    parser.add_argument('-n', '--service_namespace', help='service namespace', dest='service_namespace',
-                        default=default_service_namespace)
-    parser.add_argument('-k', '--shared_access_key_name', help='shared_access_key_name', dest='shared_access_key_name',
-                        default=default_shared_access_key_name)
-    parser.add_argument('-v', '--shared_access_key_value', help='shared_access_key_value', dest='shared_access_key_value',
-                        default=default_shared_access_key_value)
     parser.add_argument('-r', '--role', help='role', dest='role',
                         default=default_role)
-    parser.add_argument('-s', '--session_name', help='session_name', dest='session_name',
-                        default=default_session)
 
     args = parser.parse_args()
     return args
 
 
 if __name__ == '__main__':
-    # Initial decision points. It is important that these do not return anything. This requires that each task stream
-    # be responsible for handling its own end conditions, whether it be an graceful exit, an abrupt termination, etc. The
-    # reason is that that task itself has the sole responsibility of knowing what it should or should not be doing and how
-    # to handle adverse or successful events.
-
-    # What task are we meant to do? This is based on instance names
+    '''
+    This is the main control entrypoint if the script is launched from the command line. Parameters can be
+    addeed here, but it is kept simple for now
+    '''
+    # Arguments
     args = parse_args()
-    #override the args.session_name with session_name from config
-    #this is a hacky way to pass arguments to a service
-    try:
-        session_name_from_config=config.get('args', 'session_name')
-        args.session_name=session_name_from_config
-    except ConfigParser.NoSectionError, e:
-        pass
-    roletype = args.role
 
-    if args.role == 'Unknown':
-        roletype = identifyRole()
-
-    log('I\'m awake! Role type is {}, with configuration {} and args {}'.format(roletype, debug_config(config), args))
-
-    try:
-        # RVM Generation
-        if 'rvm' in roletype or 'jumpbox' in roletype:
-            generateRVM(args)
-
-        # Preprocessing
-        elif 'preproc' in roletype:
-            preprocess(args)
-
-        # Detection
-        elif 'posix' in roletype or 'detection' in roletype:
-            detection(args)
-
-        # Process
-        elif 'process' in roletype or 'xob' in roletype:
-            process(args)
-
-        # Convert scan filenames and CSVs from old style to new style
-        elif roletype == 'convert':
-            scans = Scan.objects()
-
-            for scan in scans:
-                try:
-                    initiateScanProcess(scan)
-                except Exception as e:
-                    logger.error(traceback.print_exc())
-                    logger.info('An error has occured: {}'.format(e))
-
-        # AWS daemon mode
-        elif roletype == 'poll':
-            poll(args)
-
-        # Error
-        else:
-            #emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
-            process(args)
-    except Exception as e:
-        emitSNSMessage(str(e), context=traceback.format_exc())
+    run(args.role)

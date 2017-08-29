@@ -6,6 +6,7 @@ import time
 import json
 import argparse
 import re
+import subprocess
 import azurerm
 from pprint import pprint
 from kombu import Connection
@@ -16,11 +17,13 @@ roles = ['rvm', 'preprocess', 'detection', 'process']
 # Load config file
 config = ConfigParser.ConfigParser()
 config_parent_dir = '.'
+
 if os.name == 'nt':
     config_parent_dir = r'C:\AgriData\Projects\ScanOrchestrator'
     import matlab.engine
 else:
     assert (os.path.basename(os.getcwd()) == 'ScanOrchestrator')
+
 config_path = os.path.join(config_parent_dir, 'utils', 'poller.conf')
 assert (os.path.isfile(config_path))
 config.read(config_path)
@@ -29,7 +32,7 @@ config.read(config_path)
 ansi_escape = re.compile(r'\x1b[^m]*m')
 
 # Azure connection (keys = ['tenant', 'tokenType', 'expiresOn', 'accessToken', 'subscription'])
-auth = subprocess.check_output(['az','account','generate-access-id'])
+auth = subprocess.check_output(['az','account','get-access-token'])
 auth = json.loads(ansi_escape.sub('', auth))
 
 def sendtoKombu(queue, task):

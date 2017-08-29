@@ -1,5 +1,6 @@
 import jwt
 import datetime
+import json
 from pymongo import MongoClient
 from flask_mongoengine import MongoEngine
 from flask_login import UserMixin
@@ -262,3 +263,28 @@ class rvm(db.Document):
 
     video_file = db.StringField(max_length=255)
     rvmap = db.ListField(db.DictField())
+
+
+class Task():
+    '''
+    Storage class used to standardize tasks
+    '''
+
+    def __init__(self, message, queue):
+        '''
+        This comes from initiate.py
+        '''
+        self.message = message
+        self.queue = queue
+        
+    def validate(self):
+        '''
+        Sanity checks to be passed before the task is accepted
+        '''
+        return True
+
+    def __str__(self):
+        '''
+        Return string version (convenience function)
+        '''
+        return json.dumps(self.__dict__)
