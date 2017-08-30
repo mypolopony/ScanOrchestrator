@@ -20,8 +20,8 @@ cp C:\AgriData\Projects\.config\rclone\rclone.conf C:\Users\agridata\.config\rcl
 ### Set environment variables and try to give system AWS credentials, too
 New-Item -ItemType Directory -Force -Path ~\.aws
 cp C:\AgriData\Projects\aws\credentials ~\.aws\ 
-[Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAJCTBYUIK37F3OUYA", "Machine")
-[Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "Machine")
+[Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAIQYWKQQF5NKCCPGA", "Machine")
+[Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "Machine")
 
 
 ## Pip Dependencies (bake into future images)

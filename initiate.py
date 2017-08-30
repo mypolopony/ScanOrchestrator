@@ -46,8 +46,8 @@ def main(args):
     task = {
         'clientid': '591daa81e1cf4d8cbfbb1bf6',
         'farmname': 'Quatacker-Burns',
-        'scanids': ['2017-08-17_09-47','2017-08-17_10-25','2017-08-17_11-23','2017-08-17_12-07','2017-08-17_12-33'],
-        'blockname': '4D',
+        'scanids': ['2017-08-25_11-49', '2017-08-25_12-59'],
+        'blockname': 'D',
         'role': 'rvm',
         'session_name': args.session_name,
         'test': False,
