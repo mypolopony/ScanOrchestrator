@@ -277,11 +277,11 @@
                   "autoUpgradeMinorVersion": true,
                   "settings": {
                     "fileUris": [
-                        "https://agridatacomputestorage.blob.core.windows.net/scripts/run.ps1"
+                        "https://agridatacomputestorage.blob.core.windows.net/scripts/run_noparams.ps1"
                     ],
-                    "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File ./run.ps1",
+                    "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File ./run_noparams.ps1",
                     "protectedSettings": {
-                        "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File ./run.ps1",
+                        "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File ./run_noparams.ps1",
                         "storageAccountName": "agridatacomputestorage",
                         "storageAccountKey": "HTqbKnZ/9/lo+G1ohr+KUYteOZSsrh4yqkgIc0KwlaXc+lx6egTVsG2qHCYDm5B4efTT0KX+wk+bNZmZmgrNfA=="
                     }

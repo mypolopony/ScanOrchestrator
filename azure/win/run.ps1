@@ -19,10 +19,9 @@ cp C:\AgriData\Projects\.config\rclone\rclone.conf C:\Users\agridata\.config\rcl
 
 ### Set environment variables and try to give system AWS credentials, too
 New-Item -ItemType Directory -Force -Path ~\.aws
-cp C:\AgriData\Projects\aws\credentials ~\.aws\ 
-[Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAIQYWKQQF5NKCCPGA", "Machine")
-[Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "Machine")
-
+echo "[default]" > ~\.aws\credentials
+echo "aws_access_key_id = AKIAIQYWKQQF5NKCCPGA" >> ~\.aws\credentials
+echo "aws_secret_access_key = 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" >> ~\.aws\credentials
 
 ## Pip Dependencies (bake into future images)
 pip install kombu
