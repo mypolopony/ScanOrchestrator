@@ -27,10 +27,10 @@ s3 = boto3.client('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secret)
 s3r = boto3.resource('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secret)
 
 # Target
-block = '4D'
-farm = 'Quatacker-Burns'
-client = '591daa81e1cf4d8cbfbb1bf6'
-session_name = '4d3'
+block = 'D'
+farm = 'Skellenger'
+client = '599f45bc28d2010d98b1bc23'
+session_name = 'renteriad'
 s3prefix = '{}/results/farm_{}/block_{}/{}'.format(client, farm, block, session_name)
 
 # Series
