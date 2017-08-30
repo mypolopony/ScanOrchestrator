@@ -1,5 +1,6 @@
 from utils.models_min import Task
 from kombu import Connection, Consumer, Exchange, Queue
+from kombu.utils.compat import nested
 import numpy as np
 import ConfigParser
 import os
@@ -17,6 +18,8 @@ config.read(config_path)
 rabbit_url = '{}:{}@{}'.format(config.get('rmq', 'username'), config.get('rmq', 'password'), config.get('rmq', 'hostname'))
 conn = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
 chan = conn.channel()
+
+print(conn)
 
 def establish_connection():
     revived_connection = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
@@ -46,10 +49,6 @@ def list_bound_queues(exchange):
     return [Queue(b['destination']) for b in bindings]
 
 
-# Must be after process_message
-consumer = Consumer(channel=chan, queues=list_bound_queues('symphony'), callbacks=[process_message], auto_declare=False)
-consumer.consume()
-
 def single():
     while True:
         try:
@@ -74,3 +73,8 @@ def multiple():
     with nested(Consumer(cha, Queue(name='QueueA'), callbacks=[process_message], auto_declare=False),
                 Consumer(chb, Queue(name='QueueB'), callbacks=[process_message], auto_declare=False)):
         conn.drain_events(timeout=2)
+
+
+if __name__ == '__main__':
+    # single()
+    multiple()

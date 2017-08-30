@@ -22,7 +22,8 @@ import pandas as pd
 import requests
 from botocore.exceptions import ClientError
 from bson.objectid import ObjectId
-from kombu import Connection
+from kombu import Connection, Consumer, Producer, Exchange, Queue
+from kombu.utils.compat import nested
 
 
 #some relative paths needed for detection in linux
@@ -296,7 +297,6 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
     )
 
 
-
 @announce
 def transformScan(scan):
     '''
@@ -440,70 +440,45 @@ def convert(scan):
 
 
 @announce
-def generateRVM(body, message):
+def generateRVM(task, message):
     '''
     Generate a row video map.
     '''
-    chan = conn.channel()
-    exchange = Exchange('rvm', channel=chan)
-
-    while True:
-        # The task
-        task = receivefromRabbitMQ(args, 'rvm')
-
-        # Notify
+    try:
+        message.ack()
         log('Received task: {}'.format(task), task['session_name'])
 
         # Start MATLAB
         mlab = matlabProcess()
 
-        try:
-            # Obtain the scan
-            try:
-                scan = Scan.objects.get(client=task['clientid'], scanid=task['scanids'][0])
-            except:
-                scan = Scan.objects.get(client=ObjectId(task['clientid']), scanid=task['scanids'][0])
+        log('Calculating RVM', task['session_name'])
+        mlab.runTask(task, nargout=0)
 
-            block = Block.objects.get(id=scan.blocks[0])
-            task['blockid'] = str(block.id)
-            task['blockname'] = block.name
-            task['farmid'] = str(block.farm)
-            task['farmname'] = Farm.objects.get(id=block.farm).name.replace(' ', '')
+        # Check for completeness
+        local_uri = os.path.join(video_dir, 'rvm.csv')
+        data = pd.read_csv(local_uri, header=0)
+        rows_found = len(set([(r, d) for r, d in zip(data['rows'], data['direction'])])) / 2
+        if rows_found < block.num_rows * 0.5:
+            emitSNSMessage(
+                'RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
+        elif rows_found > block.num_rows:
+            emitSNSMessage(
+                'Too many rows found (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
+        else:
+            # Generate tar files and eliminate NaNs
+            tarfiles = pd.Series.unique(data['file'])
 
-            # Check staging database for previous scans of this block
-            # staged = db.staging.find({'block': scan.blocks[0]})
-            # if staged:
-            #    task['scanids'] = task['scanids'] + [s['_id'] for s in staged]
+            # Split tarfiles
+            for tf in tarfiles:
+                task['tarfiles'] = [tf]
+                task['num_retries'] = 0                     # Initialize as clean
+                task['role'] = 'preprocess'                 # Next step
+                sendtoRabbitMQ('preprocess', task)
 
-            # Send the arguments off to batch_auto, return is the S3 location of rvm.csvs
-            log('Calculating RVM', task['session_name'])
-            mlab.runTask(task, nargout=0)
-
-            # Check for completeness
-            local_uri = os.path.join(video_dir, 'rvm.csv')
-            data = pd.read_csv(local_uri, header=0)
-            rows_found = len(set([(r, d) for r, d in zip(data['rows'], data['direction'])])) / 2
-            if rows_found < block.num_rows * 0.5:
-                emitSNSMessage(
-                    'RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
-            elif rows_found > block.num_rows:
-                emitSNSMessage(
-                    'Too many rows found (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
-            else:
-                # Generate tar files and eliminate NaNs
-                tarfiles = pd.Series.unique(data['file'])
-
-                # Split tarfiles
-                for shard in np.array_split(tarfiles, int(len(tarfiles) / SHARD_FACTOR)):
-                    task['tarfiles'] = [s for s in shard if s]
-                    task['num_retries'] = 0  # Set as clean
-                    task['role'] = 'preprocess'
-                    sendtoRabbitMQ(args, 'preprocess', task)
-
-                log('RVM task complete', task['session_name'])
-        except Exception as err:
-            emitSNSMessage('Failure on {}'.format(str(err)), context=traceback.format_exc())
-            pass
+            log('RVM task complete', task['session_name'])
+    except Exception as err:
+        emitSNSMessage('Failure on {}'.format(str(err)), context=traceback.format_exc())
+        pass
 
 
 @announce
@@ -690,7 +665,7 @@ def detection(args):
 
 
 @announce
-def process(args):
+def process():
     '''
     Processing method
     '''
@@ -805,7 +780,7 @@ def windows_client():
     # Define consumers
     rvm_channel = conn.channel()
     preprocess_channel = conn.channel()
-    process_channel - conn.channel()
+    process_channel = conn.channel()
 
     while True:
         try:

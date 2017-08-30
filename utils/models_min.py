@@ -1,8 +1,9 @@
 import jwt
 import datetime
 import json
+import numpy as np
 from pymongo import MongoClient
-from flask_mongoengine import MongoEngine
+from flask_mongoengine import MongoEngine, DoesNotExist
 from flask_login import UserMixin
 
 
@@ -265,26 +266,126 @@ class rvm(db.Document):
     rvmap = db.ListField(db.DictField())
 
 
+class dotdict(dict):
+    '''
+    dot.notation access to dictionary attributes
+    '''
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+
 class Task():
     '''
-    Storage class used to standardize tasks
+    Storage class used to standardize tasks. For the moment, task structure follows the previous
+    implementation (from initiate.py) -- it can be cleaned up but is kept stable for the purposes
+    of compatability
     '''
 
-    def __init__(self, message, queue):
+    def __init__(self, 
+                 client_name,
+                 farm_name,
+                 block_name,
+                 session_name = None,
+                 cluster_model='s3://deeplearning_data/models/best/cluster_june_15_288000.caffemodel', 
+                 trunk_model='s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel',
+                 test=True, 
+                 exclude_scans=None, 
+                 include_scans=None,
+                 role='rvm'):
+
+        self.task = dotdict()
+
+        # Session name (defaults to block + timestamp)
+        if session_name:
+            self.task.session_name = session_name
+        else:
+            self.task.session_name = block_name + datetime.fromtimestamp(time.time()).strftime('-%m_%d_%H_%M')
+        
+        # Models (this is *not* a dot dict)
+        self.task.detection_params = dict()
+        self.task.detection_params['cluster_model'] = cluster_model
+        self.task.detection_params['trunk_model'] = trunk_model
+
+        # Test
+        self.task.test = test
+
+        # Populate the main task structure
+        try:
+            # Client
+            self.task.clientname = client_name
+            self.task.clientid = Client.objects.get(name=self.task.clientname).id
+
+            # Block
+            self.task.blockname = block_name
+            self.task.blockid = Block.objects.get(name=self.task.blockname).id
+
+            # Farm
+            self.task.farmname = farm_name
+            self.task.farmid = Farm.objects.get()
+        except DoesNotExist:
+            raise Exception('Sorry, that Client / Farm / Block could not be found')
+
+        # Scan IDs
+        if include_scans:
+            # Selected scans
+            if type(include_scans) is not list:
+                include_scans = [include_scans]
+            self.task.scanids = include_scans
+        else:
+            # All Scans
+            self.task.scanids = Scan.objects(blocks=self.task.blockid)
+            # Filter out scans
+            if exclude_scans:
+                if type(exclude_scans) is not list:
+                    exclude_scans = [exclude_scans]
+                self.task.scanids = list(set(self.task.scanids) - set(exclude_scans))
+
+        # Role (defaults to rvm)
+        self.task.role = role
+
+        # Validation
+        validate()
+        
+        # Initialize Queues
+        set_up_queues()
+
+
+    def set_up_queues(self):
         '''
-        This comes from initiate.py
+        Set up this task's queues and bind them to the proper exchanges
         '''
-        self.message = message
-        self.queue = queue
+        pass
+
         
     def validate(self):
         '''
         Sanity checks to be passed before the task is accepted
         '''
-        return True
 
-    def __str__(self):
-        '''
-        Return string version (convenience function)
-        '''
-        return json.dumps(self.__dict__)
+        # Scans exist and are of the right block
+        try:
+            for scanid in self.task.scanids:
+                assert(ObjectId(self.task.blockid) in Scan.objects.get(scanid=scanid).blocks)
+        except AssertionError:
+            raise Exception('Error. Can not continue! Scans do not match block.')
+
+        # Block has rows
+        try:
+            block = Block.objects.get(id=self.task.blockid)          # Redundant grabbing of block
+            assert(block.num_rows == len(block.rows))
+
+            # Row array matches row query
+            rows = Row.objects(block=self.task.blockid)
+            assert(len((set([r.id for r in rows])-set(block.rows))) == 0)
+        except AssertionError:
+            raise Exception('Error. The block and the rows do not match.')
+
+        # Rows have num_plants
+        try:
+            for row in Row.objects(block=self.task.blockid):
+                assert(row.num_plants)
+                assert(row.num_plants == len(row.vines))
+                assert(len(set([v for v in row.vines])-set([v.id for v in Vine.objects(row=row.id)])) == 0)
+        except AssertionError:
+            raise Exception('Error. The number of plants per row does not seem correct')

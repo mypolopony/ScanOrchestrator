@@ -3,6 +3,7 @@ from kombu import Connection, Producer, Exchange, Queue
 import numpy as np
 import ConfigParser
 import os
+from pprint import pprint
 import binascii
 
 # Load config file
@@ -17,9 +18,9 @@ conn = Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
                                                     config.get('rmq', 'hostname'))).connect()
 
 chan = conn.channel()
-queues = ['QueueA', 'QueueB', 'QueueC']
 symphony = Exchange('symphony', channel=chan)
 producer = Producer(channel=chan, exchange=symphony)
+queues = ['QueueA', 'QueueB', 'QueueC']
 
 for queue in queues:
     if queue == 'QueueB':
@@ -27,12 +28,14 @@ for queue in queues:
     else:
         Queue(name=queue, exchange=symphony, routing_key=queue, channel=chan).declare()
 
-def insert(tasks):
-    for task in tasks:
-        producer.publish(task.message, routing_key=task.queue)
+def insert(items):
+    for item in items:
+        item = item.__dict__
+        pprint(item)
+        producer.publish(item['task'], routing_key=item['task']['queue'])
 
 def generateTasks(num):
-    return [Task(binascii.b2a_hex(os.urandom(15)), np.random.choice(queues)).__dict__() for i in xrange(num)]
+    return [Task() for i in xrange(num)]
 
 if __name__ == '__main__':
     insert(generateTasks(100))
