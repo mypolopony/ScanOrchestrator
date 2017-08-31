@@ -1,4 +1,4 @@
-### Signon
+    ### Signon
 echo "$(Get-Date): Starting [ver. symphony]" > C:\Users\agridata\startup.log
 echo $env:username >> C:\Users\agridata\startup.log
 
@@ -31,10 +31,12 @@ git checkout master
 ### AWS Credentials
 New-Item -ItemType Directory -Force -Path ~\.aws
 # Copy AWS credentials file from Scan Orchestrator
-cp C:\AgriData\Projects\ScanOrchestrator\credentials\aws_credentials ~\.aws\ 
+cp C:\AgriData\Projects\ScanOrchestrator\credentials\aws_credentials ~\.aws\credentials
 # Also set the environment variables
 [Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAIQYWKQQF5NKCCPGA", "Machine")
 [Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "Machine")
+[Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAIQYWKQQF5NKCCPGA", "User")
+[Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "User")
 
 
 ### Copy extern
