@@ -48,8 +48,6 @@ CORES = 4           # [GENERAL] Number of cores (= number of MATLAB instances)
 if os.name == 'nt':
     # Canonical windows paths
     base_windows_path = r'C:\AgriData\Projects\\'
-    video_dir = base_windows_path + 'videos'
-    results_dir = base_windows_path + 'results'
 
     config_dir = r'C:\AgriData\Projects\ScanOrchestrator'
     import matlab.engine
@@ -393,8 +391,8 @@ def transformScan(scan):
                 try:
                     # These are the recalculated frame numbers, i.e. line numbers in the log
                     framenos = [int(m.name.replace('.jpg', '')) - offset for m in tarfile.open(tf).getmembers()]
-                    
-                    # Occasionally, there are more tar files than there are lines in the CSV, 
+
+                    # Occasionally, there are more tar files than there are lines in the CSV,
                     # but always no more than one (due to log file / image file race)
                     framenos = [f for f in framenos if f < len(log)]
 
@@ -449,6 +447,8 @@ def generateRVM(task, message):
         message.ack()
         log('Received task: {}'.format(task), task['session_name'])
 
+        rebuildScanInfo(task)
+
         # Start MATLAB
         mlab = matlabProcess()
 
@@ -456,9 +456,10 @@ def generateRVM(task, message):
         mlab.runTask(task, nargout=0)
 
         # Check for completeness
-        local_uri = os.path.join(video_dir, 'rvm.csv')
+        local_uri = os.path.join(base_windows_path, task['session_name'], 'videos', 'rvm.csv')
         data = pd.read_csv(local_uri, header=0)
         rows_found = len(set([(r, d) for r, d in zip(data['rows'], data['direction'])])) / 2
+        block = Block.objects.get(id=task['blockid'])
         if rows_found < block.num_rows * 0.5:
             emitSNSMessage(
                 'RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
@@ -486,25 +487,26 @@ def generateRVM(task, message):
 def rebuildScanInfo(task):
     # Robust directory creation here
     success = False
+
+    session_dir = os.path.join(base_windows_path, task['session_name'])
     while not success:
         try:
-            if os.path.exists(video_dir):
-                shutil.rmtree(video_dir)
-
-            if os.path.exists(results_dir):
-                shutil.rmtree(results_dir)
+            if os.path.exists(session_dir):
+                shutil.rmtree(session_dir)
 
             # Wait for a second: the previous call can sometimes returns early
             time.sleep(5)
-            os.makedirs(video_dir + r'\imu_basler')
-            os.makedirs(video_dir + r'\results')
+            os.makedirs(os.path.join(base_windows_path, task['session_name'], 'videos', 'imu_basler'))
+            os.makedirs(os.path.join(base_windows_path, task['session_name'], 'results'))
+            os.makedirs(os.path.join(base_windows_path, task['session_name'], 'code'))
+            os.makedirs(os.path.join(base_windows_path, task['session_name'], 'csv'))
             success = True
         except IOError as e:
             log('Rebuilding IO Error: {}'.format(e), task['session_name'])
             raise Exception(e)
             pass
         except Exception as e:
-            log('A serious error has occured rebuilding scan info: {}'.format(e), task['session_name'])
+            log('A serious error has occurred rebuilding scan info: {}'.format(e), task['session_name'])
             raise Exception(e)
 
     # Download log files
@@ -513,12 +515,15 @@ def rebuildScanInfo(task):
             key = file['Key'].split('/')[-1]
             if 'csv' in key and key.startswith(scan):
                 s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'],
-                                                                     os.path.join(video_dir, 'imu_basler', key))
+                                                                     os.path.join(base_windows_path,
+                                                                     task['session_name'], 'videos', 'imu_basler', key))
 
     # Download the RVM, VPR
-    s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), task['session_name'])
-    for csvfile in ['rvm.csv', 'vpr.csv']:
-        s3r.Bucket(config.get('s3', 'bucket')).download_file(s3_result_path + csvfile, os.path.join(video_dir, csvfile))
+    if task['role'] != 'rvm':
+        s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), task['session_name'])
+        for csvfile in ['rvm.csv', 'vpr.csv']:
+            s3r.Bucket(config.get('s3', 'bucket')).download_file(s3_result_path + csvfile, os.path.join(base_windows_path,
+                                                                         task['session_name'], 'videos', csvfile))
 
 
 @announce
@@ -633,7 +638,7 @@ def detection(args):
             if type(task) != dict:
                 task = json.loads(task)
             log('Received detection task: {}'.format(task), task['session_name'])
- 
+
             arg_list = []
 
             # The task may come in unicode -- let's change to regular string
@@ -644,7 +649,7 @@ def detection(args):
                         arg_list.append(str(vi))
                 else:
                     arg_list.append(str(v))
-                    
+
 
             args_detect = detect_s3_az.parse_args(arg_list)
             print(args_detect)
@@ -775,7 +780,7 @@ def getComputerInfoString():
 def windows_client():
     '''
     Since Windows machines can perform either preprocessing / processing equally, one strategy is to have
-    any 
+    any
     '''
 
     # Define consumers
@@ -808,7 +813,7 @@ def linux_client():
         try:
             conn.drain_events(timeout=2)
         except socket.timeout:
-            pass 
+            pass
         except conn.connection_errors:
             cmitSNSMessage('Connection has been lost')
             break
@@ -826,12 +831,12 @@ def run(role=None):
 
         # Specialty roles up front
         # Scan filename / log file conversion
-        if role == 'convert':           
+        if role == 'convert':
             for scan in Scan.objects():
                 convert(scan)
 
          # AWS poller (for new uploads)
-        elif role == 'poll':           
+        elif role == 'poll':
             poll()
 
         # RVM / Preprocessing / Processing
@@ -839,7 +844,7 @@ def run(role=None):
             windows_client()
 
         # Detection
-        elif os.name == 'posix' or role in ['detection']:
+        elif ['posix', 'detection']:
             linux_client()
 
         # Unknown
@@ -868,5 +873,5 @@ if __name__ == '__main__':
     addeed here, but it is kept simple for now
     '''
     # Arguments
-    args = parse_args()
-    run(args.role)
+    # args = parse_args()
+    run()
