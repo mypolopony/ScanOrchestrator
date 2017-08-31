@@ -152,7 +152,7 @@
       "metadata": {
         "description": "name of the custom script to be run by bash"
       },
-      "defaultValue": "run.ps1"
+      "defaultValue": "run_symphony.ps1"
     },
     "scanOrchestratorBranch": {
       "type": "string",
