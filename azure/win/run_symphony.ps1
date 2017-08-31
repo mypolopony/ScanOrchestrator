@@ -15,7 +15,7 @@ git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/ScanOrchestrator.git"
 git fetch --all
 git reset --hard origin/symphony
-git checkout master
+git checkout symphony
 
 
 ### Update MatlabCore

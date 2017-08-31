@@ -822,7 +822,7 @@ def run(role=None):
     try:
         role = role or os.name
 
-        log('I''m awake! Role type is {}'.format(role))
+        log('I\'m awake! Role type is {}'.format(role))
 
         # Specialty roles up front
         # Scan filename / log file conversion
