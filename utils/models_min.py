@@ -2,6 +2,7 @@ import jwt
 import datetime
 import json
 import numpy as np
+from bson.objectid import ObjectId
 from pymongo import MongoClient
 from flask_mongoengine import MongoEngine, DoesNotExist
 from flask_login import UserMixin
@@ -275,6 +276,13 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 
+class JSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, ObjectId) or isinstance(o, datetime):
+            return str(o)
+        return json.JSONEncoder.default(self, o)
+
+
 class Task():
     '''
     Storage class used to standardize tasks. For the moment, task structure follows the previous
@@ -312,6 +320,7 @@ class Task():
 
         # Populate the main task structure
         try:
+            print('Creating task')
             # Client
             self.task.clientname = client_name
             self.task.clientid = Client.objects.get(name=self.task.clientname).id
@@ -322,7 +331,7 @@ class Task():
 
             # Farm
             self.task.farmname = farm_name
-            self.task.farmid = Farm.objects.get()
+            self.task.farmid = Farm.objects.get(name=self.task.farmname).id
         except DoesNotExist:
             raise Exception('Sorry, that Client / Farm / Block could not be found')
 
@@ -334,7 +343,7 @@ class Task():
             self.task.scanids = include_scans
         else:
             # All Scans
-            self.task.scanids = Scan.objects(blocks=self.task.blockid)
+            self.task.scanids = [scan.scanid for scan in Scan.objects(blocks=self.task.blockid)]
             # Filter out scans
             if exclude_scans:
                 if type(exclude_scans) is not list:
@@ -345,23 +354,14 @@ class Task():
         self.task.role = role
 
         # Validation
-        validate()
-        
-        # Initialize Queues
-        set_up_queues()
-
-
-    def set_up_queues(self):
-        '''
-        Set up this task's queues and bind them to the proper exchanges
-        '''
-        pass
+        # self.validate()
 
         
     def validate(self):
         '''
         Sanity checks to be passed before the task is accepted
         '''
+        print('Validating scans')
 
         # Scans exist and are of the right block
         try:
@@ -369,8 +369,11 @@ class Task():
                 assert(ObjectId(self.task.blockid) in Scan.objects.get(scanid=scanid).blocks)
         except AssertionError:
             raise Exception('Error. Can not continue! Scans do not match block.')
+        except DoesNotExist:
+            raise Exception('Error. Does this scan exist? ({})'.format(scanid))
 
         # Block has rows
+        print('Validating rows')
         try:
             block = Block.objects.get(id=self.task.blockid)          # Redundant grabbing of block
             assert(block.num_rows == len(block.rows))
@@ -382,6 +385,7 @@ class Task():
             raise Exception('Error. The block and the rows do not match.')
 
         # Rows have num_plants
+        print('Validating vines')
         try:
             for row in Row.objects(block=self.task.blockid):
                 assert(row.num_plants)
@@ -389,3 +393,9 @@ class Task():
                 assert(len(set([v for v in row.vines])-set([v.id for v in Vine.objects(row=row.id)])) == 0)
         except AssertionError:
             raise Exception('Error. The number of plants per row does not seem correct')
+
+    def to_json(self):
+        '''
+        Return a dict representation
+        '''
+        return json.loads(JSONEncoder().encode(self.task))

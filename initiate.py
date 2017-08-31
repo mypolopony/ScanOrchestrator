@@ -3,9 +3,11 @@ from kombu import Connection, Producer, Exchange, Queue
 import numpy as np
 import ConfigParser
 import os
+import yaml
 from pprint import pprint
 import binascii
 import argparse
+from orchestrator import sendtoRabbitMQ
 
 # Load config file
 config = ConfigParser.ConfigParser()
@@ -20,48 +22,40 @@ conn = Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
 
 chan = conn.channel()
 
-'''
-for queue in queues:
-    if queue == 'QueueB':
-        Queue(name=queue, exchange=symphony, routing_key=queue, channel=chan,consumer_arguments={'x-priority': 10}).declare()
-    else:
-        Queue(name=queue, exchange=symphony, routing_key=queue, channel=chan).declare()
-'''
+def insert(task):
+    task = task.to_json()
+    print('\nInserting into {}:\n'.format(task['role']))
+    pprint(task)
 
-def insert(items):
-    for item in items:
-        item = item.__dict__
-        pprint(item)
-        producer.publish(item['task'], routing_key=item['task']['queue'])
-
-
-def generateTasks(num):
-    return [Task() for i in xrange(num)]
+    ex = Exchange(task['role'], type='topic', channel=chan)
+    producer = Producer(channel=chan, exchange=ex)
+    Queue('_'.join([task['role'],task['session_name']]), exchange=ex, channel=chan, routing_key=task['session_name']).declare()
+    producer.publish(task, routing_key=task['session_name'])
 
 
 def setup_exchanges():
     print('Ensuring exchanges')
 
-    Exchange('gates_rvm', channel=chan).declare()
-    Exchange('gates_preprocess', channel=chan).declare()
-    Exchange('gates_process', channel=chan).declare()
-    Exchange('torvalds_detection', channel=chan).declare()
+    Exchange('rvm', channel=chan, type='topic').declare()
+    Exchange('preprocess', channel=chan, type='topic').declare()
+    Exchange('process', channel=chan, type='topic').declare()
+    Exchange('detection', channel=chan, type='topic').declare()
 
 
 if __name__ == '__main__':
+    # Create exchanges (indempotent)
+    setup_exchanges()
+
+    # Task definition
     task = yaml.load(open('task.yaml','r'))
     task = Task(client_name=task['client_name'],
                 farm_name=task['farm_name'],
-                 client_name,
-                 farm_name,
-                 block_name,
-                 session_name = None,
-                 cluster_model='s3://deeplearning_data/models/best/cluster_june_15_288000.caffemodel', 
-                 trunk_model='s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel',
-                 test=True, 
-                 exclude_scans=None, 
-                 include_scans=None,
-                 role='rvm'):
-    args = parse_args()
-    set_up_queues()
-    main(args)
+                block_name=task['block_name'],
+                session_name=task['session_name'],
+                cluster_model=task['detection_params']['cluster_model'],
+                trunk_model=task['detection_params']['trunk_model'],
+                test=task['test'], 
+                exclude_scans=task['exclude_scans'], 
+                include_scans=task['include_scans'],
+                role=task['role'])
+    insert(task)

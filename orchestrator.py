@@ -57,7 +57,7 @@ else:
     assert (os.path.basename(os.getcwd()) == 'ScanOrchestrator')
     config_dir = '.'
 
-#Load config file
+# Load config file
 config = ConfigParser.ConfigParser()
 config_path = os.path.join(config_dir, 'utils', 'poller.conf')
 config.read(config_path)
@@ -243,15 +243,15 @@ def log(message, session_name=''):
 
 
 @announce
-def sendtoRabbitMQ(exchange, queue, message):
-    modified_queue_name=compute_q_name(args, queue)
-    q = kbu.SimpleQueue(modified_queue_name)
-    q.put(message)
+def sendtoRabbitMQ(package):
+    chan = conn.channel()
+    q = Queue('_'.join([package['role'], package['session_name']]), exchange=Exchange(task['role']), routing_key=package['session_name'], channel=chan)
+    q.put(package)
     q.close()
 
 
 @announce
-def handleFailedTask(args, queue, task):
+def handleFailedTask(task):
     '''
     Behavior for failed tasks
     '''
@@ -259,7 +259,8 @@ def handleFailedTask(args, queue, task):
 
     if 'num_retries' in task.keys() and task['num_retries'] >= MAX_RETRIES:
         log('Max retries met for task, sending to DLQ: {}'.format(task))
-        sendtoRabbitMQ(args,'dlq', task)
+        task['role'] = 'dlq'
+        sendtoRabbitMQ(task)
     else:
         # Num_retries should exist, so this check is just for safety
         task['num_retries'] += 1
@@ -267,7 +268,7 @@ def handleFailedTask(args, queue, task):
 
         # Delete error message and reenqueue
         del task['message']
-        sendtoRabbitMQ(args, queue, task)
+        sendtoRabbitMQ(task)
 
 
 @announce
@@ -286,7 +287,7 @@ def emitSNSMessage(message, context=None, topic='statuslog'):
         'topic_arn': aws_arns[topic],
         'context': context,
         'hostname': socket.gethostname(),
-        'ip': socket.gethostbyname(payload['hostname'])
+        'ip': socket.gethostbyname(socket.gethostname())
     }
 
     # Emit the message
@@ -473,7 +474,7 @@ def generateRVM(task, message):
                 task['tarfiles'] = [tf]
                 task['num_retries'] = 0                     # Initialize as clean
                 task['role'] = 'preprocess'                 # Next step
-                sendtoRabbitMQ('preprocess', task)
+                sendtoRabbitMQ(task)
 
             log('RVM task complete', task['session_name'])
     except Exception as err:
@@ -819,30 +820,33 @@ def run(role=None):
     The main entry point, which can either be called via import or executed from the command line
     '''
     try:
-        if not role:
-            roletype = identifyRole()
+        role = role or os.name
 
-        log('I\'m awake! Role type is {}, with configuration {}'.format(roletype, debug_config(config), args))
+        log('I''m awake! Role type is {}'.format(role))
 
         # Specialty roles up front
-        if roletype == 'convert':           # Scan filename / log file conversion
+        # Scan filename / log file conversion
+        if role == 'convert':           
             for scan in Scan.objects():
                 convert(scan)
-        elif roletype == 'poll':            # AWS poller (for new uploads)
+
+         # AWS poller (for new uploads)
+        elif role == 'poll':           
             poll()
 
-        # RVM / Pprocessing / Preprocessing
-        elif os.name == 'nt':
+        # RVM / Preprocessing / Processing
+        elif role in ['nt', 'rvm', 'preprocess', 'process']:
             windows_client()
 
         # Detection
-        elif os.name == 'posix':
+        elif os.name == 'posix' or role in ['detection']:
             linux_client()
 
-        # Unknown / Error
+        # Unknown
         else:
             emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
 
+    # Overarching error
     except Exception as e:
         emitSNSMessage(str(e), context=traceback.format_exc())
 
@@ -852,8 +856,7 @@ def parse_args():
     Add other parameters here
     '''
     parser=argparse.ArgumentParser('orchestrator')
-    parser.add_argument('-r', '--role', help='role', dest='role',
-                        default=default_role)
+    parser.add_argument('-r', '--role', help='role', dest='role', default=None)
 
     args = parser.parse_args()
     return args
@@ -866,5 +869,4 @@ if __name__ == '__main__':
     '''
     # Arguments
     args = parse_args()
-
     run(args.role)
