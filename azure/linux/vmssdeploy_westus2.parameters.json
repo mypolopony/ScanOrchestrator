@@ -42,13 +42,13 @@
       "value": "package.tar.gz"
     },
     "scanOrchestratorBranch": {
-      "value": "master"
+      "value": "symphony"
     },
     "deepLearningBranch": {
       "value": "dev2"
     },
     "session_name": {
-      "value": "4d3"
+      "value": ""
     }
   }
 }
