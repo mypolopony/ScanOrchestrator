@@ -241,11 +241,30 @@ def log(message, session_name=''):
 
 
 @announce
-def sendtoRabbitMQ(package):
+def sendtoRabbitMQ(tasks):
+    '''
+    Can send N number of tasks to a queue defined by the task's role
+    '''
+    # Convert to list
+    if type(tasks) is not list:
+        tasks = [tasks]
+
+    # Assume destination is the same for all tasks
+    role = tasks[0]['role']
+    session_name = tasks[0]['session_name']
+
+    # Generate destination
     chan = conn.channel()
-    q = Queue('_'.join([package['role'], package['session_name']]), exchange=Exchange(task['role']), routing_key=package['session_name'], channel=chan)
-    q.put(package)
-    q.close()
+    ex = Exchange(role)
+    producer = Producer(channel=chan, exchange=ex)
+    Queue('_'.join([role, session_name]), exchange=ex, channel=chan, routing_key=session_name).declare()
+
+    # Send
+    for task in tasks:
+        producer.publish(task, routing_key=task['session_name'])
+
+    # Close the channel
+    chan.close()
 
 
 @announce
@@ -470,12 +489,8 @@ def generateRVM(task, message):
             # Generate tar files and eliminate NaNs
             tarfiles = pd.Series.unique(data['file'])
 
-            # Split tarfiles
-            for tf in tarfiles:
-                task['tarfiles'] = [tf]
-                task['num_retries'] = 0                     # Initialize as clean
-                task['role'] = 'preprocess'                 # Next step
-                sendtoRabbitMQ(task)
+            # Create and send tasks
+            sendtoRabbitMQ([dict(task, tarfiles=[tf], num_retries=0, role='preprocess') for tf in tarfiles])
 
             log('RVM task complete', task['session_name'])
     except Exception as err:
@@ -806,7 +821,7 @@ def linux_client():
     For the detection machines
     '''
     detection_channel = conn.channel()
-    consumer = Consumer(channel=chan, queues=list_bound_queues('detection'), callbacks=[detection], auto_declare=False)
+    consumer = Consumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection], auto_declare=False)
     consumer.consume()
 
     while True:
