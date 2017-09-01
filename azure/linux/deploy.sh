@@ -1,8 +1,6 @@
 #!/bin/bash
 
-
-
-DELETE=0
+DELETE=1
 CREATE=1
 LOC=westus2
 while getopts d:c:l: opts; do
@@ -13,12 +11,9 @@ while getopts d:c:l: opts; do
    esac
 done
 
-
 echo DELETE=$DELETE  CREATE=$CREATE LOC=$LOC
 
-
-
-RG="detecta8"
+RG="detection"
 OUTDIR=./output
 DEPLOYMENT_NAME=$RG
 mkdir -p $OUTDIR

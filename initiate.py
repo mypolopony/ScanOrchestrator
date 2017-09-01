@@ -46,8 +46,8 @@ def main(args):
     task = {
         'clientid': '58f5e3c21fb35955235c7b31',
         'farmname': 'Slawson',
-        'scanids': ['2017-08-23_08-18'],
-        'blockname': 'A8',
+        'scanids': ['2017-08-23_07-59'],
+        'blockname': 'A7',
         'role': 'rvm',
         'session_name': args.session_name,
         'test': False,
