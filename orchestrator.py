@@ -255,7 +255,7 @@ def sendtoRabbitMQ(tasks):
 
     # Generate destination
     chan = conn.channel()
-    ex = Exchange(role)
+    ex = Exchange(role, channel=chan, type='topic')
     producer = Producer(channel=chan, exchange=ex)
     Queue('_'.join([role, session_name]), exchange=ex, channel=chan, routing_key=session_name).declare()
 
@@ -803,17 +803,22 @@ def windows_client():
     preprocess_channel = conn.channel()
     process_channel = conn.channel()
 
-    while True:
-        try:
-            with nested(Consumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM], auto_declare=False),
-                        Consumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[preprocess], auto_declare=False),
-                        Consumer(process_channel,list_bound_queues(exchange='process'), callbacks=[process], auto_declare=False)):
-                conn.drain_events(timeout=2)
-        except socket.timeout:
-            pass
-        except conn.connection_errors:
-            emitSNSMessage('Connection has been lost')
-            break
+    with nested(Consumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM], auto_declare=False),
+                Consumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[preprocess],
+                         auto_declare=False),
+                Consumer(process_channel, list_bound_queues(exchange='process'), callbacks=[process],
+                         auto_declare=False)):
+        while True:
+            try:
+                conn.drain_events(timeout=10)
+            except socket.timeout:
+            	log(':: nothing to see here ::')
+                pass
+            except conn.connection_errors as e:
+                log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
+                conn.ensure_connection()
+                log('Connection ok?')
+                pass
 
 
 def linux_client():
