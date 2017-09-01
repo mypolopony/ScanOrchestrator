@@ -525,10 +525,11 @@ def generateRVM(args):
             local_uri = os.path.join(video_dir, 'rvm.csv')
             data = pd.read_csv(local_uri, header=0)
             rows_found = len(set([(r, d) for r, d in zip(data['rows'], data['direction'])])) / 2
-            if rows_found < block.num_rows * 0.5:
+            # For compatability, accept either the array length or the direct data
+            if rows_found < (block.num_rows or len(block.rows)) * 0.5:
                 emitSNSMessage(
                     'RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
-            elif rows_found > block.num_rows:
+            elif rows_found > (block.num_rows or len(block.rows)):
                 emitSNSMessage(
                     'Too many rows found (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
             else:
