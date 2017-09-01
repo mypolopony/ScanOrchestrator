@@ -817,8 +817,8 @@ def windows_client():
         except socket.timeout:
             pass
         except conn.connection_errors:
-            emitSNSMessage('Connection has been lost')
-            break
+            conn.ensure_connection()
+            pass
 
 
 def linux_client():
