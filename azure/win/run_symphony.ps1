@@ -1,4 +1,4 @@
-    ### Signon
+### Signon
 echo "$(Get-Date): Starting [ver. symphony]" > C:\Users\agridata\startup.log
 echo $env:username >> C:\Users\agridata\startup.log
 
@@ -24,8 +24,8 @@ cd C:\AgriData\Projects\MatlabCore
 git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/MatlabCore.git"
 git fetch --all
-git reset --hard origin/master
-git checkout master
+git reset --hard origin/symphony
+git checkout symphony
 
 
 ### AWS Credentials
@@ -35,9 +35,6 @@ cp C:\AgriData\Projects\ScanOrchestrator\credentials\aws_credentials ~\.aws\cred
 # Also set the environment variables
 [Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAIQYWKQQF5NKCCPGA", "Machine")
 [Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "Machine")
-[Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAIQYWKQQF5NKCCPGA", "User")
-[Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "User")
-
 
 ### Copy extern
 echo "$(Get-Date): Copy extern" >> C:\Users\agridata\startup.log

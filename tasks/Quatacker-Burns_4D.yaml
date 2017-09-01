@@ -1,14 +1,11 @@
-# Default Task Structure
-
 client_name: Sun World
 farm_name: Quatacker-Burns
 block_name: 4D
 session_name: 4d4
 test: True
 exclude_scans:
-include_scans:
+include_scans: [2017-08-17_09-47, 2017-08-17_10-25, 2017-08-17_11-23, 2017-08-17_12-07, 2017-08-17_12-33]
 role: rvm
-scanids: [2017-08-17_09-47, 2017-08-17_10-25, 2017-08-17_11-23, 2017-08-17_12-07, 2017-08-17_12-33]
 detection_params:
         cluster_model: s3://deeplearning_data/models/best/cluster_june_15_288000.caffemodel
         trunk_model: s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel

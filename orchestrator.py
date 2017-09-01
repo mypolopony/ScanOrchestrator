@@ -504,6 +504,12 @@ def rebuildScanInfo(task):
     success = False
 
     session_dir = os.path.join(base_windows_path, task['session_name'])
+    # If the directory exists
+    if os.path.exists(session_dir):
+        # If the CSVs exist
+        if [os.path.exists(os.path.join(session_dir, file)) for file in ['rvm.csv','vpr.csv']].count(False) == 0:
+            pass
+        # Else if the CSVs do not exist, someone must be downloading them, so 
     while not success:
         try:
             if os.path.exists(session_dir):
@@ -667,7 +673,6 @@ def detection(args):
 
 
             args_detect = detect_s3_az.parse_args(arg_list)
-            print(args_detect)
             logger.info(('detection process %r, %r' % (task, args_detect)))
             s3keys = detect_s3_az.main(args_detect)
 
@@ -819,7 +824,6 @@ def windows_client():
                 conn.ensure_connection()
                 log('Connection ok?')
                 pass
-
 
 def linux_client():
     '''
