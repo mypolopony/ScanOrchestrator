@@ -370,7 +370,14 @@ class Task():
         except AssertionError:
             raise Exception('Error. Can not continue! Scans do not match block.')
         except DoesNotExist:
-            raise Exception('Error. Does this scan exist? ({})'.format(scanid))
+            raise Exception('Error. Does this scan exist? ({})'.format(scan.scanid))
+
+        # Check cameras
+        try:
+            for scanid in self.task.scanids:
+                assert(Scan.objects.get(scanid=scanid).cameras)
+        except AssertionError:
+            raise Exception('Error. Can not continue! Camera definition not find in scan: {}'.format(scanid))
 
         # Block has rows
         print('Validating rows')

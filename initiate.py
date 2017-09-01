@@ -4,6 +4,7 @@ import numpy as np
 import ConfigParser
 import os
 import yaml
+import glob
 from pprint import pprint
 import binascii
 import argparse
@@ -36,7 +37,7 @@ def insert(task):
 
 
 def setup_exchanges():
-    print('Ensuring exchanges')
+    print('Ensuring exchanges\n')
 
     Exchange('rvm', channel=chan, type='topic').declare()
     Exchange('preprocess', channel=chan, type='topic').declare()
@@ -49,15 +50,17 @@ if __name__ == '__main__':
     setup_exchanges()
 
     # Task definition
-    task = yaml.load(open('task.yaml', 'r'))
-    task = Task(client_name=task['client_name'],
-                farm_name=task['farm_name'],
-                block_name=task['block_name'],
-                session_name=task['session_name'],
-                cluster_model=task['detection_params']['cluster_model'],
-                trunk_model=task['detection_params']['trunk_model'],
-                test=task['test'],
-                exclude_scans=task['exclude_scans'],
-                include_scans=task['include_scans'],
-                role=task['role'])
-    insert(task)
+    for taskfile in glob.glob('tasks/*.yaml'):
+        print('Reading task file: {}'.format(taskfile))
+        task = yaml.load(open(taskfile, 'r'))
+        task = Task(client_name=task['client_name'],
+                    farm_name=task['farm_name'],
+                    block_name=task['block_name'],
+                    session_name=task['session_name'],
+                    cluster_model=task['detection_params']['cluster_model'],
+                    trunk_model=task['detection_params']['trunk_model'],
+                    test=task['test'],
+                    exclude_scans=task['exclude_scans'],
+                    include_scans=task['include_scans'],
+                    role=task['role'])
+        insert(task)
