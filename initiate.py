@@ -44,15 +44,15 @@ def parse_args():
 def main(args):
     # Task definition - Start with RVM
     task = {
-        'clientid': '599f45bc28d2010d98b1bc23',
-        'farmname': 'Skellenger',
-        'scanids': ['2017-08-25_11-49', '2017-08-25_12-59'],
-        'blockname': 'D',
+        'clientid': '58f5e3c21fb35955235c7b31',
+        'farmname': 'Slawson',
+        'scanids': ['2017-08-23_07-59'],
+        'blockname': 'A7',
         'role': 'rvm',
         'session_name': args.session_name,
         'test': False,
         'detection_params': {
-            'caffemodel_s3_url_cluster': 's3://deeplearning_data/models/best/cluster_june_15_288000.caffemodel',
+            'caffemodel_s3_url_cluster': 's3://deeplearning_data/models/best/wine-table-cluster-86000-8-30-2017.caffemodel',
             'caffemodel_s3_url_trunk': 's3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel'
         }
     }

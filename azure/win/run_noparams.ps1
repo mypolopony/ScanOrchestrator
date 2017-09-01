@@ -1,19 +1,24 @@
+param(
+    [string]$scanOrchestratorBranch="everett-wheeler",
+    [string]$matlabCoreBranch="master",
+    [string]$session_name="trash"
+)
+
 ### Signon
-echo "$(Get-Date): Starting (no-params)" > C:\Users\agridata\startup.log
+echo "$(Get-Date): Starting" > C:\Users\agridata\startup.log
 echo $env:username >> C:\Users\agridata\startup.log
 
 
-### AWS / Rclone credentials
-New-Item -ItemType Directory -Force -Path C:\Users\agridata\.aws
-cp C:\AgriData\Projects\aws\credentials C:\Users\agridata\.aws\ 
-New-Item -ItemType Directory -Force -Path C:\Users\agridata\.config 
-New-Item -ItemType Directory -Force -Path C:\Users\agridata\.config\rclone 
-cp C:\AgriData\Projects\.config\rclone\rclone.conf C:\Users\agridata\.config\rclone\ 
+### Set environment variables and try to give system AWS credentials, too
+New-Item -ItemType Directory -Force -Path ~\.aws
+echo "[default]" > ~\.aws\credentials
+echo "aws_access_key_id = AKIAIQYWKQQF5NKCCPGA" >> ~\.aws\credentials
+echo "aws_secret_access_key = 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" >> ~\.aws\credentials
+
 
 ## Pip Dependencies (bake into future images)
 pip install kombu
 pip install psutil
-
 
 ### Update ScanOrchestrator
 echo "$(Get-Date): Updating ScanOrchestrator" >> C:\Users\agridata\startup.log
@@ -34,13 +39,6 @@ git fetch --all
 git reset --hard origin/master
 git checkout master
 
-### Set environment variables and try to give system AWS credentials, too
-New-Item -ItemType Directory -Force -Path ~\.aws
-# Copy AWS credentials file from Scan Orchestrator
-cp C:\AgriData\Projects\ScanOrchestrator\credentials\aws_credentials ~\.aws\ 
-# Also set the environment variables
-[Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAIQYWKQQF5NKCCPGA", "Machine")
-[Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "Machine")
 
 ### Copy extern
 echo "$(Get-Date): Copy extern" >> C:\Users\agridata\startup.log

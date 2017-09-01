@@ -2,7 +2,7 @@
 
 
 
-DELETE=1
+DELETE=0
 CREATE=1
 LOC=westus2
 while getopts d:c:l: opts; do
@@ -47,7 +47,7 @@ if [ "$CREATE" -eq "1" ];then
     paramsJson=$(cat  $SRC_DIR/vmssdeploy_$LOC.parameters.json | jq '.parameters')
     echo $paramsJson
 
-    #az group deployment validate -g $RG   --template-file $templateFile --parameters "$paramsJson" --verbose
+    az group deployment validate -g $RG   --template-file $templateFile --parameters "$paramsJson" --verbose
     echo az group deployment create -g $RG  -n $DEPLOYMENT_NAME  --template-file $templateFile --parameters "$paramsJson" --verbose >  $OUTDIR/$DEPLOYMENT_NAME-output.json
     az group deployment create -g $RG  -n $DEPLOYMENT_NAME  --template-file $templateFile --parameters "$paramsJson" --verbose >  $OUTDIR/$DEPLOYMENT_NAME-output.json
 
