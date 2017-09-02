@@ -16,10 +16,10 @@ import traceback
 import psutil
 
 import boto3
-import multiprocess
 import numpy as np
 import pandas as pd
 import requests
+from multiprocessing import Pool
 from botocore.exceptions import ClientError
 from bson.objectid import ObjectId
 from kombu import Connection, Consumer, Producer, Exchange, Queue
@@ -42,7 +42,7 @@ from utils.connection import *
 WAIT_TIME = 20      # [AWS] Wait time for messages
 NUM_MSGS = 10       # [AWS] Number of messages to grab at a time
 RETRY_DELAY = 60    # [AWS] Number of seconds to wait upon encountering an error
-CORES = 4           # [GENERAL] Number of cores (= number of MATLAB instances)
+NUM_CORES = 4       # [GENERAL] Number of cores (= number of MATLAB instances)
 
 # OS-Specific Setup
 if os.name == 'nt':
@@ -458,14 +458,80 @@ def convert(scan):
 
 
 @announce
+def rebuildScanInfo(task):
+    # Robust directory creation here
+    success = False
+
+    session_dir = os.path.join(base_windows_path, task['session_name'])
+
+    # If the session directory exists
+    if os.path.exists(session_dir):
+        # While the CSVs don't exist, just wait, someone must be making them
+        while [os.path.exists(os.path.join(session_dir, file)) for file in ['rvm.csv','vpr.csv']].count(False) != 0:
+            time.sleep(10)
+
+    # Else, create the directories and grab the CSVs
+    else:
+        os.makedirs(os.path.join(session_dir, 'videos', 'imu_basler'))
+        os.makedirs(os.path.join(session_dir, 'results'))
+        os.makedirs(os.path.join(session_dir ,'code'))
+        os.makedirs(os.path.join(session_dir, 'csv'))
+            except IOError as e:
+                log('Rebuilding IO Error: {}'.format(e), task['session_name'])
+                raise Exception(e)
+                pass
+            except Exception as e:
+                log('A serious error has occurred rebuilding scan info: {}'.format(e), task['session_name'])
+                raise Exception(e)
+
+        # Download log files
+        for scan in task['scanids']:
+            for file in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
+                key = file['Key'].split('/')[-1]
+                if 'csv' in key and key.startswith(scan):
+                    s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'],
+                                                                         os.path.join(base_windows_path,
+                                                                         task['session_name'], 'videos', 'imu_basler', key))
+
+        # Download the RVM, VPR
+        if task['role'] != 'rvm':
+            s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), task['session_name'])
+            for csvfile in ['rvm.csv', 'vpr.csv']:
+                s3r.Bucket(config.get('s3', 'bucket')).download_file(s3_result_path + csvfile, os.path.join(base_windows_path,
+                                                                             task['session_name'], 'videos', csvfile))
+
+
+@announce
+def monitorMatlabs(workers, session_name):
+    # Monitor the number of MATLAB processes
+    matlabs = NUM_MATLAB_INSTANCES
+    while matlabs > 0:
+        log('MATLAB instances still alive: {}. Waiting for two minutes.'.format(matlabs), session_name)
+        time.sleep(120)
+        matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matlab.exe'])
+
+    # All of the MATLABs are done, let's kill any lingering workers
+    for worker in workers:
+        try:
+            worker.terminate()
+        except:
+            log('Terminate failed but that''s okay', session_name)
+
+
+
+@announce
 def generateRVM(task, message):
     '''
     Generate a row video map.
     '''
     try:
+        # The task
         message.ack()
+
+        # Notify
         log('Received task: {}'.format(task), task['session_name'])
 
+        # Rebuild base scan info
         rebuildScanInfo(task)
 
         # Start MATLAB
@@ -499,149 +565,48 @@ def generateRVM(task, message):
 
 
 @announce
-def rebuildScanInfo(task):
-    # Robust directory creation here
-    success = False
-
-    session_dir = os.path.join(base_windows_path, task['session_name'])
-    # If the directory exists
-    if os.path.exists(session_dir):
-        # If the CSVs exist
-        if [os.path.exists(os.path.join(session_dir, file)) for file in ['rvm.csv','vpr.csv']].count(False) == 0:
-            pass
-        # Else if the CSVs do not exist, someone must be downloading them, so 
-    while not success:
-        try:
-            if os.path.exists(session_dir):
-                shutil.rmtree(session_dir)
-
-            # Wait for a second: the previous call can sometimes returns early
-            time.sleep(5)
-            os.makedirs(os.path.join(base_windows_path, task['session_name'], 'videos', 'imu_basler'))
-            os.makedirs(os.path.join(base_windows_path, task['session_name'], 'results'))
-            os.makedirs(os.path.join(base_windows_path, task['session_name'], 'code'))
-            os.makedirs(os.path.join(base_windows_path, task['session_name'], 'csv'))
-            success = True
-        except IOError as e:
-            log('Rebuilding IO Error: {}'.format(e), task['session_name'])
-            raise Exception(e)
-            pass
-        except Exception as e:
-            log('A serious error has occurred rebuilding scan info: {}'.format(e), task['session_name'])
-            raise Exception(e)
-
-    # Download log files
-    for scan in task['scanids']:
-        for file in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
-            key = file['Key'].split('/')[-1]
-            if 'csv' in key and key.startswith(scan):
-                s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'],
-                                                                     os.path.join(base_windows_path,
-                                                                     task['session_name'], 'videos', 'imu_basler', key))
-
-    # Download the RVM, VPR
-    if task['role'] != 'rvm':
-        s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), task['session_name'])
-        for csvfile in ['rvm.csv', 'vpr.csv']:
-            s3r.Bucket(config.get('s3', 'bucket')).download_file(s3_result_path + csvfile, os.path.join(base_windows_path,
-                                                                         task['session_name'], 'videos', csvfile))
-
-
-@announce
-def monitorMatlabs(workers, session_name):
-    # Monitor the number of MATLAB processes
-    matlabs = NUM_MATLAB_INSTANCES
-    while matlabs > 0:
-        log('MATLAB instances still alive: {}. Waiting for two minutes.'.format(matlabs), session_name)
-        time.sleep(120)
-        matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matlab.exe'])
-
-    # All of the MATLABs are done, let's kill any lingering workers
-    for worker in workers:
-        try:
-            worker.terminate()
-        except:
-            log('Terminate failed but that''s okay', session_name)
-
-
-@announce
-def preprocess(args):
+def preprocess(task, message):
     '''
     Preprocessing method
     '''
-    while True:
-        try:
-            # The task
-            task = receivefromRabbitMQ(args, 'preprocess')
+    try:
+        # The task
+        message.ack()
+        task = receivefromRabbitMQ(args, 'preprocess')
 
-            # Notify
-            log('Received task: {}'.format(task), task['session_name'])
+        # Notify
+        log('Received task: {}'.format(task), task['session_name'])
 
-            # Rebuild base scan info
-            rebuildScanInfo(task)
+        # Rebuild base scan info
+        rebuildScanInfo(task)
 
-            # Download the tarfiles
-            for tar in task['tarfiles']:
-                scanid = '_'.join(tar.split('_')[0:2])
-                key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
-                log('Downloading {}'.format(key), task['session_name'])
-                s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, tar))
+        # Download the tarfiles and (pre-)process them (there can be many ot just one)
+        for tar in task['tarfiles']:
+            scanid = '_'.join(tar.split('_')[0:2])
+            key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
+            log('Downloading {}'.format(key), task['session_name'])
+            s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(base_windows_path, task['session_name'], 'videos', tar))
 
             # Untar
             mlab = matlabProcess()
             mlab.my_untar(video_dir, task['session_name'], nargout=0)
             mlab.quit()
 
-            # Generate subtasks. We are going to give each MATLAB instance a particular subset of
-            # files
-            subtars = np.array_split(task['tarfiles'], NUM_MATLAB_INSTANCES)
+            # Notify
+            log('{} is preprocessing {}'.format(multiprocessing.current_process().name,tar), task['session_name'])
+           
+            # Run the task
+            mlab = matlabProcess()
+            mlab.runTask(task, nargout=0)
+            mlab.quit()
 
-            # These are the processes to be spawned. They call to the launchMatlabTasks wrapper primarily
-            # because the multiprocessing library could not directly be called as some of the objects were
-            # not pickleable? The multiprocess library (notice the spelling) overcomes this, so I don't think
-            # the function wrapper is necessary anymore
-            log('Preprocessing {} archives with {} MATLAB instances'.format(len(task['tarfiles']),
-                                                                            NUM_MATLAB_INSTANCES), task['session_name'])
-            workers = list()
-            for instance in range(NUM_MATLAB_INSTANCES):
-                # Pick up subtasks
-                subtask = task
-                subtask['tarfiles'] = list(subtars[instance])
-
-                # Run
-                worker = multiprocess.Process(target=launchMatlabTasks, args=[args, subtask])
-                worker.start()
-                workers.append(worker)
-
-                # Short delay to stagger workers
-                time.sleep(5)
-
-            # Blocking call to wait for workers to finish. MATLABs will send to detection
-            monitorMatlabs(workers, task['session_name'])
-
-        except ClientError:
-            # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-            sendtoRabbitMQ(args,'preprocess', task)
-            pass
-        except Exception as e:
-            task['message'] = e
-            handleFailedTask(args, 'preprocess', task)
-            pass
-
-
-@announce
-def launchMatlabTasks(args, task):
-    '''
-    A separate wrapper for multiple matlabs. It is called by multiprocess, which has the capability to
-    pickle (actually, dill) a wider range of objects (like function wrappers)
-    '''
-    try:
-        mlab = matlabProcess()
-        mlab.runTask(task, nargout=0)
-        mlab.quit()
+    except ClientError:
+        # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
+        sendtoRabbitMQ(args,'preprocess', task)
+        pass
     except Exception as e:
         task['message'] = e
-        handleFailedTask(args, task['role'], task)
+        handleFailedTask(args, 'preprocess', task)
         pass
 
 
@@ -865,7 +830,9 @@ def run(role=None):
 
         # RVM / Preprocessing / Processing
         elif role in ['nt', 'rvm', 'preprocess', 'process']:
-            windows_client()
+            for worker in xrange(4):
+                p = multiprocessing.Process(target=windows_client)
+                p.start()
 
         # Detection
         elif ['posix', 'detection']:
