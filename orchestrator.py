@@ -10,6 +10,7 @@ import re
 import shutil
 import socket
 import subprocess
+import multiprocessing
 import tarfile
 import time
 import traceback
@@ -19,7 +20,6 @@ import boto3
 import numpy as np
 import pandas as pd
 import requests
-from multiprocessing import Pool
 from botocore.exceptions import ClientError
 from bson.objectid import ObjectId
 from kombu import Connection, Consumer, Producer, Exchange, Queue
@@ -229,8 +229,8 @@ def log(message, session_name=''):
     '''
     # TODO: Instead of sending session, we should send the task itself
     payload = dict()
-    payload['hostname'] = socket.gethostname()
-    payload['ip'] = socket.gethostbyname(payload['hostname'])
+    payload['hostname'] = socket.gethostname() + '-' + multiprocessing.current_process().name
+    payload['ip'] = socket.gethostbyname(socket.gethostname())
     payload['message'] = message
     payload['session_name'] = session_name
 
@@ -472,33 +472,34 @@ def rebuildScanInfo(task):
 
     # Else, create the directories and grab the CSVs
     else:
-        os.makedirs(os.path.join(session_dir, 'videos', 'imu_basler'))
-        os.makedirs(os.path.join(session_dir, 'results'))
-        os.makedirs(os.path.join(session_dir ,'code'))
-        os.makedirs(os.path.join(session_dir, 'csv'))
-            except IOError as e:
-                log('Rebuilding IO Error: {}'.format(e), task['session_name'])
-                raise Exception(e)
-                pass
-            except Exception as e:
-                log('A serious error has occurred rebuilding scan info: {}'.format(e), task['session_name'])
-                raise Exception(e)
+        try:
+            os.makedirs(os.path.join(session_dir, 'videos', 'imu_basler'))
+            os.makedirs(os.path.join(session_dir, 'results'))
+            os.makedirs(os.path.join(session_dir ,'code'))
+            os.makedirs(os.path.join(session_dir, 'csv'))
+                
+            # Download log files
+            for scan in task['scanids']:
+                for file in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
+                    key = file['Key'].split('/')[-1]
+                    if 'csv' in key and key.startswith(scan):
+                        s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'],
+                                                                             os.path.join(base_windows_path,
+                                                                             task['session_name'], 'videos', 'imu_basler', key))
 
-        # Download log files
-        for scan in task['scanids']:
-            for file in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/{}'.format(task['clientid'], scan))['Contents']:
-                key = file['Key'].split('/')[-1]
-                if 'csv' in key and key.startswith(scan):
-                    s3r.Bucket(config.get('s3', 'bucket')).download_file(file['Key'],
-                                                                         os.path.join(base_windows_path,
-                                                                         task['session_name'], 'videos', 'imu_basler', key))
-
-        # Download the RVM, VPR
-        if task['role'] != 'rvm':
-            s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), task['session_name'])
-            for csvfile in ['rvm.csv', 'vpr.csv']:
-                s3r.Bucket(config.get('s3', 'bucket')).download_file(s3_result_path + csvfile, os.path.join(base_windows_path,
-                                                                             task['session_name'], 'videos', csvfile))
+            # Download the RVM, VPR
+            if task['role'] != 'rvm':
+                s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), task['session_name'])
+                for csvfile in ['rvm.csv', 'vpr.csv']:
+                    s3r.Bucket(config.get('s3', 'bucket')).download_file(s3_result_path + csvfile, os.path.join(base_windows_path,
+                                                                                 task['session_name'], 'videos', csvfile))
+        except IOError as e:
+            log('Rebuilding IO Error: {}'.format(e), task['session_name'])
+            raise Exception(e)
+            pass
+        except Exception as e:
+            log('A serious error has occurred rebuilding scan info: {}'.format(e), task['session_name'])
+            raise Exception(e)
 
 
 @announce
@@ -782,7 +783,6 @@ def windows_client():
             try:
                 conn.drain_events(timeout=10)
             except socket.timeout:
-            	log(':: nothing to see here ::')
                 pass
             except conn.connection_errors as e:
                 log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
