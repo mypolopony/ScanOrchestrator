@@ -112,7 +112,7 @@ logger.addHandler(ch)           # For sanity's sake, toggle console-handler and 
 logger.addHandler(fh)
 
 # Miscellany
-task, multi_task = None, None   # Avoid annoying failure messages if these are not defined
+tasks, task = None, None   # Avoid annoying failure messages if these are not defined
 childname = random.choice(config.get('offspring','offspring').split(','))
 
 
@@ -125,21 +125,6 @@ def announce(func, *args, **kwargs):
         return func(*args, **kwargs)
 
     return wrapper
-
-
-def establish_connection():
-    revived_connection = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
-    revived_connection.ensure_connection(max_retries=3)
-    channel = fresh_connection.channel()
-    consumer.revive(channel)
-    consumer.consume()
-    print('Fresh connection!')
-    return fresh_connection
-
-
-def process_message(body, message):
-    print('Message received: {}\n\t{}'.format(message,body))
-    message.ack()
 
 
 def list_bound_queues(exchange):
@@ -206,7 +191,7 @@ def poll():
                     logger.info('Queueing task {}/{}'.format(ridx, len(results)))
                     task = handleAWSMessage(result)  # Parse clientid and scanid
                     task['role'] = 'rvm'  # Tag with the first task step
-                    sendtoRabbitMQ(args,'rvm', task)  # Send to the RVM queue
+                    sendtoRabbitMQ(task)  # Send to the RVM queue
                 except:
                     logger.error(traceback.print_exc())
                     logger.exception('Error while handling messge: {}'.format(result.body))
@@ -584,18 +569,7 @@ def preprocess(task, message):
         # Rebuild base scan info
         rebuildScanInfo(task)
 
-        # Set up appropriate Queues/Exchanges for next task (detection)
-        # Assume destination is the same for all tasks
-        role = tasks[0]['role']
-        session_name = tasks[0]['session_name']
-
-        # Ensure the destination exists
-        chan = conn.channel()
-        ex = Exchange(role, channel=chan, type='topic')
-        Queue('_'.join([role, session_name]), exchange=ex, channel=chan, routing_key=task['session_name']).declare()
-        chan.close()
-
-        # Download the tarfiles and (pre-)process them (there can be many ot just one)
+        # Download the tarfiles and (pre-)process them (there can be many not just one)
         video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
         for tar in task['tarfiles']:
             scanid = '_'.join(tar.split('_')[0:2])
@@ -660,13 +634,16 @@ def detection(task, message):
         assert (len(s3keys) <= 1)
         task['detection_params']['result'] = s3keys if not s3keys  else  s3keys[0]
         log('Success. Completed detection: {}'.format(task['detection_params']['result']), task['session_name'])
-        sendtoRabbitMQ(args,'process', task)
+
+        # TODO: Can Linux not do this?
+        task['role'] = 'process'
+        sendtoRabbitMQ(task)
     except Exception, e:
         tb = traceback.format_exc()
         logger.error(tb)
         task['message'] = str(e)
         log('args, Task FAILED. Re-enqueueing... ({})'.format(task), task['session_name'])
-        handleFailedTask(args, 'detection', task)
+        handleFailedTask(task)
         pass
 
 
@@ -678,9 +655,6 @@ def process(task, message):
     try:
         # The task
         message.ack()
-
-        # TODO: Can Linux not do this?
-        task['role'] = 'process'
 
         # Notify
         log('Received task: {}'.format(task), task['session_name'])
