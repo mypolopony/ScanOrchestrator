@@ -40,8 +40,10 @@ def create_routing(session_name):
     print('\nEnsuring exchanges / queues')
 
     for role in ['rvm','preprocess','detection','process']:
+        # This is probably unnecessary now, it just defines the exchanges
         ex = Exchange(role, channel=chan, type='topic').declare()
-        Queue('_'.join([role, session_name]), exchange=ex, channel=chan, routing_key=session_name).declare()
+
+        Queue('_'.join([role, session_name]), exchange=ex, channel=chan).bind_to(exchange=role, routing_key=session_name)
 
 
 def reset_connections():
@@ -53,6 +55,7 @@ def reset_connections():
     '''
 
     # Obtain the public IP
+    # TODO: This only really works when running from a jumpbox
     myip = requests.get('http://ifconfig.co/json').json()['ip']
 
     # Get the existing connections
@@ -90,3 +93,5 @@ if __name__ == '__main__':
 
         # Insert
         insert(task)
+
+    chan.close()

@@ -520,11 +520,10 @@ def generateRVM(task, message):
         # Rebuild base scan info
         rebuildScanInfo(task)
 
-        # Start MATLAB
-        mlab = matlabProcess()
-
         log('Calculating RVM', task['session_name'])
+        mlab = matlabProcess()
         mlab.runTask(task, nargout=0)
+        mlab.quit()
 
         # Check for completeness
         local_uri = os.path.join(base_windows_path, task['session_name'], 'videos', 'rvm.csv')
