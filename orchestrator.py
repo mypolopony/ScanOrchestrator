@@ -550,6 +550,13 @@ def preprocess(task, message):
         # Rebuild base scan info
         rebuildScanInfo(task)
 
+        # MATLAB does not set up the queues for detection, so let's do it here.
+        # This is called tons of times, is it necessary?
+        chan = conn.channel()
+        ex = Exchange('detection', channel=chan, type='topic')
+        Queue('_'.join(['detection', task['session_name']]), exchange=ex, channel=chan, routing_key=task['session_name']).declare()
+        chan.close()
+
         # Download the tarfiles and (pre-)process them (there can be many not just one)
         video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
         for tar in task['tarfiles']:
@@ -638,18 +645,15 @@ def process(task, message):
         message.ack()
 
         # Notify
-        log('Received task: {}'.format(task), task['session_name'])
+        log('Received processing task: {}'.format(task, task['session_name']))
 
-        # Reformat message
+        # Reformat message if necessary
         if type(task) == unicode:
             # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
             task = json.loads(task.replace("u'", "'").replace("'", '"'))
 
         # Rebuild base scan info
         rebuildScanInfo(task)
-
-        # Notify
-        log('Received processing task: {}'.format(task, task['session_name']))
 
         # Run the task
         mlab = matlabProcess()
