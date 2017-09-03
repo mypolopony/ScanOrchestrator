@@ -25,6 +25,25 @@ from bson.objectid import ObjectId
 from kombu import Connection, Consumer, Producer, Exchange, Queue
 from kombu.utils.compat import nested
 
+# Extended Consumer
+class SmartConsumer(Consumer):
+    #TODO: Combine this with OS-specific setup below
+    if os.name == 'nt':
+        roles = ['preprocess','process','rvm']
+    elif os.name =='posix':
+        roles = ['detection']
+
+    def __init__(self):
+        Consumer.__init__(self)
+
+    def addNewQueues(self):
+        for role in self.roles:
+            all = list_bound_queues(exchange=role)
+            extant = self.queues()
+
+            for new in set(all) - set(extant):
+                self.add_queue(new)
+
 
 #some relative paths needed for detection in linux
 #it needto access files in ../deepLearning module
@@ -239,11 +258,10 @@ def sendtoRabbitMQ(tasks):
     role = tasks[0]['role']
     session_name = tasks[0]['session_name']
 
-    # Generate destination
+    # Generate producer
     chan = conn.channel()
     ex = Exchange(role, channel=chan, type='topic')
     producer = Producer(channel=chan, exchange=ex)
-    Queue('_'.join([role, session_name]), exchange=ex, channel=chan, routing_key=session_name).declare()
 
     # Send
     for task in tasks:
@@ -550,13 +568,6 @@ def preprocess(task, message):
         # Rebuild base scan info
         rebuildScanInfo(task)
 
-        # MATLAB does not set up the queues for detection, so let's do it here.
-        # This is called tons of times, is it necessary?
-        chan = conn.channel()
-        ex = Exchange('detection', channel=chan, type='topic')
-        Queue('_'.join(['detection', task['session_name']]), exchange=ex, channel=chan, routing_key=task['session_name']).declare()
-        chan.close()
-
         # Download the tarfiles and (pre-)process them (there can be many not just one)
         video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
         for tar in task['tarfiles']:
@@ -625,6 +636,7 @@ def detection(task, message):
 
         # TODO: Can Linux not do this?
         task['role'] = 'process'
+
         sendtoRabbitMQ(task)
     except Exception, e:
         tb = traceback.format_exc()
@@ -728,20 +740,25 @@ def windows_client():
 
     # Define consumers
     rvm_channel = conn.channel()
-    rvm_consumer = Consumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM],
+    rvm_consumer = SmartConsumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM],
              auto_declare=False, prefetch_count=1)
 
     preprocess_channel = conn.channel()
-    preprocess_consumer = Consumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[preprocess],
+    preprocess_consumer = SmartConsumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[preprocess],
              auto_declare=False, prefetch_count=1)
 
     process_channel = conn.channel()
-    process_consumer = Consumer(process_channel, list_bound_queues(exchange='process'), callbacks=[process],
+    process_consumer = SmartConsumer(process_channel, list_bound_queues(exchange='process'), callbacks=[process],
              auto_declare=False, prefetch_count=1)
 
     # Prefetch count is used to limit each process from getting any more than one task
     with nested(rvm_consumer, preprocess_consumer, process_consumer):
         while True:
+            # Check for and add new sessions / queues
+            rvm_consumer.addNewQueues()
+            preprocess_consumer.addNewQueues()
+            process_consumer.addNewQueues()
+
             try:
                 conn.drain_events(timeout=10)
             except socket.timeout:
@@ -756,12 +773,14 @@ def linux_client():
     For the detection machines
     '''
     detection_channel = conn.channel()
-    consumer = Consumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection],
+    consumer = SmartConsumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection],
                         auto_declare=False, prefetch_count=1)
     consumer.consume()
 
     while True:
         try:
+            # Check for and add new sessions / queues
+            consumer.addNewQueues()
             conn.drain_events(timeout=2)
         except socket.timeout:
             pass
