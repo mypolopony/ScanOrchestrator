@@ -800,8 +800,14 @@ def windows_client():
             except socket.timeout:
                 pass
             except conn.connection_errors as e:
+<<<<<<< Updated upstream
                 emitSNSMessage('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
                 break
+=======
+                log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
+                conn.ensure_connection()
+                pass
+>>>>>>> Stashed changes
 
 def linux_client():
     '''

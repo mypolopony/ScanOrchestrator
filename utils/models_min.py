@@ -325,13 +325,15 @@ class Task():
             self.task.clientname = client_name
             self.task.clientid = Client.objects.get(name=self.task.clientname).id
 
-            # Block
-            self.task.blockname = block_name
-            self.task.blockid = Block.objects.get(name=self.task.blockname).id
-
             # Farm
             self.task.farmname = farm_name
-            self.task.farmid = Farm.objects.get(name=self.task.farmname).id
+            self.task.farmid = Farm.objects.get(name=self.task.farmname, client=self.task.clientid).id
+
+            # Block
+            self.task.blockname = block_name
+            self.task.blockid = Block.objects.get(name=self.task.blockname, farm=self.task.farmid).id
+
+
         except DoesNotExist:
             raise Exception('Sorry, that Client / Farm / Block could not be found')
 

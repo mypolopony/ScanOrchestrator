@@ -1,0 +1,11 @@
+client_name: Sun World
+farm_name: Quatacker-Burns
+block_name: 3C
+session_name: 3c_symphony
+test: True
+exclude_scans:
+include_scans: [2017-08-17_13-59]
+role: rvm
+detection_params:
+        cluster_model: s3://deeplearning_data/models/best/cluster_june_15_288000.caffemodel
+        trunk_model: s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel
