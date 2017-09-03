@@ -30,11 +30,12 @@ git checkout symphony
 
 ### AWS Credentials
 New-Item -ItemType Directory -Force -Path ~\.aws
+# Delete existing credentials if any
+Remove-Item Env:\AWS_ACCESS_KEY_ID
+Remove-Item Env:\AWS_SECRET_ACCESS_KEY
 # Copy AWS credentials file from Scan Orchestrator
 cp C:\AgriData\Projects\ScanOrchestrator\credentials\aws_credentials ~\.aws\credentials
-# Also set the environment variables
-[Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAIQYWKQQF5NKCCPGA", "Machine")
-[Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "Machine")
+
 
 ### Copy extern
 echo "$(Get-Date): Copy extern" >> C:\Users\agridata\startup.log

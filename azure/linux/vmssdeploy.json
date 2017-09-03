@@ -131,8 +131,8 @@
     }
   },
   "variables": {
-    "vmssName": "[concat(resourceGroup().name, 'vmss')]",
-    "namingInfix": "[toLower(substring(concat(variables('vmssName'), uniqueString(resourceGroup().id)), 0, 9))]",
+    "vmssName": "torvalds",
+    "namingInfix": "torvalds",
     "longNamingInfix": "[toLower(variables('vmssName'))]",
     "jumpBoxName": "[concat(variables('namingInfix'), 'jbox')]",
     "jumpBoxSAName": "[concat(uniqueString(concat(resourceGroup().id, variables('newStorageAccountSuffix'), 'jumpboxsa')), 'jb')]",

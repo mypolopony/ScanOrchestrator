@@ -5,6 +5,7 @@ import ConfigParser
 import os
 import yaml
 import glob
+import requests
 from pprint import pprint
 import binascii
 import argparse
@@ -36,19 +37,37 @@ def insert(task):
     producer.publish(task, routing_key=task['session_name'])
 
 
-def setup_exchanges():
-    print('Ensuring exchanges\n')
+def create_routing(session_name):
+    print('Ensuring exchanges / queues\n')
 
-    Exchange('rvm', channel=chan, type='topic').declare()
-    Exchange('preprocess', channel=chan, type='topic').declare()
-    Exchange('process', channel=chan, type='topic').declare()
-    Exchange('detection', channel=chan, type='topic').declare()
+    for role in ['rvm','preprocess','detection','process']:
+        Exchange(role, channel=chan, type='topic').declare()
+        Queue('_'.join([role, session_name]), exchange=ex, channel=chan, routing_key=session_name).declare()
+
+
+def reset_connections():
+    '''
+    This is a crude way to reset all incoming connections from this IP to the RabbitMQ server --
+    Not great to do all the time, but okay when first starting out.
+
+    These are simple HTTP calls
+    '''
+
+    # Obtain the public IP
+    myip = requests.get('http://ifconfig.co/json').json()['ip']
+
+    # Get the existing connections
+    connections = requests.get('http://dash.agridata.ai:15672/api/connections/')
+    for connection in connections:
+        if connection['peer_host'] == myip:
+            print('Detaching {}'.format(connection['name']))
+            requests.delete('http://dash.agridata.ai/orchestrator:15672/api/connections/{}'.format(connection['name']))
+
+
+
 
 
 if __name__ == '__main__':
-    # Create exchanges (indempotent)
-    setup_exchanges()
-
     # Task definition
     for taskfile in glob.glob('tasks/*.yaml'):
         print('Reading task file: {}'.format(taskfile))
@@ -63,4 +82,8 @@ if __name__ == '__main__':
                     exclude_scans=task['exclude_scans'],
                     include_scans=task['include_scans'],
                     role=task['role'])
+        
+        # Create exchanges and queues
+        create_routing(task['session_name'])
+
         insert(task)

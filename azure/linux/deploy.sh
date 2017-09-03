@@ -2,7 +2,7 @@
 
 
 
-DELETE=1
+DELETE=0
 CREATE=1
 LOC=westus2
 while getopts d:c:l: opts; do
@@ -18,7 +18,7 @@ echo DELETE=$DELETE  CREATE=$CREATE LOC=$LOC
 
 
 
-RG="torvalds"
+RG="symphony"
 OUTDIR=./output
 DEPLOYMENT_NAME=$RG
 mkdir -p $OUTDIR
@@ -38,14 +38,14 @@ if [ "$DELETE" -eq "1" ];then
 fi
 
 if [ "$CREATE" -eq "1" ];then
-    paramsJson=$(cat  $SRC_DIR/vmssdeploy_$LOC.parameters.json | jq '.parameters')
-    echo az group create -n $RG   -l $LOC > $OUTDIR/$RG-output.json
-    az group create -n $RG   -l $LOC > $OUTDIR/$RG-output.json
+    # paramsJson=$(cat  $SRC_DIR/vmssdeploy_$LOC.parameters.json | jq '.parameters')
+    # echo az group create -n $RG   -l $LOC > $OUTDIR/$RG-output.json
+    # az group create -n $RG   -l $LOC > $OUTDIR/$RG-output.json
 
 
     templateFile=$SRC_DIR/vmssdeploy.json
     paramsJson=$(cat  $SRC_DIR/vmssdeploy_$LOC.parameters.json | jq '.parameters')
-    echo $paramsJson
+    # echo $paramsJson
 
     #az group deployment validate -g $RG   --template-file $templateFile --parameters "$paramsJson" --verbose
     echo az group deployment create -g $RG  -n $DEPLOYMENT_NAME  --template-file $templateFile --parameters "$paramsJson" --verbose >  $OUTDIR/$DEPLOYMENT_NAME-output.json
