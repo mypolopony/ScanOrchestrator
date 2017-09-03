@@ -43,7 +43,8 @@ def create_routing(session_name):
         # This is probably unnecessary now, it just defines the exchanges
         ex = Exchange(role, channel=chan, type='topic').declare()
 
-        Queue('_'.join([role, session_name]), exchange=ex, channel=chan).bind_to(exchange=role, routing_key=session_name)
+        Queue('_'.join([role, session_name]), exchange=ex, channel=chan).declare()
+        Queue('_'.join([role, session_name]), channel=chan).bind_to(exchange=role, routing_key=session_name)
 
 
 def reset_connections():
@@ -76,8 +77,8 @@ if __name__ == '__main__':
                     farm_name=task['farm_name'],
                     block_name=task['block_name'],
                     session_name=task['session_name'],
-                    caffemodel_s3_url_cluster=task['detection_params']['cluster_model'],
-                    caffemodel_s3_url_trunk=task['detection_params']['trunk_model'],
+                    caffemodel_s3_url_cluster=task['detection_params']['caffemodel_s3_url_cluster'],
+                    caffemodel_s3_url_trunk=task['detection_params']['caffemodel_s3_url_trunk'],
                     test=task['test'],
                     exclude_scans=task['exclude_scans'],
                     include_scans=task['include_scans'],

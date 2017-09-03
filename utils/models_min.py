@@ -312,8 +312,8 @@ class Task():
         
         # Models (this is *not* a dot dict)
         self.task.detection_params = dict()
-        self.task.detection_params['caffemodel_s3_url_cluster'] = cluster_model
-        self.task.detection_params['caffemodel_s3_url_trunk'] = trunk_model
+        self.task.detection_params['caffemodel_s3_url_cluster'] = caffemodel_s3_url_cluster
+        self.task.detection_params['caffemodel_s3_url_trunk'] = caffemodel_s3_url_trunk
 
         # Test
         self.task.test = test
