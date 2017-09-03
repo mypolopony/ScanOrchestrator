@@ -703,7 +703,6 @@ def process():
         sendtoRabbitMQ(task)
         pass
     except Exception as e:
-        log('FAILED, SENDING TO DLQ: {}'.format(str(e)), task['session_name'])
         task['message'] = e
         handleFailedTask(task)
         pass
