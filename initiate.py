@@ -78,7 +78,7 @@ if __name__ == '__main__':
                     test=task['test'],
                     exclude_scans=task['exclude_scans'],
                     include_scans=task['include_scans'],
-                    role=task['role'])
+                    role=task['role']).to_json()
 
         # Reset connections
         reset_connections()
@@ -86,7 +86,7 @@ if __name__ == '__main__':
         # Create exchanges and queues
         # NOTE: The class has dot notation, 
         # NOTE: the json, required for messaging, used in insert() does not
-        create_routing(task.session_name)
+        create_routing(task['session_name'])
 
         # Insert
         insert(task)
