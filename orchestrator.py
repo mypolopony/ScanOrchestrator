@@ -626,48 +626,45 @@ def preprocess(task, message):
 
 
 @announce
-def detection(args):
+def detection(task, message):
     '''
     Detection method
     '''
     from deepLearning.infra import detect_s3_az
-    # logger.info('Config read: type:{}'.format(dict(config['env'])))
-    while True:
-        try:
-            log('Waiting for task')
-            task = receivefromRabbitMQ(args, 'detection')
-            if type(task) != dict:
-                task = json.loads(task)
-            log('Received detection task: {}'.format(task), task['session_name'])
 
-            arg_list = []
+    try:
+        if type(task) != dict:
+            task = json.loads(task)
+        log('Received detection task: {}'.format(task), task['session_name'])
 
-            # The task may come in unicode -- let's change to regular string
-            for k, v in task['detection_params'].iteritems():
-                arg_list.append('--' + k)
-                if type(v) == list:
-                    for vi in v:
-                        arg_list.append(str(vi))
-                else:
-                    arg_list.append(str(v))
+        arg_list = []
+
+        # The task may come in unicode -- let's change to regular string
+        for k, v in task['detection_params'].iteritems():
+            arg_list.append('--' + k)
+            if type(v) == list:
+                for vi in v:
+                    arg_list.append(str(vi))
+            else:
+                arg_list.append(str(v))
 
 
-            args_detect = detect_s3_az.parse_args(arg_list)
-            logger.info(('detection process %r, %r' % (task, args_detect)))
-            s3keys = detect_s3_az.main(args_detect)
+        args_detect = detect_s3_az.parse_args(arg_list)
+        logger.info(('detection process %r, %r' % (task, args_detect)))
+        s3keys = detect_s3_az.main(args_detect)
 
-            # for now we expect only one element
-            assert (len(s3keys) <= 1)
-            task['detection_params']['result'] = s3keys if not s3keys  else  s3keys[0]
-            log('Success. Completed detection: {}'.format(task['detection_params']['result']), task['session_name'])
-            sendtoRabbitMQ(args,'process', task)
-        except Exception, e:
-            tb = traceback.format_exc()
-            logger.error(tb)
-            task['message'] = str(e)
-            log('args, Task FAILED. Re-enqueueing... ({})'.format(task), task['session_name'])
-            handleFailedTask(args, 'detection', task)
-            pass
+        # for now we expect only one element
+        assert (len(s3keys) <= 1)
+        task['detection_params']['result'] = s3keys if not s3keys  else  s3keys[0]
+        log('Success. Completed detection: {}'.format(task['detection_params']['result']), task['session_name'])
+        sendtoRabbitMQ(args,'process', task)
+    except Exception, e:
+        tb = traceback.format_exc()
+        logger.error(tb)
+        task['message'] = str(e)
+        log('args, Task FAILED. Re-enqueueing... ({})'.format(task), task['session_name'])
+        handleFailedTask(args, 'detection', task)
+        pass
 
 
 @announce
@@ -800,14 +797,9 @@ def windows_client():
             except socket.timeout:
                 pass
             except conn.connection_errors as e:
-<<<<<<< Updated upstream
-                emitSNSMessage('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
-                break
-=======
                 log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
-                conn.ensure_connection()
                 pass
->>>>>>> Stashed changes
+
 
 def linux_client():
     '''
@@ -823,8 +815,8 @@ def linux_client():
             conn.drain_events(timeout=2)
         except socket.timeout:
             pass
-        except conn.connection_errors:
-            cmitSNSMessage('Connection has been lost')
+        except conn.connection_errors as e:
+            log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
             break
 
 
