@@ -33,6 +33,16 @@ New-Item -ItemType Directory -Force -Path ~\.aws
 # Delete existing credentials if any
 Remove-Item Env:\AWS_ACCESS_KEY_ID
 Remove-Item Env:\AWS_SECRET_ACCESS_KEY
+# Really remove!
+[Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID",$null,"User")
+[Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY",$null,"User")
+[Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID",$null,"Machine")
+[Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY",$null,"Machine")
+# Now reset
+[Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAIQYWKQQF5NKCCPGA", "User")
+[Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "User")
+[Environment]::SetEnvironmentVariable("AWS_ACCESS_KEY_ID", "AKIAIQYWKQQF5NKCCPGA", "Machine")
+[Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "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", "Machine")
 # Copy AWS credentials file from Scan Orchestrator
 cp C:\AgriData\Projects\ScanOrchestrator\credentials\aws_credentials ~\.aws\credentials
 
