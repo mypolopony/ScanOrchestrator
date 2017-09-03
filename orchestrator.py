@@ -487,25 +487,6 @@ def rebuildScanInfo(task):
             log('A serious error has occurred rebuilding scan info: {}'.format(e), task['session_name'])
             raise Exception(e)
 
-
-@announce
-def monitorMatlabs(workers, session_name):
-    # Monitor the number of MATLAB processes
-    matlabs = NUM_MATLAB_INSTANCES
-    while matlabs > 0:
-        log('MATLAB instances still alive: {}. Waiting for two minutes.'.format(matlabs), session_name)
-        time.sleep(120)
-        matlabs = len([p.pid for p in psutil.process_iter() if p.name().lower() == 'matlab.exe'])
-
-    # All of the MATLABs are done, let's kill any lingering workers
-    for worker in workers:
-        try:
-            worker.terminate()
-        except:
-            log('Terminate failed but that''s okay', session_name)
-
-
-
 @announce
 def generateRVM(task, message):
     '''
@@ -756,6 +737,7 @@ def windows_client():
 
     # Prefetch count is used to limit each process from getting any more than one task
     with nested(rvm_consumer, preprocess_consumer, process_consumer):
+        while True:
             try:
                 conn.drain_events(timeout=10)
             except socket.timeout:
