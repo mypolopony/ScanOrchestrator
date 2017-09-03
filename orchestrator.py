@@ -672,56 +672,41 @@ def process():
     '''
     Processing method
     '''
-    while True:
-        try:
-            # The task
-            multi_task = receivefromRabbitMQ(args, 'process', num=NUM_MATLAB_INSTANCES)
-            session_name = multi_task[0]['session_name']
+    try:
+        # The task
+        message.ack()
 
-            # Change roletype and reformat message
-            # TODO: Does this really require using idx / enumerate? For some reason, multi_task is not cooperating otherwise
-            for idx,m in enumerate(multi_task):
-                if type(m) == unicode:
-                    # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
-                    multi_task[idx] = json.loads(m.replace("u'", "'").replace("'", '"'))
-                # The detection params reult is sometimes a string and sometimes a list -- is this because of the above?
-                if type(multi_task[idx]['detection_params']['result']) == unicode:
-                    multi_task[idx]['detection_params']['result'] = [multi_task[idx]['detection_params']['result']]
+        # TODO: Can Linux not do this?
+        task['role'] = 'process'
 
-                multi_task[idx]['role'] = 'process'
+        # Notify
+        log('Received task: {}'.format(task), task['session_name'])
 
-            # Notify
-            log('Received processing tasks: {}'.format([multi_task[0]['detection_params']['result'] for m in multi_task]), multi_task[0]['session_name'])
+        # Reformat message
+        if type(task) == unicode:
+            # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
+            task = json.loads(task.replace("u'", "'").replace("'", '"'))
 
-            # Rebuild base scan info (just use the first task)
-            rebuildScanInfo(multi_task[0])
+        # Rebuild base scan info
+        rebuildScanInfo(task)
 
-            # Launch tasks
-            log('Processing group of {} archives'.format(len(multi_task)), session_name)
-            workers = list()
-            for task in multi_task:
-                for zipfile in task['detection_params']['result']:
-                    log('Downloading {}'.format(zipfile), task['session_name'])
-                    s3r.Bucket(config.get('s3', 'bucket')).download_file(zipfile, os.path.join(video_dir, os.path.basename(zipfile)))
-                worker = multiprocess.Process(target=launchMatlabTasks, args=[args, task])
-                worker.start()
-                workers.append(worker)
+        # Notify
+        log('Received processing task: {}'.format(task, task['session_name']))
 
-                # Delay is recommended to keep MATLAB processes from stepping on one another
-                time.sleep(4)
+        # Run the task
+        mlab = matlabProcess()
+        mlab.runTask(task, nargout=0)
+        mlab.quit()
 
-            # Blocking call to wait for workers to finish. MATLABs will send to postprocess
-            monitorMatlabs(workers,session_name)
-
-        except ClientError:
-            # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-            sendtoRabbitMQ(args,'dlq', multi_task)
-            pass
-        except Exception as e:
-            log('FAILED, SENDING TO DLQ: {}'.format(str(e)), multi_task[0]['session_name'])
-            log(logger.error(traceback.print_exc()))
-            sendtoRabbitMQ(args, 'dlq', multi_task)
-            pass
+    except ClientError:
+        # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
+        sendtoRabbitMQ(task)
+        pass
+    except Exception as e:
+        log('FAILED, SENDING TO DLQ: {}'.format(str(e)), task['session_name'])
+        task['message'] = e
+        handleFailedTask(task)
+        pass
 
 
 @announce
