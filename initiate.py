@@ -26,7 +26,6 @@ chan = conn.channel()
 
 
 def insert(task):
-    task = task.to_json()
     print('\nInserting into {}:\n'.format(task['role']))
     pprint(task)
 
@@ -38,10 +37,10 @@ def insert(task):
 
 
 def create_routing(session_name):
-    print('Ensuring exchanges / queues\n')
+    print('\nEnsuring exchanges / queues')
 
     for role in ['rvm','preprocess','detection','process']:
-        Exchange(role, channel=chan, type='topic').declare()
+        ex = Exchange(role, channel=chan, type='topic').declare()
         Queue('_'.join([role, session_name]), exchange=ex, channel=chan, routing_key=session_name).declare()
 
 
@@ -57,10 +56,11 @@ def reset_connections():
     myip = requests.get('http://ifconfig.co/json').json()['ip']
 
     # Get the existing connections
-    connections = requests.get('http://{}:{}@dash.agridata.ai:15672/api/connections/'.format(config.get('rmq','username'), config.get('rmq','password')))
-    for connection in connections.json():
+    connections = requests.get('http://{}:{}@dash.agridata.ai:15672/api/connections/'.format(config.get('rmq','username'), config.get('rmq','password'))).json()
+    print('\nDropping {} connections'.format(len(connections)))
+    for connection in connections:
         if connection['peer_host'] == myip:
-            print('Detaching {}'.format(connection['name']))
+            print('-- {}'.format(connection['name']))
             requests.delete('http://dash.agridata.ai/orchestrator:15672/api/connections/{}'.format(connection['name']))
 
 
