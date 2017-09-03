@@ -42,7 +42,7 @@ from utils.connection import *
 WAIT_TIME = 20      # [AWS] Wait time for messages
 NUM_MSGS = 10       # [AWS] Number of messages to grab at a time
 RETRY_DELAY = 60    # [AWS] Number of seconds to wait upon encountering an error
-NUM_CORES = 4       # [GENERAL] Number of cores (= number of MATLAB instances)
+NUM_CORES = 1       # [GENERAL] Number of cores (= number of MATLAB instances)
 
 # OS-Specific Setup
 if os.name == 'nt':
@@ -632,6 +632,9 @@ def detection(task, message):
     '''
     from deepLearning.infra import detect_s3_az
 
+    # The task
+    message.ack()
+
     try:
         if type(task) != dict:
             task = json.loads(task)
@@ -668,7 +671,7 @@ def detection(task, message):
 
 
 @announce
-def process():
+def process(task, mesage):
     '''
     Processing method
     '''
@@ -766,16 +769,19 @@ def windows_client():
 
     # Define consumers
     rvm_channel = conn.channel()
+    rvm_consumer = Consumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM],
+             auto_declare=False, prefetch_count=1)
+
     preprocess_channel = conn.channel()
+    preprocess_consumer = Consumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[preprocess],
+             auto_declare=False, prefetch_count=1)
+
     process_channel = conn.channel()
+    process_consumer = Consumer(process_channel, list_bound_queues(exchange='process'), callbacks=[process],
+             auto_declare=False, prefetch_count=1)
 
     # Prefetch count is used to limit each process from getting any more than one task
-    with nested(Consumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM],
-                         auto_declare=False, prefetch_count=1),
-                Consumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[generateRVM],
-                         auto_declare=False, prefetch_count=1),
-                Consumer(process_channel, list_bound_queues(exchange='process'),  callbacks=[generateRVM],
-                         auto_declare=False, prefetch_count=1)):
+    with nested(rvm_consumer, preprocess_consumer, process_consumer):
             try:
                 conn.drain_events(timeout=10)
             except socket.timeout:
