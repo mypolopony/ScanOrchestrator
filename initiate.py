@@ -57,14 +57,12 @@ def reset_connections():
     myip = requests.get('http://ifconfig.co/json').json()['ip']
 
     # Get the existing connections
-    connections = requests.get('http://dash.agridata.ai:15672/api/connections/')
-    for connection in connections:
+    connections = requests.get('http://{}:{}@dash.agridata.ai:15672/api/connections/'.format(config.get('rmq','username'), config.get('rmq','password')))
+    for connection in connections.json():
+        print(connection['peer_host'])
         if connection['peer_host'] == myip:
             print('Detaching {}'.format(connection['name']))
             requests.delete('http://dash.agridata.ai/orchestrator:15672/api/connections/{}'.format(connection['name']))
-
-
-
 
 
 if __name__ == '__main__':
@@ -82,8 +80,12 @@ if __name__ == '__main__':
                     exclude_scans=task['exclude_scans'],
                     include_scans=task['include_scans'],
                     role=task['role'])
+
+        # Reset connections
+        reset_connections()
         
         # Create exchanges and queues
         create_routing(task['session_name'])
 
+        # Insert
         insert(task)
