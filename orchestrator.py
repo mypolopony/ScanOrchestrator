@@ -671,7 +671,7 @@ def detection(task, message):
 
 
 @announce
-def process(task, mesage):
+def process(task, message):
     '''
     Processing method
     '''
