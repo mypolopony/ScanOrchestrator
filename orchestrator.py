@@ -5,6 +5,7 @@ import ConfigParser
 import argparse
 import glob
 import json
+import random
 import logging
 import re
 import shutil
@@ -17,7 +18,6 @@ import traceback
 import psutil
 
 import boto3
-import numpy as np
 import pandas as pd
 import requests
 from botocore.exceptions import ClientError
@@ -113,6 +113,7 @@ logger.addHandler(fh)
 
 # Miscellany
 task, multi_task = None, None   # Avoid annoying failure messages if these are not defined
+childname = random.choice(config.get('offspring','offspring').split(','))
 
 
 def announce(func, *args, **kwargs):
@@ -229,13 +230,13 @@ def log(message, session_name=''):
     '''
     # TODO: Instead of sending session, we should send the task itself
     payload = dict()
-    payload['hostname'] = socket.gethostname() + '-' + multiprocessing.current_process().name
+    payload['hostname'] = socket.gethostname() + '-' + childname
     payload['ip'] = socket.gethostbyname(socket.gethostname())
     payload['message'] = message
     payload['session_name'] = session_name
 
     try:
-        r = requests.post('http://dash.agridata.ai/orchestrator', json=payload)
+        _ = requests.post('http://dash.agridata.ai/orchestrator', json=payload)
     except Exception as e:
         logger.warning('Boringmachine not reachable: {}'.format(e))
 
@@ -467,7 +468,7 @@ def rebuildScanInfo(task):
     # If the session directory exists
     if os.path.exists(session_dir):
         # While the CSVs don't exist, just wait, someone must be making them
-        while [os.path.exists(os.path.join(session_dir, file)) for file in ['rvm.csv','vpr.csv']].count(False) != 0:
+        while [os.path.exists(os.path.join(session_dir, 'videos', file)) for file in ['rvm.csv', 'vpr.csv']].count(False) != 0:
             time.sleep(10)
 
     # Else, create the directories and grab the CSVs
@@ -546,10 +547,13 @@ def generateRVM(task, message):
         data = pd.read_csv(local_uri, header=0)
         rows_found = len(set([(r, d) for r, d in zip(data['rows'], data['direction'])])) / 2
         block = Block.objects.get(id=task['blockid'])
-        if rows_found < block.num_rows * 0.5:
+
+        # RVM check
+        # For compatability, accept either the array length or the direct data
+        if rows_found < (len(block.rows) or block.num_rows) * 0.5:
             emitSNSMessage(
                 'RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
-        elif rows_found > block.num_rows:
+        elif rows_found > (len(block.rows) or block.num_rows):
             emitSNSMessage(
                 'Too many rows found (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
         else:
@@ -573,7 +577,6 @@ def preprocess(task, message):
     try:
         # The task
         message.ack()
-        task = receivefromRabbitMQ(args, 'preprocess')
 
         # Notify
         log('Received task: {}'.format(task), task['session_name'])
@@ -581,20 +584,31 @@ def preprocess(task, message):
         # Rebuild base scan info
         rebuildScanInfo(task)
 
+        # Set up appropriate Queues/Exchanges for next task (detection)
+        # Assume destination is the same for all tasks
+        role = tasks[0]['role']
+        session_name = tasks[0]['session_name']
+
+        # Ensure the destination exists
+        chan = conn.channel()
+        ex = Exchange(role, channel=chan, type='topic')
+        Queue('_'.join([role, session_name]), exchange=ex, channel=chan, routing_key=task['session_name']).declare()
+        chan.close()
+
         # Download the tarfiles and (pre-)process them (there can be many ot just one)
+        video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
         for tar in task['tarfiles']:
             scanid = '_'.join(tar.split('_')[0:2])
             key = '{}/{}/{}'.format(task['clientid'], scanid, tar)
             log('Downloading {}'.format(key), task['session_name'])
-            s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(base_windows_path, task['session_name'], 'videos', tar))
+            s3r.Bucket(config.get('s3', 'bucket')).download_file(key, os.path.join(video_dir, tar))
 
             # Untar
-            mlab = matlabProcess()
-            mlab.my_untar(video_dir, task['session_name'], nargout=0)
-            mlab.quit()
+            tarfile.open(os.path.join(video_dir, tar)).extractall(
+                path=os.path.join(video_dir, tar.replace('.tar.gz', '')))
 
             # Notify
-            log('{} is preprocessing {}'.format(multiprocessing.current_process().name,tar), task['session_name'])
+            log('Preprocessing {}'.format(tar), task['session_name'])
            
             # Run the task
             mlab = matlabProcess()
@@ -603,11 +617,11 @@ def preprocess(task, message):
 
     except ClientError:
         # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-        sendtoRabbitMQ(args,'preprocess', task)
+        sendtoRabbitMQ(task)
         pass
     except Exception as e:
         task['message'] = e
-        handleFailedTask(args, 'preprocess', task)
+        handleFailedTask(task)
         pass
 
 
@@ -774,28 +788,28 @@ def windows_client():
     preprocess_channel = conn.channel()
     process_channel = conn.channel()
 
-    with nested(Consumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM], auto_declare=False),
-                Consumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[preprocess],
-                         auto_declare=False),
-                Consumer(process_channel, list_bound_queues(exchange='process'), callbacks=[process],
-                         auto_declare=False)):
-        while True:
+    # Prefetch count is used to limit each process from getting any more than one task
+    with nested(Consumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM],
+                         auto_declare=False, prefetch_count=1),
+                Consumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[generateRVM],
+                         auto_declare=False, prefetch_count=1),
+                Consumer(process_channel, list_bound_queues(exchange='process'),  callbacks=[generateRVM],
+                         auto_declare=False, prefetch_count=1)):
             try:
                 conn.drain_events(timeout=10)
             except socket.timeout:
                 pass
             except conn.connection_errors as e:
-                log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
-                conn.ensure_connection()
-                log('Connection ok?')
-                pass
+                emitSNSMessage('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
+                break
 
 def linux_client():
     '''
     For the detection machines
     '''
     detection_channel = conn.channel()
-    consumer = Consumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection], auto_declare=False)
+    consumer = Consumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection],
+                        auto_declare=False, prefetch_count=1)
     consumer.consume()
 
     while True:
