@@ -33,13 +33,13 @@ class SmartConsumer(Consumer):
     elif os.name =='posix':
         roles = ['detection']
 
-    def __init__(self):
-        Consumer.__init__(self)
+    def __init__(self, channel, queues, callbacks, auto_declare, prefetch_count):
+        Consumer.__init__(self, channel, queues, callbacks, auto_declare, prefetch_count)
 
     def addNewQueues(self):
         for role in self.roles:
             all = list_bound_queues(exchange=role)
-            extant = self.queues()
+            extant = self.queues
 
             for new in set(all) - set(extant):
                 self.add_queue(new)
@@ -731,6 +731,18 @@ def getComputerInfoString():
 
     return ret
 
+def addNewQueues(consumer, role):
+    '''
+    This was likely meant to go into the extended Consumer class
+    '''
+    # Get queue difference
+    all = list_bound_queues(exchange=role)
+    extant = consumer.queues
+
+    for new in set(all) - set(extant):
+        consumer.add_queue(new)
+
+    return consumer
 
 def windows_client():
     '''
@@ -740,24 +752,25 @@ def windows_client():
 
     # Define consumers
     rvm_channel = conn.channel()
-    rvm_consumer = SmartConsumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM],
+    rvm_consumer = Consumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM],
              auto_declare=False, prefetch_count=1)
 
     preprocess_channel = conn.channel()
-    preprocess_consumer = SmartConsumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[preprocess],
+    preprocess_consumer = Consumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[preprocess],
              auto_declare=False, prefetch_count=1)
 
     process_channel = conn.channel()
-    process_consumer = SmartConsumer(process_channel, list_bound_queues(exchange='process'), callbacks=[process],
+    process_consumer = Consumer(process_channel, list_bound_queues(exchange='process'), callbacks=[process],
              auto_declare=False, prefetch_count=1)
 
     # Prefetch count is used to limit each process from getting any more than one task
     with nested(rvm_consumer, preprocess_consumer, process_consumer):
         while True:
             # Check for and add new sessions / queues
-            rvm_consumer.addNewQueues()
-            preprocess_consumer.addNewQueues()
-            process_consumer.addNewQueues()
+            # TODO: This was supposed to be in the extended consumer so the construction is awkward
+            rvm_consumer = addNewQueues(rvm_consumer, 'rvm')
+            preprocess_consumer = addNewQueues(preprocess_consumer, 'preprocess')
+            process_consumer = addNewQueues(process_consumer, 'process')
 
             try:
                 conn.drain_events(timeout=10)
@@ -773,14 +786,14 @@ def linux_client():
     For the detection machines
     '''
     detection_channel = conn.channel()
-    consumer = SmartConsumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection],
+    consumer = Consumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection],
                         auto_declare=False, prefetch_count=1)
     consumer.consume()
 
     while True:
         try:
             # Check for and add new sessions / queues
-            consumer.addNewQueues()
+            consumer = addNewQueues(consumer,'detection')
             conn.drain_events(timeout=2)
         except socket.timeout:
             pass
