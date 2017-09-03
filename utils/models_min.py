@@ -295,8 +295,8 @@ class Task():
                  farm_name,
                  block_name,
                  session_name = None,
-                 cluster_model='s3://deeplearning_data/models/best/cluster_june_15_288000.caffemodel', 
-                 trunk_model='s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel',
+                 caffemodel_s3_url_cluster='s3://deeplearning_data/models/best/cluster_june_15_288000.caffemodel', 
+                 caffemodel_s3_url_trunk='s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel',
                  test=True, 
                  exclude_scans=None, 
                  include_scans=None,
@@ -312,8 +312,8 @@ class Task():
         
         # Models (this is *not* a dot dict)
         self.task.detection_params = dict()
-        self.task.detection_params['cluster_model'] = cluster_model
-        self.task.detection_params['trunk_model'] = trunk_model
+        self.task.detection_params['caffemodel_s3_url_cluster'] = cluster_model
+        self.task.detection_params['caffemodel_s3_url_trunk'] = trunk_model
 
         # Test
         self.task.test = test
