@@ -59,7 +59,6 @@ def reset_connections():
     # Get the existing connections
     connections = requests.get('http://{}:{}@dash.agridata.ai:15672/api/connections/'.format(config.get('rmq','username'), config.get('rmq','password')))
     for connection in connections.json():
-        print(connection['peer_host'])
         if connection['peer_host'] == myip:
             print('Detaching {}'.format(connection['name']))
             requests.delete('http://dash.agridata.ai/orchestrator:15672/api/connections/{}'.format(connection['name']))
@@ -85,7 +84,9 @@ if __name__ == '__main__':
         reset_connections()
         
         # Create exchanges and queues
-        create_routing(task['session_name'])
+        # NOTE: The class has dot notation, 
+        # NOTE: the json, required for messaging, used in insert() does not
+        create_routing(task.session_name)
 
         # Insert
         insert(task)
