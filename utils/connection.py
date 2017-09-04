@@ -3,11 +3,10 @@ from mongoengine import connect
 from pymongo import MongoClient
 
 dbname = 'dev-agdb'
-
-server = 'ds161551.mlab.com'
-port = 61551
 username = 'staging-agridata'
 password = 'M5m7xMe2cUNcNn6y$Rz'
+server = 'ds036947-a0.mlab.com'
+port = 36947
 
 connect(dbname, host=server, port=port, username=username, password=password)
 c = MongoClient('mongodb://' + username + ':' + password + '@' + server + ':' + str(port) + '/' + dbname)
