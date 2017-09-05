@@ -525,28 +525,13 @@ def generateRVM(task, message):
         mlab.runTask(task, nargout=0)
         mlab.quit()
 
-        # Check for completeness
-        local_uri = os.path.join(base_windows_path, task['session_name'], 'videos', 'rvm.csv')
-        data = pd.read_csv(local_uri, header=0)
-        rows_found = len(set([(r, d) for r, d in zip(data['rows'], data['direction'])])) / 2
-        block = Block.objects.get(id=task['blockid'])
+        # Generate tar files
+        tarfiles = pd.Series.unique(data['file'])
 
-        # RVM check
-        # For compatability, accept either the array length or the direct data
-        if rows_found < (len(block.rows) or block.num_rows) * 0.5:
-            emitSNSMessage(
-                'RVM is not long enough (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
-        elif rows_found > (len(block.rows) or block.num_rows):
-            emitSNSMessage(
-                'Too many rows found (found {}, expected {})! [{}]'.format(rows_found, block.num_rows, task))
-        else:
-            # Generate tar files and eliminate NaNs
-            tarfiles = pd.Series.unique(data['file'])
+        # Create and send tasks
+        sendtoRabbitMQ([dict(task, tarfiles=[tf], num_retries=0, role='preprocess') for tf in tarfiles])
 
-            # Create and send tasks
-            sendtoRabbitMQ([dict(task, tarfiles=[tf], num_retries=0, role='preprocess') for tf in tarfiles])
-
-            log('RVM task complete', task['session_name'])
+        log('RVM task complete', task['session_name'])
     except Exception as err:
         emitSNSMessage('Failure on {}'.format(str(err)), context=traceback.format_exc())
         pass
