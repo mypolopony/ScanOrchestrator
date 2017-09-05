@@ -526,6 +526,8 @@ def generateRVM(task, message):
         mlab.quit()
 
         # Generate tar files
+        local_uri = os.path.join(base_windows_path, task['session_name'], 'videos', 'rvm.csv')
+        data = pd.read_csv(local_uri, header=0)
         tarfiles = pd.Series.unique(data['file'])
 
         # Create and send tasks
