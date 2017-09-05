@@ -356,7 +356,7 @@ class Task():
         self.task.role = role
 
         # Validation
-        # self.validate()
+        self.validate()
 
         
     def validate(self):

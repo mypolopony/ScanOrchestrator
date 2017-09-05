@@ -263,8 +263,8 @@ def sendtoRabbitMQ(tasks):
     # Generate producer
     with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
                                                     config.get('rmq', 'password'),
-                                                    config.get('rmq', 'hostname'))) as conn:
-        chan = conn.channel()
+                                                    config.get('rmq', 'hostname'))) as sendconn:
+        chan = sendconn.channel()
         ex = Exchange(role, channel=chan, type='topic')
         producer = Producer(channel=chan, exchange=ex)
 

@@ -83,7 +83,7 @@ if __name__ == '__main__':
 
     # Task definition
     if args.taskfile:
-        taskfiles = list(args.taskfile)
+        taskfiles = ['tasks/{}'.format(args.taskfile)]
     else:
         taskfiles = glob.glob('tasks/*.yaml')
 
@@ -102,9 +102,6 @@ if __name__ == '__main__':
                         include_scans=task['include_scans'],
                         role=task['role']).to_json()
 
-            # Reset connections
-            reset_connections()
-            
             # Create exchanges and queues
             # NOTE: The class has dot notation, 
             # NOTE: the json, required for messaging, used in insert() does not
