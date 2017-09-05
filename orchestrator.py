@@ -766,6 +766,7 @@ def windows_client():
             except socket.timeout:
                 pass
             except conn.connection_errors as e:
+                log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
                 pass
 
 
