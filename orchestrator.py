@@ -766,7 +766,6 @@ def windows_client():
             except socket.timeout:
                 pass
             except conn.connection_errors as e:
-                conn.ensure_connection()
                 pass
 
 
