@@ -7,7 +7,7 @@ from dateutil import parser
 from pymongo import MongoClient
 
 dbname = 'status'
-server = 'boringmachine'
+server = 'azmaster'
 username = 'agridata'
 password = 'M5m7xMe2cUNcNn6y$Rz'
 port = 27017

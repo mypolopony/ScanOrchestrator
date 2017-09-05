@@ -98,14 +98,15 @@ SQSQueueRegion = config.get('sqs', 'region')
 sqsr = boto3.resource('sqs', aws_access_key_id=SQSKey, aws_secret_access_key=SQSSecret, region_name=SQSQueueRegion)
 queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 
-# AWS Resources: SNS
+# AWS Resources: SNSarn:aws:sns:us-west-2:090780547013:symphony
+
 aws_arns = dict()
-aws_arns['statuslog'] = 'arn:aws:sns:us-west-2:090780547013:statuslog'
+aws_arns['statuslog'] = config.get('sns','topic')
 sns = boto3.client('sns', region_name=config.get('sns', 'region'))
 
-# Kombu connection (persistent)
+# Kombu connection placeholder
 rabbit_url = '{}:{}@{}'.format(config.get('rmq', 'username'), config.get('rmq', 'password'), config.get('rmq', 'hostname'))
-conn = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
+conn = None
 
 # Initialize logging
 logger = logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
@@ -611,7 +612,6 @@ def detection(task, message):
             else:
                 arg_list.append(str(v))
 
-
         args_detect = detect_s3_az.parse_args(arg_list)
         logger.info(('detection process %r, %r' % (task, args_detect)))
         s3keys = detect_s3_az.main(args_detect)
@@ -736,6 +736,7 @@ def windows_client():
     Since Windows machines can perform either preprocessing / processing equally, one strategy is to have
     any
     '''
+    conn = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
 
     # Define consumers
     rvm_channel = conn.channel()
@@ -760,11 +761,13 @@ def windows_client():
             process_consumer = addNewQueues(process_consumer, 'process')
 
             try:
+                conn.heartbeat_check()
                 conn.drain_events(timeout=10)
+                time.sleep(80)
             except socket.timeout:
                 pass
             except conn.connection_errors as e:
-                log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
+                conn.ensure_connection()
                 pass
 
 
@@ -772,6 +775,8 @@ def linux_client():
     '''
     For the detection machines
     '''
+    conn = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
+
     detection_channel = conn.channel()
     consumer = Consumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection],
                         auto_declare=False, prefetch_count=1)

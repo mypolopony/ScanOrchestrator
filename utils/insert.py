@@ -22,7 +22,7 @@ s3bucket = 'agridatadepot'
 
 def receivefromRabbitMQ(queue):
     msgs = list()
-    with Connection('amqp://{}:{}@{}:5672//'.format('agridata', 'agridata', 'boringmachine')) as kbu:
+    with Connection('amqp://{}:{}@{}:5672//'.format('agridata', 'agridata', 'azmaster')) as kbu:
         q = kbu.SimpleQueue(queue)
         print(q.qsize())
         for i in xrange(q.qsize()):
@@ -34,7 +34,7 @@ def receivefromRabbitMQ(queue):
 
 
 def sendtoRabbitMQ(queue, message):
-    with Connection('amqp://{}:{}@{}:5672//'.format('agridata', 'agridata', 'boringmachine')) as kbu:
+    with Connection('amqp://{}:{}@{}:5672//'.format('agridata', 'agridata', 'azmaster')) as kbu:
         q = kbu.SimpleQueue(queue)
         q.put(message)
         q.close()
