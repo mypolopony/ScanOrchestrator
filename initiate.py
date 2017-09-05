@@ -88,28 +88,31 @@ if __name__ == '__main__':
         taskfiles = glob.glob('tasks/*.yaml')
 
     for taskfile in taskfiles:
-        print('Reading task file: {}'.format(taskfile))
-        task = yaml.load(open(taskfile, 'r'))
-        task = Task(client_name=task['client_name'],
-                    farm_name=task['farm_name'],
-                    block_name=task['block_name'],
-                    session_name=task['session_name'],
-                    caffemodel_s3_url_cluster=task['detection_params']['caffemodel_s3_url_cluster'],
-                    caffemodel_s3_url_trunk=task['detection_params']['caffemodel_s3_url_trunk'],
-                    test=task['test'],
-                    exclude_scans=task['exclude_scans'],
-                    include_scans=task['include_scans'],
-                    role=task['role']).to_json()
+        try:
+            print('Reading task file: {}'.format(taskfile))
+            task = yaml.load(open(taskfile, 'r'))
+            task = Task(client_name=task['client_name'],
+                        farm_name=task['farm_name'],
+                        block_name=task['block_name'],
+                        session_name=task['session_name'],
+                        caffemodel_s3_url_cluster=task['detection_params']['caffemodel_s3_url_cluster'],
+                        caffemodel_s3_url_trunk=task['detection_params']['caffemodel_s3_url_trunk'],
+                        test=task['test'],
+                        exclude_scans=task['exclude_scans'],
+                        include_scans=task['include_scans'],
+                        role=task['role']).to_json()
 
-        # Reset connections
-        reset_connections()
-        
-        # Create exchanges and queues
-        # NOTE: The class has dot notation, 
-        # NOTE: the json, required for messaging, used in insert() does not
-        create_routing(task['session_name'])
+            # Reset connections
+            reset_connections()
+            
+            # Create exchanges and queues
+            # NOTE: The class has dot notation, 
+            # NOTE: the json, required for messaging, used in insert() does not
+            create_routing(task['session_name'])
 
-        # Insert
-        insert(task)
+            # Insert
+            insert(task)
+        except Exception as e:
+            print('FAIL --\n\t{}\n\t{}'.format(str(e), task))
 
     chan.close()
