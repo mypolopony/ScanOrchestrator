@@ -261,16 +261,19 @@ def sendtoRabbitMQ(tasks):
     session_name = tasks[0]['session_name']
 
     # Generate producer
-    chan = conn.channel()
-    ex = Exchange(role, channel=chan, type='topic')
-    producer = Producer(channel=chan, exchange=ex)
+    with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
+                                                    config.get('rmq', 'password'),
+                                                    config.get('rmq', 'hostname'))) as conn:
+        chan = conn.channel()
+        ex = Exchange(role, channel=chan, type='topic')
+        producer = Producer(channel=chan, exchange=ex)
 
-    # Send
-    for task in tasks:
-        producer.publish(task, routing_key=task['session_name'])
+        # Send
+        for task in tasks:
+            producer.publish(task, routing_key=task['session_name'])
 
-    # Close the channel
-    chan.close()
+        # Close the channel
+        chan.close()
 
 
 @announce
@@ -764,10 +767,10 @@ def windows_client():
             try:
                 conn.drain_events(timeout=10)
             except socket.timeout:
-                pass
+                continue
             except conn.connection_errors as e:
                 log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
-                pass
+                continue
 
 
 def linux_client():
