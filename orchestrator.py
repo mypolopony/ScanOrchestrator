@@ -731,6 +731,7 @@ def addNewQueues(consumer, role):
 
     return consumer
 
+@announce
 def windows_client():
     '''
     Since Windows machines can perform either preprocessing / processing equally, one strategy is to have
@@ -761,9 +762,7 @@ def windows_client():
             process_consumer = addNewQueues(process_consumer, 'process')
 
             try:
-                conn.heartbeat_check()
                 conn.drain_events(timeout=10)
-                time.sleep(80)
             except socket.timeout:
                 pass
             except conn.connection_errors as e:
@@ -795,12 +794,12 @@ def linux_client():
 
 
 
-def run(role=None):
+def run(args):
     '''
     The main entry point, which can either be called via import or executed from the command line
     '''
     try:
-        role = role or os.name
+        role = args.role or os.name
 
         log('I\'m awake! Role type is {}'.format(role))
 
@@ -850,5 +849,5 @@ if __name__ == '__main__':
     addeed here, but it is kept simple for now
     '''
     # Arguments
-    # args = parse_args()
-    run()
+    args = parse_args()
+    run(args)
