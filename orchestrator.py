@@ -240,7 +240,7 @@ def log(message, session_name=''):
     payload['session_name'] = session_name
 
     try:
-        _ = requests.post('http://dash.agridata.ai/orchestrator', json=payload)
+        _ = requests.post('http://{}/orchestrator'.format(config.get('rmq', 'hostname')), json=payload)
     except Exception as e:
         # If the boring machine is not available, just don't log. . .
         pass
