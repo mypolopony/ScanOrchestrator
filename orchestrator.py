@@ -242,7 +242,8 @@ def log(message, session_name=''):
     try:
         _ = requests.post('http://dash.agridata.ai/orchestrator', json=payload)
     except Exception as e:
-        logger.warning('Boringmachine not reachable: {}'.format(e))
+        # If the boring machine is not available, just don't log. . .
+        pass
 
 
 @announce
