@@ -67,10 +67,27 @@ def reset_connections():
             print('-- {}'.format(connection['name']))
             requests.delete('http://dash.agridata.ai/orchestrator:15672/api/connections/{}'.format(connection['name']))
 
+def parse_args():
+    '''
+    Add other parameters here
+    '''
+    parser=argparse.ArgumentParser('orchestrator')
+    parser.add_argument('-t', '--task', help='taskfile', dest='taskfile', default=None)
+
+    args = parser.parse_args()
+    return args
+
 
 if __name__ == '__main__':
+    args = parse_args()
+
     # Task definition
-    for taskfile in glob.glob('tasks/*.yaml'):
+    if args.taskfile:
+        taskfiles = list(args.taskfile)
+    else:
+        taskfiles = glob.glob('tasks/*.yaml')
+
+    for taskfile in taskfiles:
         print('Reading task file: {}'.format(taskfile))
         task = yaml.load(open(taskfile, 'r'))
         task = Task(client_name=task['client_name'],
