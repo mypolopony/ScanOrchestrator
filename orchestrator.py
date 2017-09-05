@@ -11,7 +11,7 @@ import re
 import shutil
 import socket
 import subprocess
-import multiprocessing
+import multiprocess
 import tarfile
 import time
 import traceback
@@ -816,7 +816,7 @@ def run(args):
         # RVM / Preprocessing / Processing
         elif role in ['nt', 'rvm', 'preprocess', 'process']:
             for worker in xrange(NUM_CORES):
-                p = multiprocessing.Process(target=windows_client)
+                p = multiprocess.Process(target=windows_client)
                 p.start()
 
         # Detection
