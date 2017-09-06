@@ -5,8 +5,10 @@ import ConfigParser
 import os
 import yaml
 import glob
+import sys
 import requests
 import datetime
+import traceback
 from pprint import pprint
 import binascii
 import argparse
@@ -115,9 +117,10 @@ if __name__ == '__main__':
 
             # Add fields to generate process task
             # TODO: Turn responsibility for this over to Task object
-            if task.role == 'rvm':
+            role = task['role']                 # Only one task for RVM
+            if role == 'rvm':
                 tasks = [task]
-            elif task.role == 'process':
+            elif role == 'process':
                 # Get the list of zips in detection folder
                 base_url_path = '{}/results/farm_{}/block_{}/{}'.format(task.clientid, task.farmname.replace(' ' ,''), task.blockname.replace(' ',''), task.session_name)
                 zips = s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/detection'.format(base_url_path))
@@ -137,11 +140,13 @@ if __name__ == '__main__':
                     newtask = task.copy()
                     newtask['detection_params']['folders'] = [os.path.basename(z)]
                     newtask['detection_params']['result'] = z
+                    tasks.append(newtask)
 
             # Insert
-            # insert(tasks)
+            insert(tasks)
 
         except Exception as e:
-            print('FAIL --\n\t{}\n\t{}'.format(str(e), task))
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stdout)
 
     chan.close()
