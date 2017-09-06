@@ -28,20 +28,17 @@ conn = Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
 chan = conn.channel()
 
 
-def insert(task):
-    print('\nInserting into {}:\n'.format(task['role']))
-    pprint(task)
+def insert(tasks):
+    pprint(tasks)
 
-    ex = Exchange(task['role'], type='topic', channel=chan)
+    # Assume tasks are all destined for the same exchange
+    ex = Exchange(tasks[0]['role'], type='topic', channel=chan)
     producer = Producer(channel=chan, exchange=ex)
-    Queue('_'.join([task['role'], task['session_name']]), exchange=ex,
+
+    for task in tasks:
+        Queue('_'.join([task['role'], task['session_name']]), exchange=ex,
           channel=chan, routing_key=task['session_name']).declare()
-
-    if type(task) != list:
-        task = [task]
-
-    for ta in task:
-        producer.publish(ta, routing_key=task['session_name'])
+        producer.publish(task, routing_key=task['session_name'])
 
 
 def create_routing(session_name):
