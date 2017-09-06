@@ -2,6 +2,8 @@ import jwt
 import datetime
 import json
 import numpy as np
+import ConfigParser
+import boto3
 from bson.objectid import ObjectId
 from pymongo import MongoClient
 from flask_mongoengine import MongoEngine, DoesNotExist
@@ -284,6 +286,7 @@ class JSONEncoder(json.JSONEncoder):
 
 
 class Task():
+
     '''
     Storage class used to standardize tasks. For the moment, task structure follows the previous
     implementation (from initiate.py) -- it can be cleaned up but is kept stable for the purposes
@@ -389,9 +392,10 @@ class Task():
 
             # Row array matches row query
             rows = Row.objects(block=self.task.blockid)
+            i
             assert(len((set([r.id for r in rows])-set(block.rows))) == 0)
         except AssertionError:
-            raise Exception('Error. The block and the rows do not match.')
+            raise Exception('Error. Can not continue! The block and the rows do not match.')
 
         # Rows have num_plants
         print('Validating vines')
@@ -401,7 +405,7 @@ class Task():
                 assert(row.num_plants == len(row.vines))
                 assert(len(set([v for v in row.vines])-set([v.id for v in Vine.objects(row=row.id)])) == 0)
         except AssertionError:
-            raise Exception('Error. The number of plants per row does not seem correct')
+            raise Exception('Error. Can not conotinue! The number of plants per row does not seem correct')
 
     def to_json(self):
         '''

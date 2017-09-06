@@ -6,6 +6,7 @@ import os
 import yaml
 import glob
 import requests
+import datetime
 from pprint import pprint
 import binascii
 import argparse
@@ -33,7 +34,12 @@ def insert(task):
     producer = Producer(channel=chan, exchange=ex)
     Queue('_'.join([task['role'], task['session_name']]), exchange=ex,
           channel=chan, routing_key=task['session_name']).declare()
-    producer.publish(task, routing_key=task['session_name'])
+
+    if type(task) != list:
+        task = [task]
+
+    for ta in task:
+        producer.publish(ta, routing_key=task['session_name'])
 
 
 def create_routing(session_name):
@@ -107,8 +113,34 @@ if __name__ == '__main__':
             # NOTE: the json, required for messaging, used in insert() does not
             create_routing(task['session_name'])
 
+            # Add fields to generate process task
+            # TODO: Turn responsibility for this over to Task object
+            if task.role == 'rvm':
+                tasks = [task]
+            elif task.role == 'process':
+                # Get the list of zips in detection folder
+                base_url_path = '{}/results/farm_{}/block_{}/{}'.format(task.clientid, task.farmname.replace(' ' ,''), task.blockname.replace(' ',''), task.session_name)
+                zips = s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/detection'.format(base_url_path))
+                zips = [z['Key'] for z in zips['Contents'] if '.zip' in z['Key']]
+
+                # Task template
+                task['num_retries'] = 0
+                task['detection_params']['base_url_path'] = base_url_path
+                task['detection_params']['bucket'] = config.get('s3','bucket')
+                task['detection_params']['input_path'] = 'preprocess-frames'
+                task['detection_params']['output_path'] = 'detection'
+                task['detection_params']['session_name'] = datetime.datetime.now().strftime('%H-%M-%S')
+
+                # Generate the new tasks
+                tasks = list()
+                for z in zips:
+                    newtask = task.copy()
+                    newtask['detection_params']['folders'] = [os.path.basename(z)]
+                    newtask['detection_params']['result'] = z
+
             # Insert
-            insert(task)
+            # insert(tasks)
+
         except Exception as e:
             print('FAIL --\n\t{}\n\t{}'.format(str(e), task))
 
