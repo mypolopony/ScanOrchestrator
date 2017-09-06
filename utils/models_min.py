@@ -392,7 +392,6 @@ class Task():
 
             # Row array matches row query
             rows = Row.objects(block=self.task.blockid)
-            i
             assert(len((set([r.id for r in rows])-set(block.rows))) == 0)
         except AssertionError:
             raise Exception('Error. Can not continue! The block and the rows do not match.')
