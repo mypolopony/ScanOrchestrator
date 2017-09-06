@@ -794,7 +794,7 @@ def linux_client():
         try:
             # Check for and add new sessions / queues
             consumer = addNewQueues(consumer,'detection')
-            conn.drain_events(timeout=2)
+            conn.drain_events(timeout=10)
         except socket.timeout:
             pass
         except conn.connection_errors as e:
@@ -825,9 +825,14 @@ def run(args):
 
         # RVM / Preprocessing / Processing
         elif role in ['nt', 'rvm', 'preprocess', 'process']:
+            workers = list()
             for worker in xrange(NUM_CORES):
                 p = multiprocess.Process(target=windows_client)
+                workers.append(p)
                 p.start()
+
+            for worker in workers:
+                p.join()
 
         # Detection
         elif ['posix', 'detection']:
