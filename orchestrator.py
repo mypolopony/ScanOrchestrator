@@ -559,7 +559,7 @@ def preprocess(task, message):
         # Rebuild base scan info
         rebuildScanInfo(task)
 
-        # Download the tarfiles and (pre-)process them (there can be many not just one)
+        # Download the tarfiles and (pre-)preprocess them (there can be many not just one)
         video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
         for tar in task['tarfiles']:
             scanid = '_'.join(tar.split('_')[0:2])
@@ -585,7 +585,7 @@ def preprocess(task, message):
 
 
     except ClientError:
-        # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
+        # For some reason, 404 errors (used to?) occur all the time -- why? Let's just ignore them for now and replace the queue in the task
         sendtoRabbitMQ(task)
         pass
     except Exception as e:
@@ -611,7 +611,7 @@ def detection(task, message):
 
         arg_list = []
 
-        # The task may come in unicode -- let's change to regular string
+        # The task may come in unicode -- let's change to regular string and format the command line arguments
         for k, v in task['detection_params'].iteritems():
             arg_list.append('--' + k)
             if type(v) == list:
@@ -662,7 +662,7 @@ def process(task, message):
         if type(task['detection_params']['result']) == unicode:
             task['detection_params']['result'] = [task['detection_params']['result']]
 
-        # Ensure role
+        # Ensure role (this is repeated from the end of preprocess handoff. . .)
         task['role'] = 'process'
 
         # Rebuild base scan info
@@ -680,7 +680,7 @@ def process(task, message):
         mlab.quit()
 
     except ClientError:
-        # For some reason, 404 errors occur all the time -- why? Let's just ignore them for now and replace the queue in the task
+        # For some reason, 404 errors (used to?) occur all the time -- why? Let's just ignore them for now and replace the queue in the task
         sendtoRabbitMQ(task)
         pass
     except Exception as e:
@@ -692,7 +692,7 @@ def process(task, message):
 @announce
 def identifyRole():
     '''
-    This wmethod is called when an instance starts. Based on its ComputerInfo, it will identify itself as a
+    This method is called when an instance starts. Based on its ComputerInfo, it will identify itself as a
     member of a particular work group and then proceeded to execute the correct tasks.
     '''
 
@@ -715,9 +715,7 @@ def identifyRole():
 @announce
 def matlabProcess(startpath=r'C:\AgriData\Projects'):
     '''
-    Start MATLAB engine. This should not be global because it does not apply to all users of the script. Having said that,
-    my hope is that it becomes a pain to pass around. The Windows path is a safe default that probably should be offloaded
-    elsewhere since it
+    Start MATLAB engine and return a MATLAB instance
     '''
     logger.info('Starting MATLAB. . .')
     mlab = matlab.engine.start_matlab()
@@ -728,7 +726,7 @@ def matlabProcess(startpath=r'C:\AgriData\Projects'):
 
 @announce
 def getComputerInfoString():
-    # Grab
+    # Grab computer info
     ret = subprocess.check_output('ipconfig')
 
     # Format
@@ -740,7 +738,7 @@ def getComputerInfoString():
 
 def addNewQueues(consumer, role):
     '''
-    This was likely meant to go into the extended Consumer class
+    This was likely meant to go into the extended Consumer class. It updates the consumers to recognize and grab from any new queues
     '''
     # Get queue difference
     all = list_bound_queues(exchange=role)
@@ -753,6 +751,9 @@ def addNewQueues(consumer, role):
 
 @announce
 def establish_connection(conn, channels, consumers):
+    '''
+    Canonical method to (re-)establish a dropped connection.
+    '''
     revived_connection = conn.clone()
     revived_connection.ensure_connection(max_retries=3)
     for idx, channel in enumerate(channels):
@@ -804,11 +805,12 @@ def windows_client():
                 # Pass on success of connection re-establishment
                 pass
 
+
 def linux_client():
     '''
     For the detection machines
     '''
-    conn = Connection('amqp://{}:5672//'.format(rabbit_url), no_ack=True).connect()
+    conn = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
 
     detection_channel = conn.channel()
     consumer = Consumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection],
@@ -831,7 +833,7 @@ def linux_client():
 
 def run(args):
     '''
-    The main entry point, which can either be called via import or executed from the command line
+    The main entry point
     '''
     try:
         role = args.role or os.name
