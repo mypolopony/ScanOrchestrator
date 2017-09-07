@@ -516,6 +516,9 @@ def generateRVM(task, message):
     Generate a row video map.
     '''
     try:
+        # Acknowledge
+        message.ack()
+
         # Notify
         log('Received task: {}'.format(task), task['session_name'])
 
@@ -547,6 +550,9 @@ def preprocess(task, message):
     Preprocessing method
     '''
     try:
+        # Acknowledge
+        message.ack()
+        
         # Notify
         log('Received task: {}'.format(task), task['session_name'])
 
@@ -596,6 +602,9 @@ def detection(task, message):
     from deepLearning.infra import detect_s3_az
 
     try:
+        # Acknowledge
+        message.ack()
+
         if type(task) != dict:
             task = json.loads(task)
         log('Received detection task: {}'.format(task), task['session_name'])
@@ -639,6 +648,9 @@ def process(task, message):
     Processing method
     '''
     try:
+        # Acknowledge
+        message.ack()
+
         # Notify
         log('Received processing task: {}'.format(task, task['session_name']))
 
@@ -756,14 +768,14 @@ def windows_client():
     Since Windows machines can perform either preprocessing / processing equally, one strategy is to have any computer
     perform one of these tasks
     '''
-    conn = Connection('amqp://{}:5672//'.format(rabbit_url), no_ack=True)
+    conn = Connection('amqp://{}:5672//'.format(rabbit_url))
 
     # Here we generate the channels and consumers necessary for the client
     roles = ['rvm', 'preprocess', 'process']
     functions = [generateRVM, preprocess, process]
     channels = [conn.channel() for role in roles]
     consumers = [Consumer(channels[idx], list_bound_queues(exchange=role), callbacks=[functions[idx]],
-                    auto_declare=False, no_ack=True) for idx, role in enumerate(roles)]
+                    auto_declare=False, prefetch_count=1) for idx, role in enumerate(roles)]
 
     conn = establish_connection(conn, channels, consumers)
 
@@ -777,7 +789,6 @@ def windows_client():
 
             # Main loop
             try:
-                print(datetime.datetime.now())
                 conn.drain_events(timeout=10)
             except socket.timeout:
                 pass
@@ -801,7 +812,7 @@ def linux_client():
 
     detection_channel = conn.channel()
     consumer = Consumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection],
-                        auto_declare=False, no_ack=True)
+                        auto_declare=False, prefetch_count=1)
     consumer.consume()
 
     while True:
