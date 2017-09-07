@@ -389,11 +389,16 @@ class Task():
         try:
             block = Block.objects.get(id=self.task.blockid)          # Redundant grabbing of block
             assert(block.num_rows == len(block.rows))
+        except AssertionError:
+            raise Exception('# of blockrows and # of rows are not equal (does block have num_rows?)')
 
-            # Row array matches row query
+        # Row array matches row query
+        try:
             rows = Row.objects(block=self.task.blockid)
             assert(len((set([r.id for r in rows])-set(block.rows))) == 0)
         except AssertionError:
+            print('Rows: {}'.format([r.id for r in rows]))
+            print('Blockrows: {}'.format(block.rows))
             raise Exception('Error. Can not continue! The block and the rows do not match.')
 
         # Rows have num_plants

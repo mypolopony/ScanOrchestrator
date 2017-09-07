@@ -658,9 +658,21 @@ def process(task, message):
         if type(task) == unicode:
             # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
             task = json.loads(task.replace("u'", "'").replace("'", '"'))
+        # The detection params reult is sometimes a string and sometimes a list -- is this because of the above?
+        if type(task['detection_params']['result']) == unicode:
+            task['detection_params']['result'] = [task['detection_params']['result']]
+
+        # Ensure role
+        task['role'] = 'process'
 
         # Rebuild base scan info
         rebuildScanInfo(task)
+
+        # Download frames
+        video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
+        for zipfile in task['detection_params']['result']:
+            log('Downloading {}'.format(zipfile), task['session_name'])
+            s3r.Bucket(config.get('s3', 'bucket')).download_file(zipfile, os.path.join(video_dir, os.path.basename(zipfile)))
 
         # Run the task
         mlab = matlabProcess()
