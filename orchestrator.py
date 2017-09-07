@@ -762,15 +762,15 @@ def windows_client():
     # Define consumers
     rvm_channel = conn.channel()
     rvm_consumer = Consumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM],
-             auto_declare=False, prefetch_count=1)
+             auto_declare=False, prefetch_count=0)
 
     preprocess_channel = conn.channel()
     preprocess_consumer = Consumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[preprocess],
-             auto_declare=False, prefetch_count=1)
+             auto_declare=False, prefetch_count=0)
 
     process_channel = conn.channel()
     process_consumer = Consumer(process_channel, list_bound_queues(exchange='process'), callbacks=[process],
-             auto_declare=False, prefetch_count=1)
+             auto_declare=False, prefetch_count=0)
 
     # Prefetch count is used to limit each process from getting any more than one task
     with nested(rvm_consumer, preprocess_consumer, process_consumer):
@@ -784,11 +784,11 @@ def windows_client():
             try:
                 conn.drain_events(timeout=10)
             except socket.timeout:
-                continue
+                pass
             except conn.connection_errors as e:
                 log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
                 conn.connect()
-                continue
+                pass
 
 
 def linux_client():
