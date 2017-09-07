@@ -827,7 +827,7 @@ def linux_client():
         except conn.connection_errors as e:
             log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
             conn.connect()
-            break
+            pass
 
 
 
