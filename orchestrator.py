@@ -778,7 +778,6 @@ def windows_client():
             # Main loop
             try:
                 print(datetime.datetime.now())
-                pprint(conn.__dict__)
                 conn.drain_events(timeout=10)
             except socket.timeout:
                 pass
