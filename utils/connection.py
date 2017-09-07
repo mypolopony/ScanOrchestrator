@@ -4,6 +4,7 @@ import os
 import boto3
 
 # MongoDB
+print('Connecting to Development Databae')
 dbname = 'dev-agdb'
 username = 'staging-agridata'
 password = 'M5m7xMe2cUNcNn6y$Rz'

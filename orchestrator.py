@@ -755,7 +755,7 @@ def establish_connection(conn, channels, consumers):
     Canonical method to (re-)establish a dropped connection.
     '''
     revived_connection = conn.clone()
-    revived_connection.ensure_connection(max_retries=3)
+    revived_connection.ensure_connection()
     for idx, channel in enumerate(channels):
         channel = revived_connection.channel()
         consumers[idx].revive(channel)
@@ -783,13 +783,13 @@ def windows_client():
     # After all of the pythonic code above, we have to resort to enumerating these unenumeratable objects
     with nested(consumers[0], consumers[1], consumers[2]):
         while True:
-            # Check for and add new sessions / queues
-            # TODO: This was meant to be in the extended consumer so the construction is awkward
-            for idx, _ in enumerate(consumers):
-                consumers[idx] = addNewQueues(consumers[idx], roles[idx])
-
             # Main loop
             try:
+                # Check for and add new sessions / queues
+                # TODO: This was meant to be in the extended consumer so the construction is awkward
+                for idx, _ in enumerate(consumers):
+                    consumers[idx] = addNewQueues(consumers[idx], roles[idx])
+
                 conn.drain_events(timeout=10)
             except socket.timeout:
                 pass
@@ -800,7 +800,7 @@ def windows_client():
                 try:
                     conn = establish_connection(conn, channels, consumers)
                 except:
-                    emitSNSMessage('The RabbitMQ Connection was lost and attempting re-establishing it has failed')
+                    log('The RabbitMQ Connection was lost and attempting re-establishing it has failed')
 
                 # Pass on success of connection re-establishment
                 pass
