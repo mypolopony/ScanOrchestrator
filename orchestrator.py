@@ -15,14 +15,14 @@ import multiprocess
 import tarfile
 import time
 import traceback
-import psutil
+import datetime
 
-import boto3
 import pandas as pd
 import requests
+from pprint import pprint
 from botocore.exceptions import ClientError
-from bson.objectid import ObjectId
-from kombu import Connection, Consumer, Producer, Exchange, Queue
+from kombu.connection import Connection
+from kombu import Consumer, Producer, Exchange, Queue
 from kombu.utils.compat import nested
 
 # Extended Consumer
@@ -516,9 +516,6 @@ def generateRVM(task, message):
     Generate a row video map.
     '''
     try:
-        # The task
-        message.ack()
-
         # Notify
         log('Received task: {}'.format(task), task['session_name'])
 
@@ -550,9 +547,6 @@ def preprocess(task, message):
     Preprocessing method
     '''
     try:
-        # The task
-        message.ack()
-
         # Notify
         log('Received task: {}'.format(task), task['session_name'])
 
@@ -601,9 +595,6 @@ def detection(task, message):
     '''
     from deepLearning.infra import detect_s3_az
 
-    # The task
-    message.ack()
-
     try:
         if type(task) != dict:
             task = json.loads(task)
@@ -648,9 +639,6 @@ def process(task, message):
     Processing method
     '''
     try:
-        # The task
-        message.ack()
-
         # Notify
         log('Received processing task: {}'.format(task, task['session_name']))
 
@@ -752,54 +740,69 @@ def addNewQueues(consumer, role):
     return consumer
 
 @announce
+def establish_connection(conn, channels, consumers):
+    revived_connection = conn.clone()
+    revived_connection.ensure_connection(max_retries=3)
+    for idx, channel in enumerate(channels):
+        channel = revived_connection.channel()
+        consumers[idx].revive(channel)
+        consumers[idx].consume()
+    
+    return revived_connection
+
+@announce
 def windows_client():
     '''
-    Since Windows machines can perform either preprocessing / processing equally, one strategy is to have
-    any
+    Since Windows machines can perform either preprocessing / processing equally, one strategy is to have any computer
+    perform one of these tasks
     '''
-    conn = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
+    conn = Connection('amqp://{}:5672//'.format(rabbit_url), no_ack=True)
 
-    # Define consumers
-    rvm_channel = conn.channel()
-    rvm_consumer = Consumer(rvm_channel, list_bound_queues(exchange='rvm'), callbacks=[generateRVM],
-             auto_declare=False, prefetch_count=0)
+    # Here we generate the channels and consumers necessary for the client
+    roles = ['rvm', 'preprocess', 'process']
+    functions = [generateRVM, preprocess, process]
+    channels = [conn.channel() for role in roles]
+    consumers = [Consumer(channels[idx], list_bound_queues(exchange=role), callbacks=[functions[idx]],
+                    auto_declare=False, prefetch_count=0) for idx, role in enumerate(roles)]
 
-    preprocess_channel = conn.channel()
-    preprocess_consumer = Consumer(preprocess_channel, list_bound_queues(exchange='preprocess'), callbacks=[preprocess],
-             auto_declare=False, prefetch_count=0)
+    conn = establish_connection(conn, channels, consumers)
 
-    process_channel = conn.channel()
-    process_consumer = Consumer(process_channel, list_bound_queues(exchange='process'), callbacks=[process],
-             auto_declare=False, prefetch_count=0)
-
-    # Prefetch count is used to limit each process from getting any more than one task
-    with nested(rvm_consumer, preprocess_consumer, process_consumer):
+    # After all of the pythonic code above, we have to resort to enumerating these unenumeratable objects
+    with nested(consumers[0], consumers[1], consumers[2]):
         while True:
             # Check for and add new sessions / queues
-            # TODO: This was supposed to be in the extended consumer so the construction is awkward
-            rvm_consumer = addNewQueues(rvm_consumer, 'rvm')
-            preprocess_consumer = addNewQueues(preprocess_consumer, 'preprocess')
-            process_consumer = addNewQueues(process_consumer, 'process')
+            # TODO: This was meant to be in the extended consumer so the construction is awkward
+            for idx, _ in enumerate(consumers):
+                consumers[idx] = addNewQueues(consumers[idx], roles[idx])
 
+            # Main loop
             try:
+                print(datetime.datetime.now())
+                pprint(conn.__dict__)
                 conn.drain_events(timeout=10)
             except socket.timeout:
                 pass
             except conn.connection_errors as e:
                 log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
-                conn.connect()
-                pass
 
+                # Attempt to reconnect
+                try:
+                    conn = establish_connection(conn, channels, consumers)
+                except:
+                    emitSNSMessage('The RabbitMQ Connection was lost and attempting re-establishing it has failed')
+
+                # Pass on success of connection re-establishment
+                pass
 
 def linux_client():
     '''
     For the detection machines
     '''
-    conn = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
+    conn = Connection('amqp://{}:5672//'.format(rabbit_url), no_ack=True).connect()
 
     detection_channel = conn.channel()
     consumer = Consumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection],
-                        auto_declare=False, prefetch_count=1)
+                        auto_declare=False, prefetch_count=0)
     consumer.consume()
 
     while True:
