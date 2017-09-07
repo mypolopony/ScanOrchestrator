@@ -763,7 +763,7 @@ def windows_client():
     functions = [generateRVM, preprocess, process]
     channels = [conn.channel() for role in roles]
     consumers = [Consumer(channels[idx], list_bound_queues(exchange=role), callbacks=[functions[idx]],
-                    auto_declare=False, prefetch_count=0) for idx, role in enumerate(roles)]
+                    auto_declare=False, no_ack=True) for idx, role in enumerate(roles)]
 
     conn = establish_connection(conn, channels, consumers)
 
@@ -802,7 +802,7 @@ def linux_client():
 
     detection_channel = conn.channel()
     consumer = Consumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection],
-                        auto_declare=False, prefetch_count=0)
+                        auto_declare=False, no_ack=True)
     consumer.consume()
 
     while True:
