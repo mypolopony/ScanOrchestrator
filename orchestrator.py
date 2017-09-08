@@ -795,7 +795,7 @@ def establish_connection(role):
         consumer.consume()  # Consume
         # /END consume
 
-        return (conn, channel, consumers)
+        return (conn, channel, consumer)
 
 @announce
 def windows_client():
@@ -803,7 +803,6 @@ def windows_client():
     Since Windows machines can perform either preprocessing / processing equally, one strategy is to have any computer
     perform one of these tasks
     '''
-    roles = ['rvm', 'preprocess', 'process']        # TODO: This can be replaces by name of consumer? (*)
     (conn, channels, consumers) = establish_connection()
 
     # We have to resort to enumerating these unenumeratable objects
@@ -836,7 +835,7 @@ def linux_client():
     '''
     For the detection machines
     '''
-    conn = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
+    (conn, channel, consumer) = establish_connection()
 
     while True:
         try:
@@ -850,7 +849,7 @@ def linux_client():
 
             # Attempt to reconnect
             try:
-                conn = establish_connection(conn, channels, consumers)
+                (conn, channels, consumers) = establish_connection()
             except:
                 log('The RabbitMQ Connection was lost and attempting re-establishing it has failed')
                 pass
