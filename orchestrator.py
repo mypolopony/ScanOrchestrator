@@ -264,6 +264,7 @@ def sendtoRabbitMQ(tasks):
     with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
                                                     config.get('rmq', 'password'),
                                                     config.get('rmq', 'hostname'))) as sendconn:
+        sendconn.ensure_connection()
         chan = sendconn.channel()
         ex = Exchange(role, channel=chan, type='topic')
         producer = Producer(channel=chan, exchange=ex)
@@ -272,8 +273,8 @@ def sendtoRabbitMQ(tasks):
         for task in tasks:
             producer.publish(task, routing_key=task['session_name'])
 
-        # Close the channel
-        chan.close()
+        # Close the channel (I think this, and the producer, will be implicitly closed after the connection ahs been)
+        # chan.close()
 
 
 @announce
@@ -745,18 +746,56 @@ def addNewQueues(consumer, role):
     return consumer
 
 @announce
-def establish_connection(conn, channels, consumers):
+def establish_connection(role):
     '''
     Canonical method to (re-)establish a dropped connection.
     '''
-    revived_connection = conn.clone()
-    revived_connection.ensure_connection()
-    for idx, channel in enumerate(channels):
-        channel = revived_connection.channel()
-        consumers[idx].revive(channel)
-        consumers[idx].consume()
-    
-    return revived_connection
+    conn = Connection('amqp://{}:5672//'.format(rabbit_url))
+
+    # Make sure we actually get a connection
+    conn.ensure_connection()
+
+    '''
+    # Close old channels
+    for channel in channels:
+        try:
+            channel.close()
+        except Exception as e:
+            log('Could not close channel: {}'.format(e))
+            pass
+
+    for consumer in consumers:
+        try:
+            consumer.close()
+        except Exception as e:
+            log('Could not close channel: {}'.format(e))
+    '''
+
+    if role == 'nt':        # Windows machine
+        roles = ['rvm', 'preprocess', 'process']
+        functions = [generateRVM, preprocess, process]
+        channels = [conn.channel() for role in roles]
+        consumers = [Consumer(channels[idx], list_bound_queues(exchange=role), callbacks=[functions[idx]],
+                        auto_declare=False, prefetch_count=1) for idx, role in enumerate(roles)]
+
+        # Set to consume
+        for consumer in consumers:
+            consumer.consume()
+
+        # Return the valuables
+        return (conn, channels, consumers)
+
+    elif role == 'posix':
+        # Just one consumer and channel
+        channel = conn.channel()
+        consumer = Consumer(channel=channel, queues=list_bound_queues('detection'), callbacks=[detection],
+                            auto_declare=False, prefetch_count=1)
+
+        # Consume
+        consumer.consume()  # Consume
+        # /END consume
+
+        return (conn, channel, consumers)
 
 @announce
 def windows_client():
@@ -764,18 +803,10 @@ def windows_client():
     Since Windows machines can perform either preprocessing / processing equally, one strategy is to have any computer
     perform one of these tasks
     '''
-    conn = Connection('amqp://{}:5672//'.format(rabbit_url))
+    roles = ['rvm', 'preprocess', 'process']        # TODO: This can be replaces by name of consumer? (*)
+    (conn, channels, consumers) = establish_connection()
 
-    # Here we generate the channels and consumers necessary for the client
-    roles = ['rvm', 'preprocess', 'process']
-    functions = [generateRVM, preprocess, process]
-    channels = [conn.channel() for role in roles]
-    consumers = [Consumer(channels[idx], list_bound_queues(exchange=role), callbacks=[functions[idx]],
-                    auto_declare=False, prefetch_count=1) for idx, role in enumerate(roles)]
-
-    conn = establish_connection(conn, channels, consumers)
-
-    # After all of the pythonic code above, we have to resort to enumerating these unenumeratable objects
+    # We have to resort to enumerating these unenumeratable objects
     with nested(consumers[0], consumers[1], consumers[2]):
         while True:
             # Main loop
@@ -783,7 +814,7 @@ def windows_client():
                 # Check for and add new sessions / queues
                 # TODO: This was meant to be in the extended consumer so the construction is awkward
                 for idx, _ in enumerate(consumers):
-                    consumers[idx] = addNewQueues(consumers[idx], roles[idx])
+                    consumers[idx] = addNewQueues(consumers[idx], roles[idx])       # (*)
 
                 conn.drain_events(timeout=10)
             except socket.timeout:
@@ -793,9 +824,9 @@ def windows_client():
 
                 # Attempt to reconnect
                 try:
-                    conn = establish_connection(conn, channels, consumers)
-                except:
-                    log('The RabbitMQ Connection was lost and attempting re-establishing it has failed')
+                    (conn, channels, consumers) = establish_connection()
+                except Exception e:
+                    log('The RabbitMQ Connection was lost and attempting re-establishing it has failed: {}'.format(e))
                     pass
 
                 pass
@@ -806,11 +837,6 @@ def linux_client():
     For the detection machines
     '''
     conn = Connection('amqp://{}:5672//'.format(rabbit_url)).connect()
-
-    detection_channel = conn.channel()
-    consumer = Consumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection],
-                        auto_declare=False, prefetch_count=1)
-    conn = establish_connection(conn, [detection_channel], [consumer])
 
     while True:
         try:
