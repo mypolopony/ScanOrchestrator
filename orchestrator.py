@@ -579,11 +579,6 @@ def preprocess(task, message):
             mlab.runTask(task, nargout=0)
             mlab.quit()
 
-            # Delete artifacts
-            shutil.rmtree(tar.replace('.tar.gz',''))
-            os.remove(tar)
-
-
     except ClientError:
         # For some reason, 404 errors (used to?) occur all the time -- why? Let's just ignore them for now and replace the queue in the task
         sendtoRabbitMQ(task)
