@@ -796,8 +796,8 @@ def windows_client():
                     conn = establish_connection(conn, channels, consumers)
                 except:
                     log('The RabbitMQ Connection was lost and attempting re-establishing it has failed')
+                    pass
 
-                # Pass on success of connection re-establishment
                 pass
 
 
@@ -810,7 +810,7 @@ def linux_client():
     detection_channel = conn.channel()
     consumer = Consumer(channel=detection_channel, queues=list_bound_queues('detection'), callbacks=[detection],
                         auto_declare=False, prefetch_count=1)
-    consumer.consume()
+    conn = establish_connection(conn, [detection_channel], [consumer])
 
     while True:
         try:
@@ -821,7 +821,14 @@ def linux_client():
             pass
         except conn.connection_errors as e:
             log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
-            conn.connect()
+
+            # Attempt to reconnect
+            try:
+                conn = establish_connection(conn, channels, consumers)
+            except:
+                log('The RabbitMQ Connection was lost and attempting re-establishing it has failed')
+                pass
+
             pass
 
 
