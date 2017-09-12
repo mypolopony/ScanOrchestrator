@@ -42,7 +42,7 @@
       "value": "package.tar.gz"
     },
     "scanOrchestratorBranch": {
-      "value": "symphony"
+      "value": "feature/redis"
     },
     "deepLearningBranch": {
       "value": "dev2"

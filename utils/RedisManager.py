@@ -1,8 +1,9 @@
-import redis
+import redis as _redis
 
 class RedisManager(object):
     '''
-    Simple Queue with Redis Backend'''
+    Simple Queue with Redis Backend
+    '''
 
 
     def __init__(self, **redis_kwargs):
@@ -10,9 +11,9 @@ class RedisManager(object):
         The default connection parameters are: host='localhost', port=6379, db=0
         '''
 
-        self.db = redis.Redis(**redis_kwargs)
+        self.db = _redis.Redis(**redis_kwargs)
 
-2
+
     def nq(self, namespace, queue):
         '''
         Simple wrapper function to return the constructed name of the queue
@@ -41,7 +42,7 @@ class RedisManager(object):
         Put item into the queue.
         '''
 
-        self.db.rpush(namespace, queue, item)
+        self.db.rpush(nq(namespace, queue), item)
 
 
     def get(self, namespace, queue):
@@ -52,14 +53,14 @@ class RedisManager(object):
         if necessary until an item is available.
         '''
         
-        item = self.db.lpop(self.key)
+        item = self.db.lpop(nq(namespace,queue))
 
         if item:
             item = item[1]
         return item
 
 
-    def list_queues(self, namespace=namespace):
+    def list_queues(self, namespace):
         '''
         List all queues by namespace
         '''

@@ -26,7 +26,7 @@ class RedisManager(object):
         Return the approximate size of the queue.
         '''
 
-        return self.db.llen(self.nq(namespace,queue))
+        return self.db.llen(nq(namespace,queue))
 
 
     def empty(self, namespace, queue):
@@ -34,7 +34,7 @@ class RedisManager(object):
         Return True if the queue is empty, False otherwise.
         '''
 
-        return self.qsize(self.nq(namespace,queue)) == 0
+        return self.qsize(nq(namespace,queue)) == 0
 
 
     def put(self, namespace, queue, item):
@@ -42,7 +42,7 @@ class RedisManager(object):
         Put item into the queue.
         '''
 
-        self.db.rpush(self.nq(namespace, queue), item)
+        self.db.rpush(nq(namespace, queue), item)
 
 
     def get(self, namespace, queue):
@@ -53,7 +53,7 @@ class RedisManager(object):
         if necessary until an item is available.
         '''
         
-        item = self.db.lpop(self.nq(namespace,queue))
+        item = self.db.lpop(nq(namespace,queue))
 
         if item:
             item = item[1]

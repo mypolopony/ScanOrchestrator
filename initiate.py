@@ -5,6 +5,7 @@ import ConfigParser
 import os
 import yaml
 import glob
+import redis
 import sys
 import requests
 import datetime
@@ -12,6 +13,7 @@ import traceback
 from pprint import pprint
 import binascii
 import argparse
+from utils import RedisManager
 from orchestrator import sendtoRabbitMQ
 
 # Load config file
@@ -19,6 +21,9 @@ config = ConfigParser.ConfigParser()
 config_parent_dir = '.'
 config_path = os.path.join(config_parent_dir, 'utils', 'poller.conf')
 config.read(config_path)
+
+# Redis queue
+redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'), password=config.get('redis','password'))
 
 # Kombu connection
 conn = Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
@@ -32,6 +37,7 @@ def insert(tasks):
     pprint(tasks)
 
     # Assume tasks are all destined for the same exchange
+    '''
     ex = Exchange(tasks[0]['role'], type='topic', channel=chan)
     producer = Producer(channel=chan, exchange=ex)
 
@@ -39,6 +45,9 @@ def insert(tasks):
         Queue('_'.join([task['role'], task['session_name']]), exchange=ex,
           channel=chan, routing_key=task['session_name']).declare()
         producer.publish(task, routing_key=task['session_name'])
+    '''
+    for task in tasks:
+        redisman.put(task['role'], task['session_name'], task)
 
 
 def create_routing(session_name):

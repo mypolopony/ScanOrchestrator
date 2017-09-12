@@ -19,7 +19,7 @@ import datetime
 
 import pandas as pd
 import requests
-from utils import redisqueue
+from utils import RedisManager
 from pprint import pprint
 from botocore.exceptions import ClientError
 from kombu.connection import Connection
@@ -100,7 +100,7 @@ sqsr = boto3.resource('sqs', aws_access_key_id=SQSKey, aws_secret_access_key=SQS
 queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 
 # Redis queue
-redis = redisqueue(host=config.get('redis','hostname'), db=config.get('redis', 'db'), port=config.get('redis','port'), password=config('redis','password'))
+redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'), password=config.get('redis','password'))
 
 # AWS Resources: SNSarn:aws:sns:us-west-2:090780547013:symphony
 
@@ -813,9 +813,9 @@ def windows_client():
     while True:
         try:
             for role in roles:
-                queues = redisqueue.list_queues(role[0])
+                queues = redisman.list_queues(role[0])
                 for q in queues:
-                    if not redisqueue(role[0], queue).empty():
+                    if not redisman(role[0], queue).empty():
                         task = q.get(role[0], queue)
                         role[1](task)
 
