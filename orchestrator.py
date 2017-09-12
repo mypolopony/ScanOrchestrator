@@ -831,26 +831,22 @@ def linux_client():
     '''
     For the detection machines
     '''
-    (conn, channel, consumer) = establish_connection()
+    timeout = 10        # This timeout is used to reduce strain on the server
+    roles = [('detection',detection)]
 
     while True:
         try:
-            # Check for and add new sessions / queues
-            consumer = addNewQueues(consumer,'detection')
-            conn.drain_events(timeout=10)
-        except socket.timeout:
-            pass
-        except conn.connection_errors as e:
-            log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
+            for role in roles:
+                queues = redisman.list_queues(role[0])
+                for q in queues:
+                    if not redisman(role[0], queue).empty():
+                        task = q.get(role[0], queue)
+                        role[1](task)
 
-            # Attempt to reconnect
-            try:
-                (conn, channels, consumers) = establish_connection()
-            except:
-                log('The RabbitMQ Connection was lost and attempting re-establishing it has failed')
-                pass
-
-            pass
+            time.sleep(timeout)
+        except Exception as e:
+            # Not sure what types of connections we'll get yet
+            log('Redis error: {}'.format(e))
 
 
 
