@@ -1,10 +1,10 @@
 client_name: Larkmead
 farm_name: Larkmead Vineyards
-block_name: A4c
-session_name: a4c
-test: True
+block_name: C9-South
+session_name: c9south
+test: False
 exclude_scans:
-include_scans: [2017-08-30_09-38]
+include_scans: [2017-08-31_14-43]
 role: rvm
 detection_params:
         caffemodel_s3_url_cluster: s3://deeplearning_data/models/best/wine-black-56000-9-3-2017.caffemodel
