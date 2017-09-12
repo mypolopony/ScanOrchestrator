@@ -19,6 +19,7 @@ import datetime
 
 import pandas as pd
 import requests
+from utils import redisqueue
 from pprint import pprint
 from botocore.exceptions import ClientError
 from kombu.connection import Connection
@@ -97,6 +98,9 @@ SQSQueueName = config.get('sqs', 'queue_name')
 SQSQueueRegion = config.get('sqs', 'region')
 sqsr = boto3.resource('sqs', aws_access_key_id=SQSKey, aws_secret_access_key=SQSSecret, region_name=SQSQueueRegion)
 queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
+
+# Redis queue
+redis = redisqueue(host=config.get('redis','hostname'), db=config.get('redis', 'db'), port=config.get('redis','port'), password=config('redis','password'))
 
 # AWS Resources: SNSarn:aws:sns:us-west-2:090780547013:symphony
 
@@ -803,32 +807,24 @@ def windows_client():
     Since Windows machines can perform either preprocessing / processing equally, one strategy is to have any computer
     perform one of these tasks
     '''
-    (conn, channels, consumers) = establish_connection()
+    timeout = 10        # This timeout is used to reduce strain on the server
+    roles = [('rvm', generateRVM), ('preproc', preprocess), ('process', process)]
 
-    # We have to resort to enumerating these unenumeratable objects
-    with nested(consumers[0], consumers[1], consumers[2]):
-        while True:
-            # Main loop
-            try:
-                # Check for and add new sessions / queues
-                # TODO: This was meant to be in the extended consumer so the construction is awkward
-                for idx, _ in enumerate(consumers):
-                    consumers[idx] = addNewQueues(consumers[idx], roles[idx])       # (*)
+    while True:
+        try:
+            for role in roles:
+                queues = redisqueue.list_queues(role[0])
+                for q in queues:
+                    if not redisqueue(role[0], queue).empty():
+                        task = q.get(role[0], queue)
+                        role[1](task)
 
-                conn.drain_events(timeout=10)
-            except socket.timeout:
-                pass
-            except conn.connection_errors as e:
-                log('Connection has been lost -- [{}] -- Trying to reconnect'.format(e))
+            time.sleep(timeout)
+        except Exception as e:
+            # Not sure what types of connections we'll get yet
+            log('Redis error: {}'.format(e))
 
-                # Attempt to reconnect
-                try:
-                    (conn, channels, consumers) = establish_connection()
-                except Exception e:
-                    log('The RabbitMQ Connection was lost and attempting re-establishing it has failed: {}'.format(e))
-                    pass
 
-                pass
 
 
 def linux_client():
