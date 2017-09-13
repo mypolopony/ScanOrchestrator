@@ -100,7 +100,7 @@ sqsr = boto3.resource('sqs', aws_access_key_id=SQSKey, aws_secret_access_key=SQS
 queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 
 # Redis queue
-redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'), password=config.get('redis','password'))
+redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'))
 
 # AWS Resources: SNSarn:aws:sns:us-west-2:090780547013:symphony
 
