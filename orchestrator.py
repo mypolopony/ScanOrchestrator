@@ -516,14 +516,11 @@ def rebuildScanInfo(task):
             raise Exception(e)
 
 @announce
-def generateRVM(task, message):
+def generateRVM(task):
     '''
     Generate a row video map.
     '''
     try:
-        # Acknowledge
-        message.ack()
-
         # Notify
         log('Received task: {}'.format(task), task['session_name'])
 
@@ -550,14 +547,11 @@ def generateRVM(task, message):
 
 
 @announce
-def preprocess(task, message):
+def preprocess(task):
     '''
     Preprocessing method
     '''
     try:
-        # Acknowledge
-        message.ack()
-        
         # Notify
         log('Received task: {}'.format(task), task['session_name'])
 
@@ -595,16 +589,13 @@ def preprocess(task, message):
 
 
 @announce
-def detection(task, message):
+def detection(task):
     '''
     Detection method
     '''
     from deepLearning.infra import detect_s3_az
 
     try:
-        # Acknowledge
-        message.ack()
-
         if type(task) != dict:
             task = json.loads(task)
         log('Received detection task: {}'.format(task), task['session_name'])
@@ -643,14 +634,11 @@ def detection(task, message):
 
 
 @announce
-def process(task, message):
+def process(task):
     '''
     Processing method
     '''
     try:
-        # Acknowledge
-        message.ack()
-
         # Notify
         log('Received processing task: {}'.format(task, task['session_name']))
 
@@ -813,15 +801,15 @@ def windows_client():
     while True:
         try:
             for role in roles:
-                queues = redisman.list_queues(role[0])
-                for q in queues:
-                    if not redisman(role[0], queue).empty():
-                        task = q.get(role[0], queue)
+                ns = role[0]
+                for q in redisman.list_queues(ns):
+                    if not redisman.empty(q):
+                        task = redisman.get(q)
                         role[1](task)
 
             time.sleep(timeout)
         except Exception as e:
-            # Not sure what types of connections we'll get yet
+            # Not sure what types of exceptions we'll get yet
             log('Redis error: {}'.format(e))
 
 
