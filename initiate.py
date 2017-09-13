@@ -24,21 +24,9 @@ config.read(config_path)
 # Redis queue
 redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'))
 
-def insert(tasks):
-    pprint(tasks)
-
-    # Assume tasks are all destined for the same exchange
-    '''
-    ex = Exchange(tasks[0]['role'], type='topic', channel=chan)
-    producer = Producer(channel=chan, exchange=ex)
-
-    for task in tasks:
-        Queue('_'.join([task['role'], task['session_name']]), exchange=ex,
-          channel=chan, routing_key=task['session_name']).declare()
-        producer.publish(task, routing_key=task['session_name'])
-    '''
-    for task in tasks:
-        redisman.put(':'.join([task['role'], task['session_name']]), task)
+def insert(task):
+    pprint(task)
+    redisman.put(':'.join([task['role'], task['session_name']]), task)
 
 
 def parse_args():
@@ -114,5 +102,3 @@ if __name__ == '__main__':
         except Exception as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stdout)
-
-    chan.close()
