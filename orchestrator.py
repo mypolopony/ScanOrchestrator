@@ -696,7 +696,7 @@ def run(args):
         elif role in ['nt', 'rvm', 'preprocess', 'process']:
             workers = list()
             for worker in xrange(NUM_CORES):
-                p = multiprocess.Process(target=client, [[('rvm', generateRVM), ('preproc', preprocess), ('process', process)]])
+                p = multiprocess.Process(target=client, args=[[('rvm', generateRVM), ('preproc', preprocess), ('process', process)]])
                 workers.append(p)
                 p.start()
 
