@@ -10,16 +10,16 @@
 #     echo $i
 
 # Windows
-az vmss stop -g symphony -n gates
-az vmss delete-instances -n gates --instance-ids '*' -g symphony
-az vmss scale -g symphony -n gates --new-capacity 32
-az vmss start -g symphony -n gates
+az vmss stop -g ***RG*** -n gates
+az vmss delete-instances -n gates --instance-ids '*' -g ***RG***
+az vmss scale -g ***RG*** -n gates --new-capacity 32
+az vmss start -g ***RG*** -n gates
 
 # Linux
-az vmss stop -g symphony -n torvalds
-az vmss delete-instances -n torvalds --instance-ids '*' -g symphony
-az vmss scale -g symphony -n torvalds --new-capacity 12
-az vmss start -g symphony -n torvalds
+az vmss stop -g ***RG*** -n torvalds
+az vmss delete-instances -n torvalds --instance-ids '*' -g ***RG***
+az vmss scale -g ***RG*** -n torvalds --new-capacity 12
+az vmss start -g ***RG*** -n torvalds
 
 
 

@@ -1,5 +1,5 @@
 ### Signon
-echo "$(Get-Date): Starting [ver. symphony]" > C:\Users\agridata\startup.log
+echo "$(Get-Date): Starting [ver. redis]" > C:\Users\agridata\startup.log
 echo $env:username >> C:\Users\agridata\startup.log
 
 

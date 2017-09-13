@@ -10,6 +10,8 @@ set +e
 
 RUNAS=agridata
 
+echo "Opening" > /home/agridata/startup.log
+
 git_sync_core() {
     git_user_name=agkgeorge
     git_password=Panch56!
@@ -28,7 +30,9 @@ git_sync_core() {
     git pull
 }
 
+echo "Sync core" >> /home/agridata/startup.log
 export -f git_sync_core
+echo "Sync done" >> /home/agridata/startup.log
 
 write_config() {
     session_name=$1
@@ -39,7 +43,9 @@ write_config() {
     cd $HOME
 }
 
+echo "Write config" >> /home/agridata/startup.log
 export -f write_config
+echo "Okay done writing config" >> /home/agridata/startup.log
 
 git_sync() {
     #syncing ScanOrchestrator
@@ -62,21 +68,30 @@ git_sync() {
 
     cd $HOME
 }
+
+echo "Git syncing" >> /home/agridata/startup.log
 export -f git_sync
+echo "Done syncing" >> /home/agridata/startup.log
 
 # Stop old service
 sudo systemctl stop myservice
 
 
+echo "Installing" >> /home/agridata/startup.log
 pip install psutil
 pip install redis
+
+echo "Done installing" >> /home/agridata/startup.log
 
 # Update as agridata
 su -p -c "git_sync $1 $2" - $RUNAS
 su -p -c "write_config $3" - $RUNAS
 
+echo "Whee" >> /home/agridata/startup.log
 
 # Restart service
 sudo systemctl start myservice
+
+echo ". . . and done" >> /home/agridata/startup.log
 
 exit

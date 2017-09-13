@@ -1,7 +1,7 @@
 client_name: Sun World
 farm_name: Quatacker-Burns
 block_name: 3C
-session_name: 3c_symphony
+session_name: 3c
 test: True
 exclude_scans:
 include_scans: [2017-08-17_13-59]

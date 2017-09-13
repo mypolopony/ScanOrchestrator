@@ -79,7 +79,7 @@ queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 # Redis queue
 redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'))
 
-# AWS Resources: SNSarn:aws:sns:us-west-2:090780547013:symphony
+# AWS Resources:
 
 aws_arns = dict()
 aws_arns['statuslog'] = config.get('sns','topic')
