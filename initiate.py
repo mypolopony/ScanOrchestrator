@@ -65,16 +65,13 @@ if __name__ == '__main__':
                         include_scans=task['include_scans'],
                         role=task['role']).to_json()
 
-            # Create exchanges and queues
-            # NOTE: The class has dot notation, 
-            # NOTE: the json, required for messaging, used in insert() does not
-            create_routing(task['session_name'])
-
             # Add fields to generate process task
             # TODO: Turn responsibility for this over to Task object
             role = task['role']                 # Only one task for RVM
             if role == 'rvm':
-                tasks = [task]
+                insert(task)
+
+            # This can insert directly into process but is probably made obsolete by the repair script
             elif role == 'process':
                 # Get the list of zips in detection folder
                 base_url_path = '{}/results/farm_{}/block_{}/{}'.format(task.clientid, task.farm_name.replace(' ' ,''), task.block_name.replace(' ',''), task.session_name)
@@ -89,16 +86,13 @@ if __name__ == '__main__':
                 task['detection_params']['output_path'] = 'detection'
                 task['detection_params']['session_name'] = datetime.datetime.now().strftime('%H-%M-%S')
 
-                # Generate the new tasks
+                # Generate and insert the new tasks
                 tasks = list()
                 for z in zips:
                     newtask = task.copy()
                     newtask['detection_params']['folders'] = [os.path.basename(z)]
                     newtask['detection_params']['result'] = z
-                    tasks.append(newtask)
-
-            # Insert
-            insert(tasks)
+                    insert(newtask)
 
         except Exception as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
