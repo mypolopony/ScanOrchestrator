@@ -14,7 +14,6 @@ from pprint import pprint
 import binascii
 import argparse
 from utils import RedisManager
-from orchestrator import sendtoRabbitMQ
 
 # Load config file
 config = ConfigParser.ConfigParser()
@@ -24,14 +23,6 @@ config.read(config_path)
 
 # Redis queue
 redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'))
-
-# Kombu connection
-conn = Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
-                                                  config.get('rmq', 'password'),
-                                                  config.get('rmq', 'hostname'))).connect()
-
-chan = conn.channel()
-
 
 def insert(tasks):
     pprint(tasks)
@@ -49,37 +40,6 @@ def insert(tasks):
     for task in tasks:
         redisman.put(':'.join([task['role'], task['session_name']]), task)
 
-
-def create_routing(session_name):
-    print('\nEnsuring exchanges / queues')
-
-    for role in ['rvm','preprocess','detection','process']:
-        # This is probably unnecessary now, it just defines the exchanges
-        ex = Exchange(role, channel=chan, type='topic').declare()
-
-        Queue('_'.join([role, session_name]), exchange=ex, channel=chan).declare()
-        Queue('_'.join([role, session_name]), channel=chan).bind_to(exchange=role, routing_key=session_name)
-
-
-def reset_connections():
-    '''
-    This is a crude way to reset all incoming connections from this IP to the RabbitMQ server --
-    Not great to do all the time, but okay when first starting out.
-
-    These are simple HTTP calls
-    '''
-
-    # Obtain the public IP
-    # TODO: This only really works when running from a jumpbox
-    myip = requests.get('http://ifconfig.co/json').json()['ip']
-
-    # Get the existing connections
-    connections = requests.get('http://{}:{}@dash.agridata.ai:15672/api/connections/'.format(config.get('rmq','username'), config.get('rmq','password'))).json()
-    print('\nDropping {} connections'.format(len(connections)))
-    for connection in connections:
-        if connection['peer_host'] == myip:
-            print('-- {}'.format(connection['name']))
-            requests.delete('http://dash.agridata.ai/orchestrator:15672/api/connections/{}'.format(connection['name']))
 
 def parse_args():
     '''
