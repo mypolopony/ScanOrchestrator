@@ -503,7 +503,7 @@ def rebuildScanInfo(task):
 
             # Download the RVM, VPR
             if task['role'] != 'rvm':
-                s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientid'], task['farmname'].replace(' ',''), task['blockname'].replace(' ',''), task['session_name'])
+                s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientid'], task['farm_name'].replace(' ',''), task['block_name'].replace(' ',''), task['session_name'])
                 for csvfile in ['rvm.csv', 'vpr.csv']:
                     s3r.Bucket(config.get('s3', 'bucket')).download_file(s3_result_path + csvfile, os.path.join(base_windows_path,
                                                                                  task['session_name'], 'videos', csvfile))

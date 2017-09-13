@@ -14,54 +14,50 @@ class RedisManager(object):
         self.db = _redis.Redis(**redis_kwargs)
 
 
-    def nq(self, namespace, queue):
-        '''
-        Simple wrapper function to return the constructed name of the queue
-        '''
-        return '{}:{}'.format(namespace,queue)
-
-
-    def qsize(self, namespace, queue):
+    def qsize(self, queue):
         '''
         Return the approximate size of the queue.
         '''
 
-        return self.db.llen(self.nq(namespace,queue))
+        return self.db.llen(queue)
 
 
-    def empty(self, namespace, queue):
+    def empty(self, queue):
         '''
         Return True if the queue is empty, False otherwise.
         '''
 
-        return self.qsize(self.nq(namespace,queue)) == 0
+        return self.qsize(queue) == 0
 
 
-    def put(self, namespace, queue, item):
+    def put(self, queue, item):
         '''
         Put item into the queue.
         '''
 
-        self.db.rpush(self.nq(namespace, queue), item)
+        self.db.rpush(queue, item)
 
 
-    def get(self, namespace, queue):
+    def get(self, queue):
         '''
         Remove and return an item from the queue. 
 
-        If optional args block is true and timeout is None (the default), block
-        if necessary until an item is available.
         '''
-        
-        item = self.db.lpop(self.nq(namespace,queue))
 
-        if item:
-            item = item[1]
-        return item
+        message = self.db.lpop(queue)
+        # The string returned must be edited to form a proper JSON:
+        # - change from unicode
+        message = message.replace("u'", "'")
+        #     - single quotes-->double quotes
+        message = message.replace("'", '"')
+        #     - boolean values to 0/1
+        message = message.replace('False', '0').replace('True', '1')
+
+        return json.loads(message)
 
 
     def list_queues(self, namespace):
         '''
         List all queues by namespace
         '''
-        return r.keys('*{}*'.format(namespace))
+        return self.db.keys('*{}*'.format(namespace))

@@ -44,7 +44,7 @@ def toProcess(lost):
     print('Inserting {} tasks'.format(len(lost)))
     target = 'process_{}'.format(sessionname)
     base = {'blockid': blockid,
-            'blockname': blockname,
+            'block_name': block_name,
             'clientid': clientid,
             'detection_params': {'base_url_path': s3prefix,
                                  'bucket': s3bucket,
@@ -58,7 +58,7 @@ def toProcess(lost):
                                  's3_aws_secret_access_key': 'YlPBiE9s9LV5+ruhKqQ0wsZgj3ZFp6psF6p5OBpZ',
                                  'session_name': time.strftime('%m-%d-%H-%M-%S')},
             'farmid': farmid,
-            'farmname': farmname,
+            'farm_name': farm_name,
             'num_retries': 0,
             'role': 'process',
             'scanids': None,
@@ -88,10 +88,10 @@ def toPreprocess(lost):
     base = {'num_retries': 0,
             'session_name': sessionname,
             'farmid': farmid,
-            'blockname': blockname,
+            'block_name': block_name,
             'blockid': blockid,
             'clientid': clientid,
-            'farmname': farmname,
+            'farm_name': farm_name,
             'test': False,
             'role': 'preprocess',
             'scanids': scanids,
@@ -108,14 +108,14 @@ def toPreprocess(lost):
 
 
 ## SETUP
-blockname = '4D'
+block_name = '4D'
 blockid = '599f7ac855f30b2756ca2b5a'
 sessionname = '4d2'
-farmname = 'Quatacker-Burns'
+farm_name = 'Quatacker-Burns'
 farmid = '5994c6ab55f30b158613c517'
 clientid = '591daa81e1cf4d8cbfbb1bf6'
 scanids = ['2017-08-17_09-47','2017-08-17_10-25','2017-08-17_11-23','2017-08-17_12-07','2017-08-17_12-33']
-s3prefix = '{}/results/farm_{}/block_{}/{}'.format(clientid, farmname, blockname, sessionname)
+s3prefix = '{}/results/farm_{}/block_{}/{}'.format(clientid, farm_name, block_name, sessionname)
 execute = True
 
 preprocess = s3.list_objects(Bucket=s3bucket, Prefix=s3prefix + '/preprocess-frames')['Contents']
@@ -136,13 +136,13 @@ process = [os.path.basename(p['Key']) for p in process if '.zip' in p['Key']]
 
 
 # Preprocess diff tars
-# a = [re.match('2017[^p]+',obj['Key'].split('/')[-1]).group()[:-1]+'.tar.gz' for obj in  s3.list_objects(Bucket=s3bucket, Prefix='{}/results/farm_{}/block_{}/{}/preprocess-frames'.format(clientid, farmname, blockname, '4d'))['Contents']]
-# b = [re.match('2017[^p]+',obj['Key'].split('/')[-1]).group()[:-1]+'.tar.gz' for obj in  s3.list_objects(Bucket=s3bucket, Prefix='{}/results/farm_{}/block_{}/{}/preprocess-frames'.format(clientid, farmname, blockname, '4d2'))['Contents']]
+# a = [re.match('2017[^p]+',obj['Key'].split('/')[-1]).group()[:-1]+'.tar.gz' for obj in  s3.list_objects(Bucket=s3bucket, Prefix='{}/results/farm_{}/block_{}/{}/preprocess-frames'.format(clientid, farm_name, block_name, '4d'))['Contents']]
+# b = [re.match('2017[^p]+',obj['Key'].split('/')[-1]).group()[:-1]+'.tar.gz' for obj in  s3.list_objects(Bucket=s3bucket, Prefix='{}/results/farm_{}/block_{}/{}/preprocess-frames'.format(clientid, farm_name, block_name, '4d2'))['Contents']]
 # tarfiles = set(a) - set(b)
 
 # Preprocess diff rows/directions
-# a = [obj['Key'].split('/')[-1] for obj in s3.list_objects(Bucket=s3bucket, Prefix='{}/results/farm_{}/block_{}/{}/preprocess-frames'.format(clientid, farmname, blockname, '4d'))['Contents']]
-# b = [obj['Key'].split('/')[-1] for obj in s3.list_objects(Bucket=s3bucket, Prefix='{}/results/farm_{}/block_{}/{}/preprocess-frames'.format(clientid, farmname, blockname, '4d2'))['Contents']]
+# a = [obj['Key'].split('/')[-1] for obj in s3.list_objects(Bucket=s3bucket, Prefix='{}/results/farm_{}/block_{}/{}/preprocess-frames'.format(clientid, farm_name, block_name, '4d'))['Contents']]
+# b = [obj['Key'].split('/')[-1] for obj in s3.list_objects(Bucket=s3bucket, Prefix='{}/results/farm_{}/block_{}/{}/preprocess-frames'.format(clientid, farm_name, block_name, '4d2'))['Contents']]
 
 
 # Selective Preprocess
