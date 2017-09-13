@@ -6,6 +6,7 @@ echo $env:username >> C:\Users\agridata\startup.log
 ## Pip Dependencies (bake into future images)
 pip install kombu
 pip install psutil
+pip install redis
 
 
 ### Update ScanOrchestrator

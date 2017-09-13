@@ -69,6 +69,7 @@ sudo systemctl stop myservice
 
 
 pip install psutil
+pip install redis
 
 # Update as agridata
 su -p -c "git_sync $1 $2" - $RUNAS

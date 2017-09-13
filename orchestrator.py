@@ -22,29 +22,6 @@ import requests
 from utils import RedisManager
 from pprint import pprint
 from botocore.exceptions import ClientError
-from kombu.connection import Connection
-from kombu import Consumer, Producer, Exchange, Queue
-from kombu.utils.compat import nested
-
-# Extended Consumer
-class SmartConsumer(Consumer):
-    #TODO: Combine this with OS-specific setup below
-    if os.name == 'nt':
-        roles = ['preprocess','process','rvm']
-    elif os.name =='posix':
-        roles = ['detection']
-
-    def __init__(self, channel, queues, callbacks, auto_declare, prefetch_count):
-        Consumer.__init__(self, channel, queues, callbacks, auto_declare, prefetch_count)
-
-    def addNewQueues(self):
-        for role in self.roles:
-            all = list_bound_queues(exchange=role)
-            extant = self.queues
-
-            for new in set(all) - set(extant):
-                self.add_queue(new)
-
 
 #some relative paths needed for detection in linux
 #it needto access files in ../deepLearning module
@@ -108,10 +85,6 @@ aws_arns = dict()
 aws_arns['statuslog'] = config.get('sns','topic')
 sns = boto3.client('sns', region_name=config.get('sns', 'region'))
 
-# Kombu connection placeholder
-rabbit_url = '{}:{}@{}'.format(config.get('rmq', 'username'), config.get('rmq', 'password'), config.get('rmq', 'hostname'))
-conn = None
-
 # Initialize logging
 logger = logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
                              datefmt='%a, %d %b %Y %H:%M:%S')
@@ -151,19 +124,6 @@ def announce(func, *args, **kwargs):
     return wrapper
 
 
-def list_bound_queues(exchange):
-    '''
-    In a canonical AMQP framework, there is no way of listing an Exchange's bindings. Canonically,
-    publishers publish messages to an exchange and consumers declare queues and determine routing.
-
-    Since a machine will not have access to routing keys (session_names), we must use the Management
-    Plugin and call for a list of the bindings using the HTTP API
-    '''
-    r = requests.get('http://{}:15672/api/bindings/%2f/'.format(rabbit_url))
-    bindings = [binding for binding in r.json() if binding['source'] == exchange]
-    return [Queue(b['destination']) for b in bindings]
-
-
 @announce
 def handleAWSMessage(result):
     '''
@@ -191,6 +151,7 @@ def handleAWSMessage(result):
         # When tasks are received, they are temporarily marked as 'taken' but it is up to this process to actually
         # delete them or, failing that, default to releasing them back to the queue
 
+
 @announce
 def poll():
     start = datetime.datetime.now()
@@ -215,7 +176,9 @@ def poll():
                     logger.info('Queueing task {}/{}'.format(ridx, len(results)))
                     task = handleAWSMessage(result)  # Parse clientid and scanid
                     task['role'] = 'rvm'  # Tag with the first task step
-                    sendtoRabbitMQ(task)  # Send to the RVM queue
+                    # !! DEPRECATED !!
+                    # sendtoRabbitMQ(task)  # Send to the RVM queue
+                    # !! DEPRECATED !!
                 except:
                     logger.error(traceback.print_exc())
                     logger.exception('Error while handling messge: {}'.format(result.body))
@@ -230,7 +193,6 @@ def poll():
 
     logger.debug('Sleeping for {} seconds'.format(RETRY_DELAY))
     time.sleep(RETRY_DELAY)
-
 
 @announce
 def log(message, session_name=''):
@@ -252,36 +214,6 @@ def log(message, session_name=''):
 
 
 @announce
-def sendtoRabbitMQ(tasks):
-    '''
-    Can send N number of tasks to a queue defined by the task's role
-    '''
-    # Convert to list
-    if type(tasks) is not list:
-        tasks = [tasks]
-
-    # Assume destination is the same for all tasks
-    role = tasks[0]['role']
-    session_name = tasks[0]['session_name']
-
-    # Generate producer
-    with Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
-                                                    config.get('rmq', 'password'),
-                                                    config.get('rmq', 'hostname'))) as sendconn:
-        sendconn.ensure_connection()
-        chan = sendconn.channel()
-        ex = Exchange(role, channel=chan, type='topic')
-        producer = Producer(channel=chan, exchange=ex)
-
-        # Send
-        for task in tasks:
-            producer.publish(task, routing_key=task['session_name'])
-
-        # Close the channel (I think this, and the producer, will be implicitly closed after the connection ahs been)
-        # chan.close()
-
-
-@announce
 def handleFailedTask(task):
     '''
     Behavior for failed tasks
@@ -291,7 +223,7 @@ def handleFailedTask(task):
     if 'num_retries' in task.keys() and task['num_retries'] >= MAX_RETRIES:
         log('Max retries met for task, sending to DLQ: {}'.format(task))
         task['role'] = 'dlq'
-        sendtoRabbitMQ(task)
+        redisman.put(':'.join([task['role'], task['session_name']]), task)
     else:
         # Num_retries should exist, so this check is just for safety
         task['num_retries'] += 1
@@ -299,7 +231,7 @@ def handleFailedTask(task):
 
         # Delete error message and reenqueue
         del task['message']
-        sendtoRabbitMQ(task)
+        redisman.put(':'.join([task['role'], task['session_name']]), task)
 
 
 @announce
@@ -538,7 +470,8 @@ def generateRVM(task):
         tarfiles = pd.Series.unique(data['file'])
 
         # Create and send tasks
-        sendtoRabbitMQ([dict(task, tarfiles=[tf], num_retries=0, role='preprocess') for tf in tarfiles])
+        for task in [dict(task, tarfiles=[tf], num_retries=0, role='preprocess') for tf in tarfiles]:
+            redisman.put(':'.join([task['role'], task['session_name']]), task)
 
         log('RVM task complete', task['session_name'])
     except Exception as err:
@@ -578,10 +511,6 @@ def preprocess(task):
             mlab.runTask(task, nargout=0)
             mlab.quit()
 
-    except ClientError:
-        # For some reason, 404 errors (used to?) occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-        sendtoRabbitMQ(task)
-        pass
     except Exception as e:
         task['message'] = e
         handleFailedTask(task)
@@ -623,7 +552,7 @@ def detection(task):
         # TODO: Can Linux not do this?
         task['role'] = 'process'
 
-        sendtoRabbitMQ(task)
+        redisman.put(':'.join([task['role'], task['session_name']]), task)
     except Exception, e:
         tb = traceback.format_exc()
         logger.error(tb)
@@ -667,10 +596,6 @@ def process(task):
         mlab.runTask(task, nargout=0)
         mlab.quit()
 
-    except ClientError:
-        # For some reason, 404 errors (used to?) occur all the time -- why? Let's just ignore them for now and replace the queue in the task
-        sendtoRabbitMQ(task)
-        pass
     except Exception as e:
         task['message'] = e
         handleFailedTask(task)
@@ -724,79 +649,14 @@ def getComputerInfoString():
 
     return ret
 
-def addNewQueues(consumer, role):
-    '''
-    This was likely meant to go into the extended Consumer class. It updates the consumers to recognize and grab from any new queues
-    '''
-    # Get queue difference
-    all = list_bound_queues(exchange=role)
-    extant = consumer.queues
-
-    for new in set(all) - set(extant):
-        consumer.add_queue(new)
-
-    return consumer
 
 @announce
-def establish_connection(role):
-    '''
-    Canonical method to (re-)establish a dropped connection.
-    '''
-    conn = Connection('amqp://{}:5672//'.format(rabbit_url))
-
-    # Make sure we actually get a connection
-    conn.ensure_connection()
-
-    '''
-    # Close old channels
-    for channel in channels:
-        try:
-            channel.close()
-        except Exception as e:
-            log('Could not close channel: {}'.format(e))
-            pass
-
-    for consumer in consumers:
-        try:
-            consumer.close()
-        except Exception as e:
-            log('Could not close channel: {}'.format(e))
-    '''
-
-    if role == 'nt':        # Windows machine
-        roles = ['rvm', 'preprocess', 'process']
-        functions = [generateRVM, preprocess, process]
-        channels = [conn.channel() for role in roles]
-        consumers = [Consumer(channels[idx], list_bound_queues(exchange=role), callbacks=[functions[idx]],
-                        auto_declare=False, prefetch_count=1) for idx, role in enumerate(roles)]
-
-        # Set to consume
-        for consumer in consumers:
-            consumer.consume()
-
-        # Return the valuables
-        return (conn, channels, consumers)
-
-    elif role == 'posix':
-        # Just one consumer and channel
-        channel = conn.channel()
-        consumer = Consumer(channel=channel, queues=list_bound_queues('detection'), callbacks=[detection],
-                            auto_declare=False, prefetch_count=1)
-
-        # Consume
-        consumer.consume()  # Consume
-        # /END consume
-
-        return (conn, channel, consumer)
-
-@announce
-def windows_client():
+def client(roles):
     '''
     Since Windows machines can perform either preprocessing / processing equally, one strategy is to have any computer
     perform one of these tasks
     '''
     timeout = 10        # This timeout is used to reduce strain on the server
-    roles = [('rvm', generateRVM), ('preproc', preprocess), ('process', process)]
 
     while True:
         try:
@@ -813,31 +673,6 @@ def windows_client():
             log('Redis error: {}'.format(e))
 
 
-
-
-def linux_client():
-    '''
-    For the detection machines
-    '''
-    timeout = 10        # This timeout is used to reduce strain on the server
-    roles = [('detection',detection)]
-
-    while True:
-        try:
-            for role in roles:
-                queues = redisman.list_queues(role[0])
-                for q in queues:
-                    if not redisman(role[0], queue).empty():
-                        task = q.get(role[0], queue)
-                        role[1](task)
-
-            time.sleep(timeout)
-        except Exception as e:
-            # Not sure what types of connections we'll get yet
-            log('Redis error: {}'.format(e))
-
-
-
 def run(args):
     '''
     The main entry point
@@ -845,7 +680,7 @@ def run(args):
     try:
         role = args.role or os.name
 
-        log('I\'m awake! Role type is {}'.format(role))
+        log('I\'m awake!')
 
         # Specialty roles up front
         # Scan filename / log file conversion
@@ -861,7 +696,7 @@ def run(args):
         elif role in ['nt', 'rvm', 'preprocess', 'process']:
             workers = list()
             for worker in xrange(NUM_CORES):
-                p = multiprocess.Process(target=windows_client)
+                p = multiprocess.Process(target=client, [[('rvm', generateRVM), ('preproc', preprocess), ('process', process)]])
                 workers.append(p)
                 p.start()
 
@@ -870,7 +705,7 @@ def run(args):
 
         # Detection
         elif ['posix', 'detection']:
-            linux_client()
+            client([('rvm', generateRVM), ('preproc', preprocess), ('process', process)])
 
         # Unknown
         else:
