@@ -23,5 +23,5 @@ if __name__ == '__main__':
         clients = Client.objects({})
 
     for client in clients:
-        base_url = 's3://agridatadepot/{}/results/farm_' strrep(analysis_struct.task.farmname, ' ', '') '/block_' strrep(analysis_struct.task.blockname, ' ', '') '/' analysis_struct.task.session_name];
+        base_url = 's3://agridatadepot/{}/results/farm_' strrep(analysis_struct.task.farm_name, ' ', '') '/block_' strrep(analysis_struct.task.block_name, ' ', '') '/' analysis_struct.task.session_name];
 

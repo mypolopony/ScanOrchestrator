@@ -325,16 +325,16 @@ class Task():
         try:
             print('Creating task')
             # Client
-            self.task.clientname = client_name
-            self.task.clientid = Client.objects.get(name=self.task.clientname).id
+            self.task.client_name = client_name
+            self.task.clientid = Client.objects.get(name=self.task.client_name).id
 
             # Farm
-            self.task.farmname = farm_name
-            self.task.farmid = Farm.objects.get(name=self.task.farmname, client=self.task.clientid).id
+            self.task.farm_name = farm_name
+            self.task.farmid = Farm.objects.get(name=self.task.farm_name, client=self.task.clientid).id
 
             # Block
-            self.task.blockname = block_name
-            self.task.blockid = Block.objects.get(name=self.task.blockname, farm=self.task.farmid).id
+            self.task.block_name = block_name
+            self.task.blockid = Block.objects.get(name=self.task.block_name, farm=self.task.farmid).id
 
 
         except DoesNotExist:
