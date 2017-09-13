@@ -693,7 +693,7 @@ def run(args):
             poll()
 
         # RVM / Preprocessing / Processing
-        elif role in ['nt', 'rvm', 'preprocess', 'process']:
+        elif role in ['nt', 'rvm', 'preproc', 'process']:
             workers = list()
             for worker in xrange(NUM_CORES):
                 p = multiprocess.Process(target=client, args=[[('rvm', generateRVM), ('preproc', preprocess), ('process', process)]])
@@ -705,7 +705,7 @@ def run(args):
 
         # Detection
         elif ['posix', 'detection']:
-            client([('rvm', generateRVM), ('preproc', preprocess), ('process', process)])
+            client([('detection',detection)])
 
         # Unknown
         else:
