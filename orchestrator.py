@@ -470,7 +470,7 @@ def generateRVM(task):
         tarfiles = pd.Series.unique(data['file'])
 
         # Create and send tasks
-        for task in [dict(task, tarfiles=[tf], num_retries=0, role='preprocess') for tf in tarfiles]:
+        for task in [dict(task, tarfiles=[tf], num_retries=0, role='preproc') for tf in tarfiles]:
             redisman.put(':'.join([task['role'], task['session_name']]), task)
 
         log('RVM task complete', task['session_name'])
@@ -486,7 +486,7 @@ def preprocess(task):
     '''
     try:
         # Notify
-        log('Received task: {}'.format(task), task['session_name'])
+        log('Received preprocessing task: {}'.format(task), task['session_name'])
 
         # Rebuild base scan info
         rebuildScanInfo(task)
@@ -704,7 +704,7 @@ def run(args):
                 p.join()
 
         # Detection
-        elif ['posix', 'detection']:
+        elif role in ['posix', 'detection']:
             client([('detection',detection)])
 
         # Unknown
