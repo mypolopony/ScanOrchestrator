@@ -1,5 +1,4 @@
 from utils.models_min import Task
-from kombu import Connection, Producer, Exchange, Queue
 import numpy as np
 import ConfigParser
 import os
@@ -14,6 +13,8 @@ from pprint import pprint
 import binascii
 import argparse
 from utils import RedisManager
+from utils.connection import *
+from utils.models_min import *
 
 # Load config file
 config = ConfigParser.ConfigParser()
