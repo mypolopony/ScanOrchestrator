@@ -454,7 +454,7 @@ def generateRVM(task):
     '''
     try:
         # Notify
-        log('Received task: {}'.format(task), task['session_name'])
+        log('Received RVM task: {}'.format(task), task['session_name'])
 
         # Rebuild base scan info
         rebuildScanInfo(task)
