@@ -24,7 +24,7 @@
        "value": "HTqbKnZ/9/lo+G1ohr+KUYteOZSsrh4yqkgIc0KwlaXc+lx6egTVsG2qHCYDm5B4efTT0KX+wk+bNZmZmgrNfA=="
     },
     "customScriptUri": {
-       "value": "https://agridatacomputestorage.blob.core.windows.net/scripts/run.sh"
+       "value": "https://agridatacomputestorage.blob.core.windows.net/scripts/run_redis.sh"
     },
     "sourceImageVhdUri":{
       "value": "https://agridatacomputestorage.blob.core.windows.net/images/linux_081217.vhd"
@@ -36,13 +36,13 @@
       "value": "myservice"
     },
     "customScriptName": {
-      "value": "run.sh"
+      "value": "run_redis.sh"
     },
     "appPackage": {
       "value": "package.tar.gz"
     },
     "scanOrchestratorBranch": {
-      "value": "feature/redis"
+      "value": "redis"
     },
     "deepLearningBranch": {
       "value": "dev2"

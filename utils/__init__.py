@@ -62,3 +62,15 @@ class RedisManager(object):
         List all queues by namespace
         '''
         return self.db.keys('*{}*'.format(namespace))
+
+
+    def purge(self, role=None):
+        if not role:
+            roles = ['rvm','detection','preproc','process']
+        else:
+            roles = [role]
+
+        for role in roles:
+            for queue in self.list_queues(role):
+                while not self.empty(queue):
+                    _ = self.get(queue)
