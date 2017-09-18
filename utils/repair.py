@@ -11,6 +11,12 @@ import os
 import csv
 import ConfigParser
 
+import datetime
+from __init__ import RedisManager
+import ConfigParser
+import time
+
+
 # Load config file
 config = ConfigParser.ConfigParser()
 config_path = '/Users/mypolopony/Projects/ScanOrchestrator/utils/poller.conf'
@@ -22,17 +28,15 @@ S3Secret = config.get('s3', 'aws_secret_access_key')
 s3 = boto3.client('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secret)
 s3r = boto3.resource('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secret)
 
+# Redis connection
+redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'))
+
 # Bucket
 bucket = 'agridatadepot'
 
 # Dry run
-execute = False
+execute = True
 
-# Kombu connection
-conn = Connection('amqp://{}:{}@{}:5672//'.format(config.get('rmq', 'username'),
-                                                  config.get('rmq', 'password'),
-                                                  config.get('rmq', 'hostname'))).connect()
-chan = conn.channel()
 
 
 def toPreprocess(lost):
@@ -60,7 +64,7 @@ def toDetection(lost):
                 's3_aws_secret_access_key': S3Secret,
                 'input_path': 'preprocess-frames',
                 's3_aws_access_key_id': S3Key,
-                'folders': lost['uri'],
+                'folders': os.path.basename(lost['uri']),
                 'caffemodel_s3_url_trunk': lost['detection_params']['caffemodel_s3_url_trunk'],
                 'bucket': bucket,
                 'caffemodel_s3_url_cluster': lost['detection_params']['caffemodel_s3_url_cluster'],
@@ -90,6 +94,19 @@ def toProcess(lost):
 
 def insert(tasks):
     print('Inserting {} {} tasks'.format(len(tasks),tasks[0]['role']))
+
+    if execute:
+        for task in tasks:
+            # Convert True / False into JSON-appropriate int
+            if task['test']:
+                task['test'] = 1
+            else:
+                task['test'] = 0
+            redisman.put(':'.join([task['role'], task['session_name']]), task)
+    else:
+        print('{} ---> {}'.format(len(tasks), ':'.join([tasks[0]['role'], tasks[0]['session_name']])))
+
+    '''
     # Assume tasks are all destined for the same exchange
     ex = Exchange(tasks[0]['role'], type='topic', channel=chan)
     producer = Producer(channel=chan, exchange=ex)
@@ -99,6 +116,7 @@ def insert(tasks):
             Queue('_'.join([task['role'], task['session_name']]), exchange=ex,
               channel=chan, routing_key=task['session_name']).declare()
             producer.publish(task, routing_key=task['session_name'])
+    '''
 
 
 def repair(task):
@@ -106,7 +124,18 @@ def repair(task):
         os.mkdir('temp')
 
     # Change to dict
-    task = Task(task)
+    task = yaml.load(open(taskfile, 'r'))
+    task = Task(client_name=task['client_name'],
+                farm_name=task['farm_name'],
+                block_name=task['block_name'],
+                session_name=task['session_name'],
+                caffemodel_s3_url_cluster=task['detection_params']['caffemodel_s3_url_cluster'],
+                caffemodel_s3_url_trunk=task['detection_params']['caffemodel_s3_url_trunk'],
+                test=task['test'],
+                exclude_scans=task['exclude_scans'],
+                include_scans=task['include_scans'],
+                role=task['role'])
+    task = dotdict(task.to_json())
     task.farm_name = task.farm_name.replace(' ', '')
     task.block_name = task.block_name.replace(' ', '')
 
@@ -122,10 +151,11 @@ def repair(task):
         reader = csv.DictReader(csvfile)
         for row in reader:
             row['direction'] = row['direction'].replace('dir','')
+            row.update(task)
 
             fileparse = parse.parse('{scandate}_{scantime}_{camera}_{hour}_{minute}.tar.gz', row['file']).__dict__['named']
             row.update(fileparse)
-            row.update(task.to_json())
+
             subtasks['rvm'].append(dotdict(row))
 
     #######
@@ -225,8 +255,4 @@ def repair(task):
 if __name__ == '__main__':
     for taskfile in glob.glob('/Users/mypolopony/Projects/ScanOrchestrator/tasks/*.yaml'):
         print('\nAssessing {}'.format(taskfile.split('/')[-1].replace('.yaml','')))
-        try:
-            repair(taskfile)
-        except Exception as e:
-            print('Taskfile failed: {}'.format(e))
-            pass
+        repair(taskfile)

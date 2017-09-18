@@ -338,7 +338,8 @@ class Task():
 
 
         except DoesNotExist:
-            raise Exception('Sorry, that Client / Farm / Block could not be found')
+            print('Sorry, that Client / Farm / Block could not be found')
+            pass
 
         # Scan IDs
         if include_scans:
@@ -373,33 +374,49 @@ class Task():
             for scanid in self.task.scanids:
                 assert(ObjectId(self.task.blockid) in Scan.objects.get(scanid=scanid).blocks)
         except AssertionError:
-            raise Exception('Error. Can not continue! Scans do not match block.')
+            print('\n\t!!! Error. Can not continue! Scans do not match block.\n\n')
         except DoesNotExist:
-            raise Exception('Error. Does this scan exist? ({})'.format(scan.scanid))
+            print('\n\t!!! Error. Does this scan exist? ({})\n\n'.format(scan.scanid))
 
         # Check cameras
         try:
             for scanid in self.task.scanids:
                 assert(Scan.objects.get(scanid=scanid).cameras)
         except AssertionError:
-            raise Exception('Error. Can not continue! Camera definition not find in scan: {}'.format(scanid))
+            print('\n\t!!! Error. Can not continue! Camera definition not find in scan: {}\n\n'.format(scanid))
 
         # Block has rows
         print('Validating rows')
         try:
             block = Block.objects.get(id=self.task.blockid)          # Redundant grabbing of block
-            assert(block.num_rows == len(block.rows))
+
+            # If num_rows is empty, maybe we can capture this from the row array
+            if not block.num_rows and block.rows:
+                block.update(num_rows=len(block.rows))
+                block.save()
+
+            assert(block.num_rows != 0)
         except AssertionError:
-            raise Exception('# of blockrows and # of rows are not equal (does block have num_rows?)')
+            print('\n\t!!! # of block.rows and num_rows is unequal or zero!\n\n')
+
+        # Block ahs spacing
+        print('Validating vine/row spacing')
+        try:
+            block = Block.objects.get(id=self.task.blockid)          # Redundant grabbing of block
+
+            assert(block.descriptors['plant_space'] and block.descriptors['row_space'])
+        except AssertionError:
+            print('\n\t!!! Either row space or plant space is missing from the DB\n\n')
+
 
         # Row array matches row query
         try:
             rows = Row.objects(block=self.task.blockid)
             assert(len((set([r.id for r in rows])-set(block.rows))) == 0)
         except AssertionError:
-            print('Rows: {}'.format([r.id for r in rows]))
-            print('Blockrows: {}'.format(block.rows))
-            raise Exception('Error. Can not continue! The block and the rows do not match.')
+            print('\n\t!!! Rows: {}'.format([r.id for r in rows]))
+            print('\n\t!!! Blockrows: {}'.format(block.rows))
+            print('\n\t!!! Error. Can not continue! The block and the rows do not match.\n\n')
 
         # Rows have num_plants
         print('Validating vines')
@@ -409,7 +426,7 @@ class Task():
                 assert(row.num_plants == len(row.vines))
                 assert(len(set([v for v in row.vines])-set([v.id for v in Vine.objects(row=row.id)])) == 0)
         except AssertionError:
-            raise Exception('Error. Can not conotinue! The number of plants per row does not seem correct')
+            print('\n\t!!! Error. Can not conotinue! The number of plants per row does not seem correct\n\n')
 
     def to_json(self):
         '''

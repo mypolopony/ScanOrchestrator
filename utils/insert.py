@@ -11,7 +11,7 @@ import ConfigParser
 import numpy as np
 
 config = ConfigParser.ConfigParser()
-config.read('utils/poller.conf')
+config.read('/Users/mypolopony/Projects/ScanOrchestrator/utils/poller.conf')
 
 # AWS Resources: S3
 S3Key = config.get('s3', 'aws_access_key_id')

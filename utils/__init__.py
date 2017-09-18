@@ -36,7 +36,16 @@ class RedisManager(object):
         Put item into the queue.
         '''
 
+
         self.db.rpush(queue, item)
+
+    def revive(self, source, destination):
+        '''
+        Move tasks from one queue to another
+        '''
+
+        while not self.empty(source):
+            self.db.rpoplpush(source, destination)
 
 
     def get(self, queue):
@@ -74,3 +83,8 @@ class RedisManager(object):
             for queue in self.list_queues(role):
                 while not self.empty(queue):
                     _ = self.get(queue)
+
+
+    def status(self):
+        for queue in self.list_queues('*'):
+            print('{}\t{}'.format(queue, self.qsize(queue)))

@@ -7,6 +7,7 @@ import glob
 import redis
 import sys
 import requests
+import time
 import datetime
 import traceback
 from pprint import pprint
@@ -25,9 +26,17 @@ config.read(config_path)
 # Redis queue
 redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'))
 
+CLENSE = False
+INSERT = True
+
 def insert(task):
     pprint(task)
-    redisman.put(':'.join([task['role'], task['session_name']]), task)
+    if INSERT:
+        redisman.put(':'.join([task['role'], task['session_name']]), task)
+
+def savetask(task, taskfile):
+    with open('tasks/json/{}'.format(os.path.basename(taskfile.replace('yaml','json'))), 'w+') as jsonout:
+        jsonout.write(json.dumps(task))
 
 
 def parse_args():
@@ -45,8 +54,9 @@ if __name__ == '__main__':
     args = parse_args()
 
     # Clense?
-    print('Purging queues')
-    redisman.purge()
+    if CLENSE:
+        print('Purging queues')
+        redisman.purge()
 
     # Task definition
     if args.taskfile:
@@ -74,6 +84,7 @@ if __name__ == '__main__':
             role = task['role']                 # Only one task for RVM
             if role == 'rvm':
                 insert(task)
+                savetask(task, taskfile)
 
             # This can insert directly into process but is probably made obsolete by the repair script
             elif role == 'process':

@@ -13,7 +13,7 @@
       "metadata": {
         "description": "Number of VM instances to create in the scale set"
       },
-      "defaultValue": 0
+      "defaultValue": 24
     },
     "vmSize": {
       "type": "string",

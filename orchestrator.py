@@ -559,7 +559,7 @@ def detection(task):
     except Exception, e:
         tb = traceback.format_exc()
         logger.error(tb)
-        task['message'] = str(e)
+        task['message'] = str(tb)
         log('args, Task FAILED. Re-enqueueing... ({})'.format(task), task['session_name'])
         handleFailedTask(task)
         pass

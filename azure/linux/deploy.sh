@@ -18,7 +18,7 @@ echo DELETE=$DELETE  CREATE=$CREATE LOC=$LOC
 
 
 
-RG="allegro"
+RG="cputest"
 OUTDIR=./output
 DEPLOYMENT_NAME=$RG
 mkdir -p $OUTDIR

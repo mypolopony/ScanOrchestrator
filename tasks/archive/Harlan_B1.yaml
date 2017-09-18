@@ -1,10 +1,10 @@
 client_name: Harlan Estate
-farm_name: Slawson
-block_name: A8
-session_name: a8
+farm_name: Kramlich
+block_name: B1
+session_name: b1
 test: False
 exclude_scans:
-include_scans: [2017-08-23_08-18]
+include_scans: [2017-08-24_13-48, 2017-08-24_13-49, 2017-08-24_14-12]
 role: rvm
 detection_params:
         caffemodel_s3_url_cluster: s3://deeplearning_data/models/best/wine-black-green-9-11-2017-84000.caffemodel
