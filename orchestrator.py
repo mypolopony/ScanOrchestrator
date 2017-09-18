@@ -80,7 +80,6 @@ queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'))
 
 # AWS Resources:
-
 aws_arns = dict()
 aws_arns['statuslog'] = config.get('sns','topic')
 sns = boto3.client('sns', region_name=config.get('sns', 'region'))
@@ -553,6 +552,10 @@ def detection(task):
         task['role'] = 'process'
 
         redisman.put(':'.join([task['role'], task['session_name']]), task)
+
+        # Remove output files
+        for dir in glob.glob('/home/agridata/code/deepLearning/infra/output/*'):
+            shutil.rmtree(dir)
     except Exception, e:
         tb = traceback.format_exc()
         logger.error(tb)
