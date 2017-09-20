@@ -48,9 +48,9 @@ def toPreprocess(lost):
             'clientid': lost['clientid'],
             'farm_name': lost['farm_name'],
             'test': lost['test'],
-            'role': 'preprocess',
+            'role': 'preproc',
             'scanids': lost['scanids'],
-            'tarfiles': lost['file'],
+            'tarfiles': [lost['file']],
             'detection_params': lost['detection_params']}
 
 
@@ -64,7 +64,7 @@ def toDetection(lost):
                 's3_aws_secret_access_key': S3Secret,
                 'input_path': 'preprocess-frames',
                 's3_aws_access_key_id': S3Key,
-                'folders': os.path.basename(lost['uri']),
+                'folders': [os.path.basename(lost['uri'])],
                 'caffemodel_s3_url_trunk': lost['detection_params']['caffemodel_s3_url_trunk'],
                 'bucket': bucket,
                 'caffemodel_s3_url_cluster': lost['detection_params']['caffemodel_s3_url_cluster'],
@@ -76,7 +76,7 @@ def toDetection(lost):
             'clientid': lost['clientid'],
             'scanids': lost['scanids'],
             'session_name': lost['session_name'],
-            'tarfiles': lost['file']}
+            'tarfiles': [lost['file']]}
 
 
 def toProcess(lost):
@@ -87,6 +87,7 @@ def toProcess(lost):
 
     # Ack!
     lost['detection_params']['result'] = [uri]
+    lost['detection_params']['folders'] = [os.path.basename(uri)]
     lost['role'] = 'process'
 
     return lost
@@ -167,17 +168,18 @@ def repair(task):
         extant = [f['Key'] for f in extant]
 
         # Preprocess (expected)
-        subtasks['preprocess'] = list()
+        subtasks['preproc'] = list()
         toadd = list()
         for subtask in subtasks['rvm']:
             if subtask['of'] == '1':
                 subtask.uri = '{clientid}/results/farm_{farm_name}/block_{block_name}/{session_name}/preprocess-frames/{scanid}_{camera}_{hour}_{minute}-preprocess-row{row}-dir{direction}.zip'.format(clientid=subtask.clientid, farm_name=subtask.farm_name, block_name=subtask.block_name, session_name=subtask.session_name,scanid=subtask.scanid,camera=subtask.camera,hour=subtask.hour, minute=subtask.minute, row=subtask.rows, direction=subtask.direction)
             else:
                 subtask.uri = '{clientid}/results/farm_{farm_name}/block_{block_name}/{session_name}/preprocess-frames/{scanid}_{camera}_{hour}_{minute}-preprocess-row{row}-dir{direction}-{part}of{of}.zip'.format(clientid=subtask.clientid, farm_name=subtask.farm_name, block_name=subtask.block_name, session_name=subtask.session_name,scanid=subtask.scanid,camera=subtask.camera,hour=subtask.hour, minute=subtask.minute, row=subtask.rows, direction=subtask.direction, part=subtask.part, of=subtask.of)
-            subtasks['preprocess'].append(subtask)
 
             if subtask.uri not in extant:
                 toadd.append(subtask)
+            else:
+                subtasks['preproc'].append(subtask)
 
         # Inject missing preprocess
         if toadd:
@@ -199,7 +201,7 @@ def repair(task):
         # Detection (expected (from preprocess))
         subtasks['detection'] = list()
         toadd = list()
-        for subtask in subtasks['preprocess']:
+        for subtask in subtasks['preproc']:
             if subtask['of'] == '1':
                 subtask.uri = '{clientid}/results/farm_{farm_name}/block_{block_name}/{session_name}/detection/{scanid}_{camera}_{hour}_{minute}-preprocess-row{row}-dir{direction}.zip'.format(clientid=subtask.clientid, farm_name=subtask.farm_name, block_name=subtask.block_name, session_name=subtask.session_name,scanid=subtask.scanid,camera=subtask.camera,hour=subtask.hour, minute=subtask.minute, row=subtask.rows, direction=subtask.direction)
             else:
@@ -209,10 +211,11 @@ def repair(task):
             subtask.detect_uri = subtask.uri
 
             subtask['role'] = 'detection'
-            subtasks['detection'].append(subtask)
-
+            
             if subtask.uri not in extant:
                 toadd.append(subtask)
+            else:
+                subtasks['detection'].append(subtask)
 
         # Inject missing detection
         if toadd:

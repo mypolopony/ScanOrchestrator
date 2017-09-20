@@ -2,7 +2,7 @@ client_name: Larkmead
 farm_name: Larkmead Vineyards
 block_name: C10-West
 session_name: c10west
-test: False
+test: 0
 exclude_scans:
 include_scans: [2017-08-31_15-06, 2017-09-01_07-39]
 role: rvm

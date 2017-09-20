@@ -2,7 +2,7 @@ client_name: Larkmead
 farm_name: Larkmead Vineyards
 block_name: C8b
 session_name: c8b
-test: False
+test: 0
 exclude_scans:
 include_scans: [2017-08-31_11-01]
 role: rvm
