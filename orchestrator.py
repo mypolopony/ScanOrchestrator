@@ -17,7 +17,9 @@ import time
 import traceback
 import datetime
 
+from io import BytesIO
 import pandas as pd
+import numpy as np
 import requests
 from utils import RedisManager
 from pprint import pprint
@@ -563,6 +565,31 @@ def detection(task):
         log('args, Task FAILED. Re-enqueueing... ({})'.format(task), task['session_name'])
         handleFailedTask(task)
         pass
+
+
+def check_shapes(task):
+    try:
+        extant = s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/results/farm_{}/block_{}/{}/detection/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
+        if 'Contents' not in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/results/farm_{}/block_{}/fruit_size.txt'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name)).keys():
+            zips = [e['Key'].split('/')[-1] for e in extant]
+            zips =  np.unique([int(re.search('(?:row)([0-9]+)',z).group(1)) for z in zips])
+
+
+            rvm = s3.get_object(Bucket=config.get('s3', 'bucket'), Key='{}/results/farm_{}/block_{}/{}/rvm.csv'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))
+            rvm = pd.read_csv(BytesIO(rvm['Body'].read()))
+            rvmrows = np.unique(rvm['rows'])
+
+            thresh = 0.1 * len(rvmrows)
+            complete = float(len(filerows)) / float(len(rvmrows))
+            if complete >= 0.2 and np.mean(rvmrows) - thresh <= np.mean(zips) <= np.mean(rvmrows) + thresh:
+
+
+    except Exception as e:
+        log('Checkshape failed on {}: ({})'.format(task), task['session_name'], e)
+        pass
+
+    
+
 
 
 @announce
