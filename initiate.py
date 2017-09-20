@@ -112,3 +112,4 @@ if __name__ == '__main__':
         except Exception as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stdout)
+            pass

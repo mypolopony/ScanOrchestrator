@@ -568,6 +568,10 @@ def detection(task):
 
 
 def check_shapes(task):
+    '''
+    Fruit shape estimation will first check if the shape can be estimated. If not,
+    we wait for a while before looking again
+    '''
     try:
         extant = s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/results/farm_{}/block_{}/{}/detection/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
         if 'Contents' not in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/results/farm_{}/block_{}/fruit_size.txt'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name)).keys():
@@ -582,6 +586,10 @@ def check_shapes(task):
             thresh = 0.1 * len(rvmrows)
             complete = float(len(filerows)) / float(len(rvmrows))
             if complete >= 0.2 and np.mean(rvmrows) - thresh <= np.mean(zips) <= np.mean(rvmrows) + thresh:
+                pass
+        else:
+            # REENQUEUE task
+            time.sleep(60*10)
 
 
     except Exception as e:
@@ -597,6 +605,10 @@ def process(task):
     '''
     Processing method
     '''
+
+    # IF ~ SHAPEFILE,
+    check_shapes(task)
+    # ELSE
     try:
         # Notify
         log('Received processing task: {}'.format(task, task['session_name']))
