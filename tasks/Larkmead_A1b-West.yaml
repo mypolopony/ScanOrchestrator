@@ -1,0 +1,11 @@
+client_name: Larkmead
+farm_name: Larkmead Vineyards
+block_name: A1b-West
+session_name: a1b-west
+test: 0
+exclude_scans:
+include_scans: [2017-08-29_07-21]
+role: rvm
+detection_params:
+        caffemodel_s3_url_cluster: s3://deeplearning_data/models/best/wine-black-96000-9-7-2017.caffemodel
+        caffemodel_s3_url_trunk: s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel
