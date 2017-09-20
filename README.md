@@ -30,4 +30,4 @@
 
 
 #### Assistant Scripts
-There are a lot of scripts, usually in `utils/` that I use to do various tasks. One useful script is `status.py`, which creates a very simple, console-based, auto refreshed list of the current queues and their size
+- There are a lot of scripts, usually in `utils/` that I use to do various tasks. One useful script is `status.py`, which creates a very simple, console-based, auto refreshed list of the current queues and their size
