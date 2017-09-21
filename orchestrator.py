@@ -607,7 +607,7 @@ def process(task):
     '''
 
     # IF ~ SHAPEFILE,
-    check_shapes(task)
+    # check_shapes(task)
     # ELSE
     try:
         # Notify
