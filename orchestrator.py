@@ -22,8 +22,7 @@ import numpy as np
 import requests
 from datetime import datetime
 from utils import RedisManager
-from pprint import pprint
-from botocore.exceptions import ClientError
+from utils.models_min import dotdict, Scan
 
 #some relative paths needed for detection in linux
 #it needto access files in ../deepLearning module
@@ -545,12 +544,11 @@ def detection(task):
 
         # for now we expect only one element
         assert (len(s3keys) <= 1)
-        task['detection_params']['result'] = s3keys if not s3keys  else  s3keys[0]
+        task['detection_params']['result'] = s3keys if not s3keys else s3keys[0]
         log('Success. Completed detection: {}'.format(task['detection_params']['result']), task['session_name'])
 
-        # TODO: Can Linux not do this?
+        # Pass to process
         task['role'] = 'process'
-
         redisman.put(':'.join([task['role'], task['session_name']]), task)
 
         # Remove output files
@@ -564,7 +562,7 @@ def detection(task):
         handleFailedTask(task)
         pass
 
-
+@announce
 def check_shapes(task):
     '''
     Fruit shape estimation will first check if the shape can be estimated. If not,
@@ -578,13 +576,13 @@ def check_shapes(task):
     task.role = 'shapesize'
 
     # Temp filed used as a semaphore for work in progress
-    tempfile = '{}/results/farm_{}/block_{}/fruit_size.temp'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name)
+    tempfile = '{}/results/farm_{}/block_{}/{}/fruit_size.temp'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name)
 
     try:
         if 'Contents' not in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=tempfile).keys():
             # Place the semaphore
             body = StringIO(unicode('Work In Progress: {}'.format(datetime.strftime(datetime.now(),'%c'))))
-            s3.put_object(Bucket=config.get('s3', 'bucket'), Key=tempfile, Body=StringIO(unicode('Work In Progress {}'.)).read())
+            s3.put_object(Bucket=config.get('s3', 'bucket'), Key=tempfile, Body=body.read())
 
             # Grab the list of available detection files
             extant = s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/results/farm_{}/block_{}/{}/detection/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
@@ -600,7 +598,7 @@ def check_shapes(task):
 
             # Mean criteria - the mean of available rows must be approximately equal to the mean of the actual rows
             thresh = 0.1 * len(rvmrows)
-            uniform = np.mean(rvmrows) - thresh <= np.mean(zips) <= np.mean(rvmrows) + thresh
+            uniform = np.mean(rvmrows) - thresh <= np.mean(filerows) <= np.mean(rvmrows) + thresh
 
             # Percentage complete
             if len(rvmrows) <= 10:
@@ -608,21 +606,29 @@ def check_shapes(task):
                 complete = len(zips) >= len(rvm) * 0.5
             else:
                 # Otherwise, we require a certain percentage (of the actual rows)
-                complete = float(len(filerows)) / float(len(rvmrows)) >= pct_complete
+                complete = float(len(extant)) / float(len(rvm)) >= pct_complete
 
             # If the session is complete enough and the mean suggests it is a representative sample
             if complete and uniform:
                 # Select random rows
-                task.detection_params['folders'] = np.random.choice(zips, 4, replace=False)
+                cadre = [file['Key'] for file in np.random.choice(extant, int(len(rvm) * pct_complete), replace=False)]
 
                 # Notify
                 log('Shape estimation beginning', task['session_name'])
 
                 # Download frames
                 video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
-                for zipfile in task.detection_params['folders']:
+                if not os.path.exists(video_dir):
+                    os.makedirs(video_dir)
+                localrvm = os.path.join(video_dir, 'rvm.csv')
+                if not os.path.exists(localrvm):
+                    rvm.to_csv(localrvm, index=False)
+                for zipfile in cadre:
                     log('Shape estimate downloading {}'.format(zipfile), task['session_name'])
                     s3r.Bucket(config.get('s3', 'bucket')).download_file(zipfile, os.path.join(video_dir, os.path.basename(zipfile)))
+
+                # Convert to relative paths
+                task.detection_params['folders'] = [os.path.basename(c) for c in cadre]
 
                 # Run the task
                 mlab = matlabProcess()
@@ -645,7 +651,7 @@ def check_shapes(task):
     except Exception as e:
         tb = traceback.format_exc()
         task['message'] = str(tb)
-        log('Checkshape failed on {}: ({})'.format(task), task['session_name'], e)
+        log('Checkshape failed: ({})'.format(e, task['session_name']))
         handleFailedTask(task)
         pass
 
@@ -658,7 +664,7 @@ def process(task):
 
     try:
         # Fruit size URI
-        fruituri = '{}/results/farm_{}/block_{}/fruit_size.txt'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name)
+        fruituri = '{}/results/farm_{}/block_{}/{}/fruit_size.txt'.format(task['clientid'], task['farm_name'].replace(' ', ''),task['block_name'], task['session_name'])
 
         if 'Contents' not in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=fruituri).keys():
             check_shapes(task)
@@ -691,10 +697,18 @@ def process(task):
             mlab.runTask(task, nargout=0)
             mlab.quit()
 
+            task['role'] = 'postproc'
+            redisman.put(':'.join([task['role'], task['session_name']]), task)
+
     except Exception as e:
         task['message'] = e
         handleFailedTask(task)
         pass
+
+
+@announce
+def postprocess(task):
+    pass
 
 
 @announce
@@ -786,8 +800,15 @@ def run(args):
         elif role == 'poll':
             poll()
 
+        '''
+        # Direct injection to shape size (for debugging)
+        elif role == 'shapesize':
+            task = {"num_retries": 0, "farmid": "5994c6ab55f30b158613c517", "farm_name": "Quatacker-Burns", "client_name": "Sun World", "blockid": "599f7ac855f30b2756ca2b5a", "clientid": "591daa81e1cf4d8cbfbb1bf6", "block_name": "3C", "role": "shapesize", "detection_params": {"caffemodel_s3_url_cluster": "s3://deeplearning_data/models/best/cluster_june_15_288000.caffemodel","caffemodel_s3_url_trunk": "s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel"}, "test": 0, "scanids": ["2017-09-14_08-09"], "session_name": "3c"}
+            check_shapes(task)
+        '''
+
         # RVM / Preprocessing / Processing
-        elif role in ['nt', 'rvm', 'preproc', 'process']:
+        elif role in ['nt', 'rvm', 'preproc', 'process', 'postproc']:
             workers = list()
             for worker in xrange(NUM_CORES):
                 p = multiprocess.Process(target=client, args=[[('rvm', generateRVM), ('preproc', preprocess), ('process', process)]])
