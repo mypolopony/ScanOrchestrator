@@ -4,7 +4,7 @@
 
 DELETE=0
 CREATE=1
-LOC=westus2
+LOC=westus
 while getopts d:c:l: opts; do
    case ${opts} in
       d) DELETE=${OPTARG} ;;
@@ -18,7 +18,7 @@ echo DELETE=$DELETE  CREATE=$CREATE LOC=$LOC
 
 
 
-RG="symphony"
+RG="swc"
 OUTDIR=./output
 DEPLOYMENT_NAME=$RG
 mkdir -p $OUTDIR

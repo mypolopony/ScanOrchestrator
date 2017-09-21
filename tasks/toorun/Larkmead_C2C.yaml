@@ -7,5 +7,5 @@ exclude_scans:
 include_scans: [2017-09-08_14-04]
 role: rvm
 detection_params:
-        caffemodel_s3_url_cluster: s3://deeplearning_data/models/best/wine-black-56000-9-3-2017.caffemodel
+        caffemodel_s3_url_cluster: s3://deeplearning_data/models/best/wine-black-green-sep-19-2017-100000.caffemodel
         caffemodel_s3_url_trunk: s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel

@@ -1,6 +1,5 @@
 from models_min import *
 from connection import *
-from kombu import Connection, Exchange, Queue, Producer
 import parse
 import glob
 import datetime
@@ -34,9 +33,8 @@ redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 
 # Bucket
 bucket = 'agridatadepot'
 
-# Dry run
+# Execute?
 execute = True
-
 
 
 def toPreprocess(lost):
@@ -83,9 +81,10 @@ def toProcess(lost):
     # Model
     uri = lost['detect_uri']
 
+    # Generate detection
     lost = toDetection(lost)
 
-    # Ack!
+    # Modify for process
     lost['detection_params']['result'] = [uri]
     lost['detection_params']['folders'] = [os.path.basename(uri)]
     lost['role'] = 'process'
@@ -94,9 +93,8 @@ def toProcess(lost):
 
 
 def insert(tasks):
-    print('Inserting {} {} tasks'.format(len(tasks),tasks[0]['role']))
-
     if execute:
+        print('Inserting {} {} tasks'.format(len(tasks),tasks[0]['role']))
         for task in tasks:
             # Convert True / False into JSON-appropriate int
             if task['test']:
@@ -105,19 +103,7 @@ def insert(tasks):
                 task['test'] = 0
             redisman.put(':'.join([task['role'], task['session_name']]), task)
     else:
-        print('{} ---> {}'.format(len(tasks), ':'.join([tasks[0]['role'], tasks[0]['session_name']])))
-
-    '''
-    # Assume tasks are all destined for the same exchange
-    ex = Exchange(tasks[0]['role'], type='topic', channel=chan)
-    producer = Producer(channel=chan, exchange=ex)
-
-    if execute:
-        for task in tasks:
-            Queue('_'.join([task['role'], task['session_name']]), exchange=ex,
-              channel=chan, routing_key=task['session_name']).declare()
-            producer.publish(task, routing_key=task['session_name'])
-    '''
+        print('(dry run) {} ---> {}'.format(len(tasks), ':'.join([tasks[0]['role'], tasks[0]['session_name']])))
 
 
 def repair(task):
@@ -159,13 +145,17 @@ def repair(task):
 
             subtasks['rvm'].append(dotdict(row))
 
-    #######
-    #######
+    #################
+    # To preprocess #
+    #################
 
     try:
         # Preprocess (on s3)
-        extant = s3.list_objects(Bucket=bucket,Prefix='{}/results/farm_{}/block_{}/{}/preprocess-frames/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
-        extant = [f['Key'] for f in extant]
+        try:
+            extant = s3.list_objects(Bucket=bucket,Prefix='{}/results/farm_{}/block_{}/{}/preprocess-frames/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
+            extant = [f['Key'] for f in extant]
+        except KeyError:
+            extant = list()
 
         # Preprocess (expected)
         subtasks['preproc'] = list()
@@ -190,13 +180,17 @@ def repair(task):
     except Exception as e:
         print('Process failed: {}'.format(e))
 
-    #######
-    #######
+    ##############
+    # To process #
+    ##############
 
     try:
         # Detection (on s3)
-        extant = s3.list_objects(Bucket=bucket,Prefix='{}/results/farm_{}/block_{}/{}/detection/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
-        extant = [f['Key'] for f in extant]
+        try:
+            extant = s3.list_objects(Bucket=bucket,Prefix='{}/results/farm_{}/block_{}/{}/detection/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
+            extant = [f['Key'] for f in extant]
+        except KeyError:
+            extant = list()
 
         # Detection (expected (from preprocess))
         subtasks['detection'] = list()
@@ -226,13 +220,17 @@ def repair(task):
         print('Detection failed: {}'.format(e))
 
 
-    #######
-    #######
+    ################
+    # To detection #
+    ################
 
     try:
         # Process (on s3)
-        extant = s3.list_objects(Bucket=bucket,Prefix='{}/results/farm_{}/block_{}/{}/process-frames/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
-        extant = [f['Key'] for f in extant]
+        try:
+            extant = s3.list_objects(Bucket=bucket,Prefix='{}/results/farm_{}/block_{}/{}/process-frames/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
+            extant = [f['Key'] for f in extant]
+        except KeyError:
+            extant = list()
 
         # Process (expected (from detection))
         subtasks['process'] = list()

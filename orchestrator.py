@@ -698,17 +698,26 @@ def client(roles):
     Since Windows machines can perform either preprocessing / processing equally, one strategy is to have any computer
     perform one of these tasks
     '''
-    timeout = 10        # This timeout is used to reduce strain on the server
+    timeout = 180        # This timeout is used to reduce strain on the server
 
     while True:
         try:
-            for role in roles:
-                ns = role[0]
-                for q in redisman.list_queues(ns):
-                    if not redisman.empty(q):
-                        task = redisman.get(q)
-                        role[1](task)
+            if not redisman.empty('process:SW_qt_3c_913_wed_1PM'):
+                task = redisman.get('process:SW_qt_3c_913_wed_1PM')
+                process(task)
+            elif not redisman.empty('process:3c'):
+                task = redisman.get('process:3c')
+                process(task)
 
+            '''
+            else:
+                for role in roles:
+                    ns = role[0]
+                    for q in redisman.list_queues(ns):
+                        if not redisman.empty(q):
+                            task = redisman.get(q)
+                            role[1](task)
+            '''
             time.sleep(timeout)
         except Exception as e:
             # Not sure what types of exceptions we'll get yet
