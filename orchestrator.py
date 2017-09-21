@@ -15,12 +15,12 @@ import multiprocess
 import tarfile
 import time
 import traceback
-import datetime
 
-from io import BytesIO
+from io import BytesIO, StringIO
 import pandas as pd
 import numpy as np
 import requests
+from datetime import datetime
 from utils import RedisManager
 from pprint import pprint
 from botocore.exceptions import ClientError
@@ -155,8 +155,6 @@ def handleAWSMessage(result):
 
 @announce
 def poll():
-    start = datetime.datetime.now()
-
     logger.info('Scan Detector Starting\n\n')
 
     # Poll messages
@@ -572,32 +570,84 @@ def check_shapes(task):
     Fruit shape estimation will first check if the shape can be estimated. If not,
     we wait for a while before looking again
     '''
+    pct_complete = 0.3          # Percentage required to produce a shape estimate
+    timeout = 10                # In minutes (no need to keep attacking the queue)
+
+    # Convert to useful dotdict and set the role
+    task = dotdict(task)
+    task.role = 'shapesize'
+
+    # Temp filed used as a semaphore for work in progress
+    tempfile = '{}/results/farm_{}/block_{}/fruit_size.temp'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name)
+
     try:
-        extant = s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/results/farm_{}/block_{}/{}/detection/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
-        if 'Contents' not in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/results/farm_{}/block_{}/fruit_size.txt'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name)).keys():
+        if 'Contents' not in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=tempfile).keys():
+            # Place the semaphore
+            body = StringIO(unicode('Work In Progress: {}'.format(datetime.strftime(datetime.now(),'%c'))))
+            s3.put_object(Bucket=config.get('s3', 'bucket'), Key=tempfile, Body=StringIO(unicode('Work In Progress {}'.)).read())
+
+            # Grab the list of available detection files
+            extant = s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/results/farm_{}/block_{}/{}/detection/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
+            
+            # Parse filenames
             zips = [e['Key'].split('/')[-1] for e in extant]
-            zips =  np.unique([int(re.search('(?:row)([0-9]+)',z).group(1)) for z in zips])
+            filerows =  list(np.unique([int(re.search('(?:row)([0-9]+)',z).group(1)) for z in zips]))
 
-
+            # Obtain ground-truth RVM rows
             rvm = s3.get_object(Bucket=config.get('s3', 'bucket'), Key='{}/results/farm_{}/block_{}/{}/rvm.csv'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))
             rvm = pd.read_csv(BytesIO(rvm['Body'].read()))
-            rvmrows = np.unique(rvm['rows'])
+            rvmrows = list(np.unique(rvm['rows']))
 
+            # Mean criteria - the mean of available rows must be approximately equal to the mean of the actual rows
             thresh = 0.1 * len(rvmrows)
-            complete = float(len(filerows)) / float(len(rvmrows))
-            if complete >= 0.2 and np.mean(rvmrows) - thresh <= np.mean(zips) <= np.mean(rvmrows) + thresh:
-                pass
-        else:
-            # REENQUEUE task
-            time.sleep(60*10)
+            uniform = np.mean(rvmrows) - thresh <= np.mean(zips) <= np.mean(rvmrows) + thresh
 
+            # Percentage complete
+            if len(rvmrows) <= 10:
+                # If there are fewer than 10 rows, we require at least half the RVM rows represented
+                complete = len(zips) >= len(rvm) * 0.5
+            else:
+                # Otherwise, we require a certain percentage (of the actual rows)
+                complete = float(len(filerows)) / float(len(rvmrows)) >= pct_complete
+
+            # If the session is complete enough and the mean suggests it is a representative sample
+            if complete and uniform:
+                # Select random rows
+                task.detection_params['folders'] = np.random.choice(zips, 4, replace=False)
+
+                # Notify
+                log('Shape estimation beginning', task['session_name'])
+
+                # Download frames
+                video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
+                for zipfile in task.detection_params['folders']:
+                    log('Shape estimate downloading {}'.format(zipfile), task['session_name'])
+                    s3r.Bucket(config.get('s3', 'bucket')).download_file(zipfile, os.path.join(video_dir, os.path.basename(zipfile)))
+
+                # Run the task
+                mlab = matlabProcess()
+                mlab.runTask(task, nargout=0)
+                mlab.quit()
+
+                # Remove the semaphore and return
+                s3.delete_object(Bucket=config.get('s3','bucket'), Key=tempfile)
+                return
+
+            # Remove the semaphore (but don't return immediately; unfortunate redundancy)
+            s3.delete_object(Bucket=config.get('s3','bucket'), Key=tempfile)
+
+        # Wait for some time
+        time.sleep(60 * WAIT_TIME)
+
+        # Re-enqueue
+        redisman.put(':'.join([task['role'], task['session_name']]), task)
 
     except Exception as e:
+        tb = traceback.format_exc()
+        task['message'] = str(tb)
         log('Checkshape failed on {}: ({})'.format(task), task['session_name'], e)
+        handleFailedTask(task)
         pass
-
-    
-
 
 
 @announce
@@ -606,37 +656,40 @@ def process(task):
     Processing method
     '''
 
-    # IF ~ SHAPEFILE,
-    # check_shapes(task)
-    # ELSE
     try:
-        # Notify
-        log('Received processing task: {}'.format(task, task['session_name']))
+        # Fruit size URI
+        fruituri = '{}/results/farm_{}/block_{}/fruit_size.txt'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name)
 
-        # Reformat message if necessary
-        if type(task) == unicode:
-            # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
-            task = json.loads(task.replace("u'", "'").replace("'", '"'))
-        # The detection params reult is sometimes a string and sometimes a list -- is this because of the above?
-        if type(task['detection_params']['result']) == unicode:
-            task['detection_params']['result'] = [task['detection_params']['result']]
+        if 'Contents' not in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=fruituri).keys():
+            check_shapes(task)
+        else:
+            # Notify
+            log('Received processing task: {}'.format(task, task['session_name']))
 
-        # Ensure role (this is repeated from the end of preprocess handoff. . .)
-        task['role'] = 'process'
+            # Reformat message if necessary
+            if type(task) == unicode:
+                # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
+                task = json.loads(task.replace("u'", "'").replace("'", '"'))
+            # The detection params reult is sometimes a string and sometimes a list -- is this because of the above?
+            if type(task['detection_params']['result']) == unicode:
+                task['detection_params']['result'] = [task['detection_params']['result']]
 
-        # Rebuild base scan info
-        rebuildScanInfo(task)
+            # Ensure role (this is repeated from the end of preprocess handoff. . .)
+            task['role'] = 'process'
 
-        # Download frames
-        video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
-        for zipfile in task['detection_params']['result']:
-            log('Downloading {}'.format(zipfile), task['session_name'])
-            s3r.Bucket(config.get('s3', 'bucket')).download_file(zipfile, os.path.join(video_dir, os.path.basename(zipfile)))
+            # Rebuild base scan info
+            rebuildScanInfo(task)
 
-        # Run the task
-        mlab = matlabProcess()
-        mlab.runTask(task, nargout=0)
-        mlab.quit()
+            # Download frames
+            video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
+            for zipfile in task['detection_params']['result']:
+                log('Downloading {}'.format(zipfile), task['session_name'])
+                s3r.Bucket(config.get('s3', 'bucket')).download_file(zipfile, os.path.join(video_dir, os.path.basename(zipfile)))
+
+            # Run the task
+            mlab = matlabProcess()
+            mlab.runTask(task, nargout=0)
+            mlab.quit()
 
     except Exception as e:
         task['message'] = e
@@ -702,22 +755,12 @@ def client(roles):
 
     while True:
         try:
-            if not redisman.empty('process:SW_qt_3c_913_wed_1PM'):
-                task = redisman.get('process:SW_qt_3c_913_wed_1PM')
-                process(task)
-            elif not redisman.empty('process:3c'):
-                task = redisman.get('process:3c')
-                process(task)
-
-            '''
-            else:
-                for role in roles:
-                    ns = role[0]
-                    for q in redisman.list_queues(ns):
-                        if not redisman.empty(q):
-                            task = redisman.get(q)
-                            role[1](task)
-            '''
+            for role in roles:
+                ns = role[0]
+                for q in redisman.list_queues(ns):
+                    if not redisman.empty(q):
+                        task = redisman.get(q)
+                        role[1](task)
             time.sleep(timeout)
         except Exception as e:
             # Not sure what types of exceptions we'll get yet
