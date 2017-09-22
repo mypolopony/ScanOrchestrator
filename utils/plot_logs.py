@@ -79,5 +79,5 @@ layout = go.Layout(
     )
 )
 
-fig = go.Figure(data=data, layout=layout)
+fig = go.Figure(data=series, layout=layout)
 py.image.save_as(fig, filename=logpath.replace('.log','.png'))

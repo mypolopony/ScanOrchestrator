@@ -554,7 +554,7 @@ def detection(task):
         redisman.put(':'.join([task['role'], task['session_name']]), task)
 
         # Remove output files
-        for dir in glob.glob('/home/agridata/code/deepLearning/infra/output/*'):
+        for dir in glob.glob('/home/agridata/code/projects/deepLearning/infra/output/'):
             shutil.rmtree(dir)
     except Exception, e:
         tb = traceback.format_exc()
@@ -793,6 +793,9 @@ def run(args):
                 p = multiprocess.Process(target=client, args=[[('rvm', generateRVM), ('preproc', preprocess), ('process', process)]])
                 workers.append(p)
                 p.start()
+
+                # Stagger MATLABs
+                time.sleep(10)
 
             for worker in workers:
                 p.join()
