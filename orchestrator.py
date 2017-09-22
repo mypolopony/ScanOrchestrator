@@ -616,7 +616,7 @@ def check_shapes(task):
                 # Notify
                 log('Shape estimation beginning', task['session_name'])
 
-                # Download frames
+                # Download frames and RVM
                 video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
                 if not os.path.exists(video_dir):
                     os.makedirs(video_dir)
@@ -637,6 +637,8 @@ def check_shapes(task):
 
                 # Remove the semaphore and return
                 s3.delete_object(Bucket=config.get('s3','bucket'), Key=tempfile)
+                # Re-enqueue
+                redisman.put(':'.join([task['role'], task['session_name']]), task)
                 return
 
             # Remove the semaphore (but don't return immediately; unfortunate redundancy)
@@ -799,13 +801,6 @@ def run(args):
          # AWS poller (for new uploads)
         elif role == 'poll':
             poll()
-
-        '''
-        # Direct injection to shape size (for debugging)
-        elif role == 'shapesize':
-            task = {"num_retries": 0, "farmid": "5994c6ab55f30b158613c517", "farm_name": "Quatacker-Burns", "client_name": "Sun World", "blockid": "599f7ac855f30b2756ca2b5a", "clientid": "591daa81e1cf4d8cbfbb1bf6", "block_name": "3C", "role": "shapesize", "detection_params": {"caffemodel_s3_url_cluster": "s3://deeplearning_data/models/best/cluster_june_15_288000.caffemodel","caffemodel_s3_url_trunk": "s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel"}, "test": 0, "scanids": ["2017-09-14_08-09"], "session_name": "3c"}
-            check_shapes(task)
-        '''
 
         # RVM / Preprocessing / Processing
         elif role in ['nt', 'rvm', 'preproc', 'process', 'postproc']:
