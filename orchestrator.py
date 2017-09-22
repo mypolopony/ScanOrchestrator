@@ -573,7 +573,6 @@ def check_shapes(task):
 
     # Convert to useful dotdict and set the role
     task = dotdict(task)
-    task.role = 'shapesize'
 
     # Temp filed used as a semaphore for work in progress
     tempfile = '{}/results/farm_{}/block_{}/{}/fruit_size.temp'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name)
@@ -803,7 +802,7 @@ def run(args):
             poll()
 
         # RVM / Preprocessing / Processing
-        elif role in ['nt', 'rvm', 'preproc', 'process', 'postproc']:
+        elif role in ['nt', 'rvm', 'preproc', 'process']:
             workers = list()
             for worker in xrange(NUM_CORES):
                 p = multiprocess.Process(target=client, args=[[('rvm', generateRVM), ('preproc', preprocess), ('process', process)]])
