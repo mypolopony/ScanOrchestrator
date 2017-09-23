@@ -571,7 +571,7 @@ def check_shapes(task):
     pct_complete = 0.3          # Percentage required to produce a shape estimate
     timeout = 10                # In minutes (no need to keep attacking the queue)
 
-    # Convert to useful dotdict and set the role
+    # Convert to useful dotdict
     task = dotdict(task)
 
     # Temp filed used as a semaphore for work in progress
@@ -698,9 +698,6 @@ def process(task):
             mlab = matlabProcess()
             mlab.runTask(task, nargout=0)
             mlab.quit()
-
-            task['role'] = 'postproc'
-            redisman.put(':'.join([task['role'], task['session_name']]), task)
 
     except Exception as e:
         task['message'] = e

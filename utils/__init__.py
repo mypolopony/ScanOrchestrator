@@ -86,5 +86,9 @@ class RedisManager(object):
 
 
     def status(self):
-        for queue in self.list_queues('*'):
-            print('{}\t{}'.format(queue, self.qsize(queue)))
+        '''
+        I just wanted to see if it was possible to do this in one line so that the epigraph 
+        might be longer than the actual code.
+        '''
+
+        return dict(zip(self.list_queues('*'), [self.qsize(q) for q in self.list_queues('*')]))

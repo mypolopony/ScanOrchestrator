@@ -173,16 +173,16 @@ def repair(task):
 
         # Inject missing preprocess
         if toadd:
-            # pass *!override!* skip over preprocess
             insert([toPreprocess(a) for a in toadd])
+            # print('Skipping preprocess')
         else:
             print('Preprocess all set')
     except Exception as e:
         print('Process failed: {}'.format(e))
 
-    ##############
-    # To process #
-    ##############
+    ################
+    # To detection #
+    ################
 
     try:
         # Detection (on s3)
@@ -214,15 +214,16 @@ def repair(task):
         # Inject missing detection
         if toadd:
             insert([toDetection(a) for a in toadd])
+            # print('Skipping detectopm')
         else:
             print('Detection all set')
     except Exception as e:
         print('Detection failed: {}'.format(e))
 
 
-    ################
-    # To detection #
-    ################
+    ##############
+    # To process #
+    ##############
 
     try:
         # Process (on s3)
@@ -247,6 +248,7 @@ def repair(task):
         # Inject missing processing
         if toadd:
             insert([toProcess(a) for a in toadd])
+            # print('Skipping processing')
         else:
             print('Process all set')
     except Exception as e:
