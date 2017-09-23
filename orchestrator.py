@@ -636,6 +636,7 @@ def check_shapes(task):
 
                 # Remove the semaphore and return
                 s3.delete_object(Bucket=config.get('s3','bucket'), Key=tempfile)
+
                 # Re-enqueue
                 redisman.put(':'.join([task['role'], task['session_name']]), task)
                 return
@@ -643,11 +644,11 @@ def check_shapes(task):
             # Remove the semaphore (but don't return immediately; unfortunate redundancy)
             s3.delete_object(Bucket=config.get('s3','bucket'), Key=tempfile)
 
-        # Wait for some time
-        time.sleep(60 * WAIT_TIME)
-
         # Re-enqueue
         redisman.put(':'.join([task['role'], task['session_name']]), task)
+
+        # Wait for some time
+        time.sleep(60 * WAIT_TIME)
 
     except Exception as e:
         tb = traceback.format_exc()
