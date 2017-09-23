@@ -709,7 +709,17 @@ def process(task):
 
 @announce
 def postprocess(task):
-    pass
+    '''
+    Post-processing 
+    '''
+
+    # Convert to useful dotdict and set the role
+    task = dotdict(task)
+
+    try:
+        sessionuri = '{}/results/farm_{}/block_{}/{}/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name)
+        results = s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri)
+        summary = [k['Key'] for k in results['Contents'] if 'summary' in k['Key']]
 
 
 @announce
