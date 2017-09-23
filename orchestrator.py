@@ -720,6 +720,8 @@ def postprocess(task):
         sessionuri = '{}/results/farm_{}/block_{}/{}/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name)
         results = s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri)
         summary = [k['Key'] for k in results['Contents'] if 'summary' in k['Key']]
+    except:
+        pass
 
 
 @announce
