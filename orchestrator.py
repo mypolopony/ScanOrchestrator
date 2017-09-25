@@ -665,8 +665,8 @@ def process(task):
 
     try:
         # Fruit size URIs
-        fruituri = '{}/results/farm_{}/block_{}/{}/fruit_size.txt'.format(task['clientid'], task['farm_name'].replace(' ', ''),task['block_name'], task['session_name']).keys()
-        tempuri = '{}/results/farm_{}/block_{}/{}/fruit_size.temp'.format(task['clientid'], task['farm_name'].replace(' ', ''),task['block_name'], task['session_name']).keys()
+        fruituri = '{}/results/farm_{}/block_{}/{}/fruit_size.txt'.format(task['clientid'], task['farm_name'].replace(' ', ''),task['block_name'], task['session_name'])
+        tempuri = '{}/results/farm_{}/block_{}/{}/fruit_size.temp'.format(task['clientid'], task['farm_name'].replace(' ', ''),task['block_name'], task['session_name'])
 
         # Do they exist?
         fruitfile = 'Contents' in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=fruituri)
