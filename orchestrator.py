@@ -653,6 +653,8 @@ def check_shapes(task):
         tb = traceback.format_exc()
         task['message'] = str(tb)
         log('Checkshape failed: ({})'.format(e, task['session_name']))
+        # Remove the semaphore (but don't return immediately; unfortunate redundancy)
+        s3.delete_object(Bucket=config.get('s3','bucket'), Key=tempfile)
         handleFailedTask(task)
         pass
 
