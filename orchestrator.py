@@ -665,8 +665,12 @@ def process(task):
 
     try:
         # Fruit size URIs
-        fruitfile = 'Contents' in '{}/results/farm_{}/block_{}/{}/fruit_size.txt'.format(task['clientid'], task['farm_name'].replace(' ', ''),task['block_name'], task['session_name']).keys()
-        tempfile = 'Contents' in '{}/results/farm_{}/block_{}/{}/fruit_size.temp'.format(task['clientid'], task['farm_name'].replace(' ', ''),task['block_name'], task['session_name']).keys()
+        fruituri = '{}/results/farm_{}/block_{}/{}/fruit_size.txt'.format(task['clientid'], task['farm_name'].replace(' ', ''),task['block_name'], task['session_name']).keys()
+        tempuri = '{}/results/farm_{}/block_{}/{}/fruit_size.temp'.format(task['clientid'], task['farm_name'].replace(' ', ''),task['block_name'], task['session_name']).keys()
+
+        # Do they exist?
+        fruitfile = 'Contents' in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=fruituri)
+        tempfile = 'Contents' in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=tempuri)
 
         if not fruitfile and not tempfile:          # If there are no fruit size related files, try and make them
             check_shapes(task)  
