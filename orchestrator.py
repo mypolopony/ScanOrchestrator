@@ -675,8 +675,10 @@ def process(task):
         tempfile = 'Contents' in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=tempuri)
 
         if not fruitfile and not tempfile:          # If there are no fruit size related files, try and make them
+            task['role'] = 'shapesize'
             check_shapes(task)  
         elif fruitfile:                             # If there is a fruit size file, use it
+            task['role'] = 'process'
             # Notify
             log('Received processing task: {}'.format(task, task['session_name']))
 
