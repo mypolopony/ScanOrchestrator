@@ -578,6 +578,8 @@ def check_shapes(task):
     tempfile = '{}/results/farm_{}/block_{}/{}/fruit_size.temp'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name)
 
     try:
+        # This condition is actually vaguely dependent on the similar one found in the process
+        # method. This would catch some odd race cases
         if 'Contents' not in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=tempfile).keys():
             # Place the semaphore
             body = StringIO(unicode('Work In Progress: {}'.format(datetime.strftime(datetime.now(),'%c'))))
@@ -647,9 +649,6 @@ def check_shapes(task):
         # Re-enqueue
         redisman.put(':'.join([task['role'], task['session_name']]), task)
 
-        # Wait for some time
-        time.sleep(60 * WAIT_TIME)
-
     except Exception as e:
         tb = traceback.format_exc()
         task['message'] = str(tb)
@@ -665,12 +664,13 @@ def process(task):
     '''
 
     try:
-        # Fruit size URI
-        fruituri = '{}/results/farm_{}/block_{}/{}/fruit_size.txt'.format(task['clientid'], task['farm_name'].replace(' ', ''),task['block_name'], task['session_name'])
+        # Fruit size URIs
+        fruitfile = 'Contents' in '{}/results/farm_{}/block_{}/{}/fruit_size.txt'.format(task['clientid'], task['farm_name'].replace(' ', ''),task['block_name'], task['session_name']).keys()
+        tempfile = 'Contents' in '{}/results/farm_{}/block_{}/{}/fruit_size.temp'.format(task['clientid'], task['farm_name'].replace(' ', ''),task['block_name'], task['session_name']).keys()
 
-        if 'Contents' not in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=fruituri).keys():
-            check_shapes(task)
-        else:
+        if not fruitfile and not tempfile:          # If there are no fruit size related files, try and make them
+            check_shapes(task)  
+        elif fruitfile:                             # If there is a fruit size file, use it
             # Notify
             log('Received processing task: {}'.format(task, task['session_name']))
 
@@ -698,6 +698,8 @@ def process(task):
             mlab = matlabProcess()
             mlab.runTask(task, nargout=0)
             mlab.quit()
+        else:
+            time.sleep(60*3)                            # Else, just wait (implicitly, there must be a temp file, i.e. someone is working on it)
 
     except Exception as e:
         task['message'] = e
