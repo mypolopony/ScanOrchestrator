@@ -640,19 +640,20 @@ def check_shapes(task):
                 s3.delete_object(Bucket=config.get('s3','bucket'), Key=tempfile)
 
                 # Re-enqueue
-                redisman.put(':'.join([task['role'], task['session_name']]), task)
+                redisman.put(':'.join(['process', task['session_name']]), task)
                 return
 
             # Remove the semaphore (but don't return immediately; unfortunate redundancy)
             s3.delete_object(Bucket=config.get('s3','bucket'), Key=tempfile)
 
         # Re-enqueue
-        redisman.put(':'.join([task['role'], task['session_name']]), task)
+        redisman.put(':'.join(['process', task['session_name']]), task)
 
     except Exception as e:
         tb = traceback.format_exc()
         task['message'] = str(tb)
         log('Checkshape failed: ({})'.format(e, task['session_name']))
+        task['role'] = 'process'
         # Remove the semaphore (but don't return immediately; unfortunate redundancy)
         s3.delete_object(Bucket=config.get('s3','bucket'), Key=tempfile)
         handleFailedTask(task)
