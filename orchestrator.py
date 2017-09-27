@@ -709,7 +709,7 @@ def process(task):
             mlab.quit()
 
             # Pass to postprocess
-            task['role'] = postprocess
+            task['role'] = 'postprocess'
             redisman.put(':'.join([task['role'], task['session_name']]), task)
 
         else:
