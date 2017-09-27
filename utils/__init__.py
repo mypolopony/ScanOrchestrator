@@ -70,7 +70,7 @@ class RedisManager(object):
         '''
         List all queues by namespace
         '''
-        return self.db.keys('*{}*'.format(namespace))
+        return self.db.keys('{}:'.format(namespace))
 
 
     def purge(self, role=None):
