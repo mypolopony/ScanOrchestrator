@@ -34,7 +34,7 @@ redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 
 bucket = 'agridatadepot'
 
 # Execute?
-execute = False
+execute = True
 
 
 def toPreprocess(lost):
@@ -88,6 +88,16 @@ def toProcess(lost):
     lost['detection_params']['result'] = [uri]
     lost['detection_params']['folders'] = [os.path.basename(uri)]
     lost['role'] = 'process'
+
+    return lost
+
+def toPostProcess(lost):
+    # Reuse detection
+    lost['uri'] = lost['detection_params']['folders']       # Must recreate this otherwise ephemeral bit to reuse detection :(
+    lost = toDetection(lost)
+
+    # Change role
+    lost['role'] = 'postprocess'
 
     return lost
 
@@ -244,6 +254,8 @@ def repair(task):
 
             if subtask.uri not in extant:
                 toadd.append(subtask)
+            else:
+                subtasks['process'].append(subtask)
 
         # Inject missing processing
         if toadd:
@@ -261,16 +273,20 @@ def repair(task):
     try:
         sessionuri = '{}/results/farm_{}/block_{}/{}/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name)
         session_results = s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri)
-        detection_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'detection/'))
-        process_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'process-frames/'))
         summary = [k['Key'] for k in session_results['Contents'] if 'summary' in k['Key']]
 
-        # Note, only one core will receive the winning ticket, i.e, for all the tasks that come through to the postprocess queue,
-        # only the last one will trigger this action, preventing computers from running into one another
-        if not summary and detection_results == process_results:
-            task = toProcess(task)
+        # Only postprocess remains
+        if len(subtasks['detection']) == len(subtasks['process']) and not summary:
+            # Grab an exemplary process task
+            task = subtasks['process'][0]
+            # Change role
             task['role'] = 'postprocess'
+            # And insert
             insert([task])
+        else:
+            print('Postprocess all set')
+    except Exception as e:
+        print('Postprocess failed: {}'.format(e))
 
 
 if __name__ == '__main__':
