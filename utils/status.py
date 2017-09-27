@@ -21,3 +21,4 @@ if __name__ == '__main__':
         print('-----------')
         print(datetime.datetime.strftime(datetime.datetime.now(),'%c'))
         pprint(generator())
+        time.sleep(10)

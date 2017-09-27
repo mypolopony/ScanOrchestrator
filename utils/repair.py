@@ -34,7 +34,7 @@ redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 
 bucket = 'agridatadepot'
 
 # Execute?
-execute = True
+execute = False
 
 
 def toPreprocess(lost):
@@ -253,6 +253,24 @@ def repair(task):
             print('Process all set')
     except Exception as e:
         print('Process failed: {}'.format(e))
+
+    ##################
+    # To postprocess #
+    ##################
+
+    try:
+        sessionuri = '{}/results/farm_{}/block_{}/{}/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name)
+        session_results = s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri)
+        detection_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'detection/'))
+        process_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'process/'))
+        summary = [k['Key'] for k in session_results['Contents'] if 'summary' in k['Key']]
+
+        # Note, only one core will receive the winning ticket, i.e, for all the tasks that come through to the postprocess queue,
+        # only the last one will trigger this action, preventing computers from running into one another
+        if not summary and detection_results == process_results:
+            task = toProcess(task)
+            task['role'] = 'postprocess'
+            insert([task])
 
 
 if __name__ == '__main__':

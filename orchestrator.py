@@ -707,11 +707,19 @@ def process(task):
             mlab = matlabProcess()
             mlab.runTask(task, nargout=0)
             mlab.quit()
+
+            # Pass to postprocess
+            task['role'] = postprocess
+            redisman.put(':'.join([task['role'], task['session_name']]), task)
+
         else:
             time.sleep(60*3)                            # Else, just wait (implicitly, there must be a temp file, i.e. someone is working on it)
 
     except Exception as e:
-        task['message'] = e
+        tb = traceback.format_exc()
+        logger.error(tb)
+        task['message'] = str(tb)
+        log('args, Task FAILED. Re-enqueueing... ({})'.format(task), task['session_name'])
         handleFailedTask(task)
         pass
 
@@ -721,15 +729,36 @@ def postprocess(task):
     '''
     Post-processing 
     '''
+    # Notify
+    log('Received postprocessing task: {}'.format(task, task['session_name']))
 
     # Convert to useful dotdict and set the role
     task = dotdict(task)
 
     try:
         sessionuri = '{}/results/farm_{}/block_{}/{}/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name)
-        results = s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri)
+        session_results = s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri)
+        detection_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'detection/'))
+        process_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'process/'))
         summary = [k['Key'] for k in results['Contents'] if 'summary' in k['Key']]
+
+        # Note, only one core will receive the winning ticket, i.e, for all the tasks that come through to the postprocess queue,
+        # only the last one will trigger this action, preventing computers from running into one another
+        if detection_results == process_results:
+            # Run
+            mlab = matlabProcess()
+            mlab.runTask(task, nargout=0)
+            mlab.quit()
+
+        # The implicit consequence of the above is that process step is not complete, so this task can now
+        # simply die without any further action
+
     except:
+        tb = traceback.format_exc()
+        logger.error(tb)
+        task['message'] = str(tb)
+        log('args, Task FAILED. Re-enqueueing... ({})'.format(task), task['session_name'])
+        handleFailedTask(task)
         pass
 
 
@@ -823,10 +852,10 @@ def run(args):
             poll()
 
         # RVM / Preprocessing / Processing
-        elif role in ['nt', 'rvm', 'preproc', 'process']:
+        elif role in ['nt', 'rvm', 'preproc', 'process', 'postprocess']:
             workers = list()
             for worker in xrange(NUM_CORES):
-                p = multiprocess.Process(target=client, args=[[('rvm', generateRVM), ('preproc', preprocess), ('process', process)]])
+                p = multiprocess.Process(target=client, args=[[('rvm', generateRVM), ('preproc', preprocess), ('process', process), ('postprocess',postprocess)]])
                 workers.append(p)
                 p.start()
 
