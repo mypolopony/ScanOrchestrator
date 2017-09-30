@@ -589,7 +589,7 @@ def check_shapes(task):
             extant = s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/results/farm_{}/block_{}/{}/detection/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
             
             # Parse filenames
-            zips = [e['Key'].split('/')[-1] for e in extant]
+            zips = [e['Key'].split('/')[-1] for e in extant if '.zip' in e]
             filerows =  list(np.unique([int(re.search('(?:row)([0-9]+)',z).group(1)) for z in zips]))
 
             # Obtain ground-truth RVM rows
