@@ -40,7 +40,7 @@ from utils.connection import *
 WAIT_TIME = 20      # [AWS] Wait time for messages
 NUM_MSGS = 10       # [AWS] Number of messages to grab at a time
 RETRY_DELAY = 60    # [AWS] Number of seconds to wait upon encountering an error
-NUM_CORES = 4       # [GENERAL] Number of cores (= number of MATLAB instances)
+NUM_CORES = 1       # [GENERAL] Number of cores (= number of MATLAB instances)
 
 # OS-Specific Setup
 if os.name == 'nt':
@@ -589,7 +589,7 @@ def check_shapes(task):
             extant = s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix='{}/results/farm_{}/block_{}/{}/detection/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name))['Contents']
             
             # Parse filenames
-            zips = [e['Key'].split('/')[-1] for e in extant if '.zip' in e]
+            zips = [e['Key'].split('/')[-1] for e in extant if '.zip' in e['Key']]
             filerows =  list(np.unique([int(re.search('(?:row)([0-9]+)',z).group(1)) for z in zips]))
 
             # Obtain ground-truth RVM rows
