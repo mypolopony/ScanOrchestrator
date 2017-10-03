@@ -737,7 +737,7 @@ def postprocess(task):
 
     try:
         sessionuri = '{}/results/farm_{}/block_{}/{}/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name)
-        session_results = s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri)
+        session_results = s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri)['Contents']
         detection_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'detection/'))
         process_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'process-frames/'))
         summary = [k['Key'] for k in session_results['Contents'] if 'summary' in k['Key']]
