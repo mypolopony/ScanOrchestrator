@@ -5,6 +5,7 @@ import os
 import boto3
 
 # MongoDB
+
 print('Connecting to Development Databae')
 dbname = 'dev-agdb'
 username = 'staging-agridata'
@@ -14,3 +15,9 @@ port = 36947
 connect(dbname, host=server, port=port, username=username, password=password)
 c = MongoClient('mongodb://' + username + ':' + password + '@' + server + ':' + str(port) + '/' + dbname)
 db = c[dbname]
+'''
+dbname = 'dev-agdb'
+connect(dbname)
+c = MongoClient('mongodb://localhost:27017')
+db = c[dbname]
+'''

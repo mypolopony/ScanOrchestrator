@@ -709,8 +709,8 @@ def process(task):
             mlab.quit()
 
             # Pass to postprocess
-            task['role'] = 'postprocess'
-            redisman.put(':'.join([task['role'], task['session_name']]), task)
+            # task['role'] = 'postprocess'
+            # redisman.put(':'.join([task['role'], task['session_name']]), task)
 
         else:
             time.sleep(60*3)                            # Else, just wait (implicitly, there must be a temp file, i.e. someone is working on it)
