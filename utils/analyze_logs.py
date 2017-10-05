@@ -25,7 +25,7 @@ def get_pseudorandom_color(basis):
     return '#%06x' % random.randint(0, 0xFFFFFF)
 
 
-session_name = '4d2'
+session_name = '1a'
 filename = '/tmp/plotly.csv'
 results = list(db.orchestrator.find({'session_name': session_name}))
 

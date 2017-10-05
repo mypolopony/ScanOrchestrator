@@ -89,7 +89,7 @@ if __name__ == '__main__':
             # This can insert directly into process but is probably made obsolete by the repair script
             elif role == 'process':
                 # Get the list of zips in detection folder
-                base_url_path = '{}/results/farm_{}/block_{}/{}'.format(task.clientid, task.farm_name.replace(' ' ,''), task.block_name.replace(' ',''), task.session_name)
+                base_url_path = '{}/results/farm_{}/block_{}/{}'.format(task['clientid'], task['farm_name'].replace(' ' ,''), task['block_name'].replace(' ',''), task['session_name'])
                 zips = s3.list_objects(Bucket=config.get('s3','bucket'),Prefix='{}/detection'.format(base_url_path))
                 zips = [z['Key'] for z in zips['Contents'] if '.zip' in z['Key']]
 

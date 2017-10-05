@@ -218,8 +218,7 @@ class Scan(db.Document):
     A Scan is one outing with the ATV
     '''
 
-    client = db.DynamicField()          # Sadly sometimes str, sometimes ObjectId
-    missed = db.ListField()
+    client = db.ObjectIdField()
     scanid = db.StringField()
     start = db.DateTimeField()
     end = db.DateTimeField()
@@ -231,6 +230,8 @@ class Scan(db.Document):
     notes = db.ListField(db.StringField())
     startleft = db.StringField()
     startright = db.StringField()
+    missed = db.ListField()
+    direction = db.IntField(choices=(-1, 1), default=1)
 
 
 class Video(db.Document):

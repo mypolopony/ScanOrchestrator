@@ -291,5 +291,8 @@ def repair(task):
 
 if __name__ == '__main__':
     for taskfile in glob.glob('/Users/mypolopony/Projects/ScanOrchestrator/tasks/*.yaml'):
-        print('\nAssessing {}'.format(taskfile.split('/')[-1].replace('.yaml','')))
-        repair(taskfile)
+        try:
+            print('\nAssessing {}'.format(taskfile.split('/')[-1].replace('.yaml','')))
+            repair(taskfile)
+        except Exception as e:
+            print('Failed: {}'.format(e))
