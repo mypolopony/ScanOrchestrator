@@ -15,8 +15,8 @@ cd C:\AgriData\Projects\ScanOrchestrator
 git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/ScanOrchestrator.git"
 git fetch --all
-git reset --hard origin/$scanOrchestratorBranch
-git checkout $scanOrchestratorBranch
+git reset --hard origin/redis
+git checkout redis
 
 
 ### Update MatlabCore
@@ -25,8 +25,8 @@ cd C:\AgriData\Projects\MatlabCore
 git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/MatlabCore.git"
 git fetch --all
-git reset --hard origin/$matlabCoreBranch
-git checkout $matlabCoreBranch
+git reset --hard origin/symphony
+git checkout symphony
 
 
 ### AWS Credentials
@@ -46,6 +46,11 @@ Remove-Item Env:\AWS_SECRET_ACCESS_KEY
 [Environment]::SetEnvironmentVariable("AWS_SECRET_ACCESS_KEY", "flt6O35cQpgFBnhh1oULjODmJ3AoXeY7k5OFh/3R", "Machine")
 # Copy AWS credentials file from Scan Orchestrator
 cp C:\AgriData\Projects\ScanOrchestrator\credentials\aws_credentials ~\.aws\credentials
+
+
+### Register Database
+[Environment]::SetEnvironmentVariable("DB", "0", "Machine")
+[Environment]::SetEnvironmentVariable("DB", "0", "User")
 
 
 ### Copy extern

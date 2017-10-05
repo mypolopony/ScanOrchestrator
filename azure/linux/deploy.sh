@@ -1,24 +1,24 @@
 #!/bin/bash
 
-
-
-DELETE=0
-CREATE=1
-LOC=westus
-while getopts d:c:l: opts; do
+# DELETE=0
+# CREATE=1
+# LOC=westus2
+# DB=0
+# RG=""
+while getopts d:c:l:r:g opts; do
    case ${opts} in
       d) DELETE=${OPTARG} ;;
       c) CREATE=${OPTARG} ;;
       l) LOC=${OPTARG} ;;
+      r) DB=${OPTARG} ;;
+      g) RG=${OPTARG} ;;
+
    esac
 done
 
 
 echo DELETE=$DELETE  CREATE=$CREATE LOC=$LOC
 
-
-
-RG="swc"
 OUTDIR=./output
 DEPLOYMENT_NAME=$RG
 mkdir -p $OUTDIR
@@ -38,13 +38,13 @@ if [ "$DELETE" -eq "1" ];then
 fi
 
 if [ "$CREATE" -eq "1" ];then
-    paramsJson=$(cat  $SRC_DIR/vmssdeploy_$LOC.parameters.json | jq '.parameters')
+    paramsJson=$(cat  $SRC_DIR/vmssdeploy_db$DB.parameters.json | jq '.parameters')
     echo az group create -n $RG   -l $LOC > $OUTDIR/$RG-output.json
     az group create -n $RG   -l $LOC > $OUTDIR/$RG-output.json
 
 
     templateFile=$SRC_DIR/vmssdeploy.json
-    paramsJson=$(cat  $SRC_DIR/vmssdeploy_$LOC.parameters.json | jq '.parameters')
+    paramsJson=$(cat  $SRC_DIR/vmssdeploy_db$DB.parameters.json | jq '.parameters')
     echo $paramsJson
 
     az group deployment validate -g $RG   --template-file $templateFile --parameters "$paramsJson" --verbose

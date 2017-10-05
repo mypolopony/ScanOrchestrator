@@ -277,11 +277,11 @@
                   "autoUpgradeMinorVersion": true,
                   "settings": {
                     "fileUris": [
-                        "https://agridatacomputestorage.blob.core.windows.net/scripts/run_redis.ps1"
+                        "https://agridatacomputestorage.blob.core.windows.net/scripts/run_db1.ps1"
                     ],
-                    "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File ./run_redis.ps1",
+                    "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File ./run_db1.ps1",
                     "protectedSettings": {
-                        "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File ./run_redis.ps1",
+                        "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File ./run_db1.ps1",
                         "storageAccountName": "agridatacomputestorage",
                         "storageAccountKey": "HTqbKnZ/9/lo+G1ohr+KUYteOZSsrh4yqkgIc0KwlaXc+lx6egTVsG2qHCYDm5B4efTT0KX+wk+bNZmZmgrNfA=="
                     }

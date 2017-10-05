@@ -10,6 +10,9 @@ set +e
 
 RUNAS=agridata
 
+# Register database
+export DB=1
+
 echo "Opening" > /home/agridata/startup.log
 
 git_sync_core() {
