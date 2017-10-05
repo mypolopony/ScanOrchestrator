@@ -1,0 +1,11 @@
+client_name: Sun World
+farm_name: Quatacker-Burns
+block_name: 1A
+session_name: 1a
+test: 0
+exclude_scans:
+include_scans: [2017-09-14_12-02]
+role: rvm
+detection_params:
+        caffemodel_s3_url_cluster: s3://deeplearning_data/models/best/cluster_june_15_288000.caffemodel
+        caffemodel_s3_url_trunk: s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel

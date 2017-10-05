@@ -1,0 +1,11 @@
+client_name: Larkmead
+farm_name: Larkmead Vineyards
+block_name: C7
+session_name: c7
+test: 0
+exclude_scans:
+include_scans: [2017-08-31_08-54]
+role: rvm
+detection_params:
+        caffemodel_s3_url_cluster: s3://deeplearning_data/models/best/wine-black-green-sep-19-2017-100000.caffemodel
+        caffemodel_s3_url_trunk: s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel
