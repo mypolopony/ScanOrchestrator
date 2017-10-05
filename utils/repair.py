@@ -18,7 +18,7 @@ import time
 
 # Load config file
 config = ConfigParser.ConfigParser()
-config_path = '/Users/mypolopony/Projects/ScanOrchestrator/utils/poller.conf'
+config_path = './utils/poller.conf'
 config.read(config_path)
 
 # S3 Resources
@@ -290,8 +290,7 @@ def repair(task):
 
 
 if __name__ == '__main__':
-    for taskfile in glob.glob('/Users/mypolopony/Projects/ScanOrchestrator/tasks/*.yaml'):
-        try:
+    for taskfile in glob.glob('tasks/*.yaml'):
             print('\nAssessing {}'.format(taskfile.split('/')[-1].replace('.yaml','')))
             repair(taskfile)
         except Exception as e:

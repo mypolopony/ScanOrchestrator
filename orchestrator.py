@@ -613,7 +613,7 @@ def check_shapes(task):
             if complete and uniform:
                 # Select random rows
                 cadre = [file['Key'] for file in np.random.choice(extant, int(len(rvm) * pct_complete), replace=False)]
-
+                cadre = cadre[0: min(len(cadre), 25)]
                 # Notify
                 log('Shape estimation beginning', task['session_name'])
 
@@ -733,6 +733,7 @@ def postprocess(task):
     log('Received postprocessing task: {}'.format(task, task['session_name']))
 
     # Convert to useful dotdict and set the role
+    is_manual_run=task.get('is_manual', False)
     task = dotdict(task)
 
     try:
@@ -744,7 +745,7 @@ def postprocess(task):
 
         # Note, only one core will receive the winning ticket, i.e, for all the tasks that come through to the postprocess queue,
         # only the last one will trigger this action, preventing computers from running into one another
-        if not summary and detection_results == process_results:
+        if not summary and ( is_manual_run or  detection_results == process_results):
             # Run
             mlab = matlabProcess()
             mlab.runTask(task, nargout=0)
@@ -825,6 +826,7 @@ def client(roles):
                 for q in redisman.list_queues(ns):
                     if not redisman.empty(q):
                         task = redisman.get(q)
+                        ### ENV VARIABLE HERE
                         role[1](task)
             time.sleep(timeout)
         except Exception as e:

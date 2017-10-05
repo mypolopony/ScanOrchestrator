@@ -15,8 +15,8 @@ cd C:\AgriData\Projects\ScanOrchestrator
 git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/ScanOrchestrator.git"
 git fetch --all
-git reset --hard origin/redis
-git checkout redis
+git reset --hard origin/$scanOrchestratorBranch
+git checkout $scanOrchestratorBranch
 
 
 ### Update MatlabCore
@@ -25,8 +25,8 @@ cd C:\AgriData\Projects\MatlabCore
 git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/MatlabCore.git"
 git fetch --all
-git reset --hard origin/symphony
-git checkout symphony
+git reset --hard origin/$matlabCoreBranch
+git checkout $matlabCoreBranch
 
 
 ### AWS Credentials

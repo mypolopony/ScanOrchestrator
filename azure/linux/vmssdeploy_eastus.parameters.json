@@ -9,22 +9,13 @@
       "value": "16.04-LTS"
     },
     "instanceCount": {
-      "value": 12
+      "value": 25
     },
     "adminUsername": {
       "value": "agridata"
     },
     "adminPassword": {
       "value": "AgriData2Win!"
-    },
-    "destinationFolder": {
-      "value": "/home/agridata"
-    },
-    "serviceName": {
-      "value": "myservice"
-    },
-    "appPackage": {
-      "value": "package.tar.gz"
     },
     "resourcesStorageAccount": {
        "value": "kggamowstorage"
@@ -33,23 +24,31 @@
        "value": "6/4+Knuevixrn8yavNZounqjwD3R+JskykNUpAF3B7lQBJZTgYh28xXxHpjUKjB3m/sPKr0T1f5tmtKdqwJ8NQ=="
     },
     "customScriptUri": {
-
-       "value": "https://kggamowstorage.blob.core.windows.net/scriptslinux/run.sh"
+       "value": "https://kggamowstorage.blob.core.windows.net/scriptslinux/run_redis.sh"
     },
     "sourceImageVhdUri":{
-      "value": "https://kggamowstorage.blob.core.windows.net/vhds/osdisk_a252c56f7f.vhd"
+      "value": "https://kggamowstorage.blob.core.windows.net/vhds-redis/linux_081217.vhd"
+    },
+    "destinationFolder": {
+      "value": "/home/agridata"
+    },
+    "serviceName": {
+      "value": "myservice"
     },
     "customScriptName":{
-        "value": "run.sh"
+      "value": "run_redis.sh"
+    },
+    "appPackage": {
+      "value": "package.tar.gz"
     },
     "scanOrchestratorBranch": {
-      "value": "develop"
+      "value": "kg_redis"
     },
     "deepLearningBranch": {
       "value": "dev2"
     },
     "session_name": {
-      "value": "kg1"
+      "value": ""
     }
   }
 }
