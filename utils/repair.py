@@ -28,7 +28,7 @@ s3 = boto3.client('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secret)
 s3r = boto3.resource('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secret)
 
 # Redis connection
-redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'))
+redisman = RedisManager(host=config.get('redis','host'), db=os.environ['REDIS_DB'], port=config.get('redis','port'))
 
 # Bucket
 bucket = 'agridatadepot'
@@ -291,6 +291,7 @@ def repair(task):
 
 if __name__ == '__main__':
     for taskfile in glob.glob('tasks/*.yaml'):
+        try:
             print('\nAssessing {}'.format(taskfile.split('/')[-1].replace('.yaml','')))
             repair(taskfile)
         except Exception as e:
