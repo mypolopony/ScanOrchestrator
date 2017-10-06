@@ -831,6 +831,7 @@ def client(roles):
                     if not redisman.empty(q):
                         task = redisman.get(q)
                         ### ENV VARIABLE HERE
+                        task['db'] = config.get('redis', 'db')
                         role[1](task)
             time.sleep(timeout)
         except Exception as e:
