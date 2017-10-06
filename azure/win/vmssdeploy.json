@@ -1,0 +1,433 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "instanceCount": {
+      "type": "int",
+      "metadata": {
+        "description": "Number of VM instances to create in the scale set"
+      },
+      "defaultValue": 10
+    },
+    "windowsOSVersion": {
+      "type": "string",
+      "defaultValue": "2012-R2-Datacenter",
+      "allowedValues": [
+        "2008-R2-SP1",
+        "2012-Datacenter",
+        "2012-R2-Datacenter"
+      ],
+      "metadata": {
+        "description": "The Windows version for the VM. This will pick a fully patched image of this given Windows version. Allowed values: 2008-R2-SP1, 2012-Datacenter, 2012-R2-Datacenter."
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "allowedValues": [
+        "Standard_D4S_V3",
+        "Standard_D4_v3",
+        "Standard_D1",
+        "Standard_DS1",
+        "Standard_D2",
+        "Standard_DS2",
+        "Standard_D3",
+        "Standard_DS3",
+        "Standard_D4",
+        "Standard_DS4",
+        "Standard_D11",
+        "Standard_DS11",
+        "Standard_D12",
+        "Standard_DS12",
+        "Standard_D13",
+        "Standard_DS13",
+        "Standard_D14",
+        "Standard_DS14"
+      ],
+      "metadata": {
+        "description": "The size of the VM instances Created"
+      },
+      "defaultValue": "Standard_D4_v3"
+    },
+    "dnsNamePrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "The Prefix for the DNS name of the new IP Address created"
+      },
+       "defaultValue": "foo23"
+    },
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "The Username of the administrative user for each VM instance created"
+      },
+      "defaultValue": "agridata"
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "The Password of the administrative user for each VM instance created"
+      },
+      "defaultValue": "BattleOfHastings1066"
+    },
+    "sourceImageVhdUri": {
+      "type": "string",
+      "metadata": {
+        "description": "The source of the blob containing the custom image"
+      },
+      "defaultValue": "https://agridatacomputestorage.blob.core.windows.net/images/computeos_august2017.vhd"
+    },
+    "frontEndLBPort": {
+      "type": "int",
+      "metadata": {
+        "description": "The front end port to load balance"
+      },
+      "defaultValue": 80
+    },
+    "backEndLBPort": {
+      "type": "int",
+      "metadata": {
+        "description": "The front end port to load balance"
+      },
+      "defaultValue": 80
+    },
+    "probeIntervalInSeconds": {
+      "type": "int",
+      "metadata": {
+        "description": "The interval between load balancer health probes"
+      },
+      "defaultValue": 15
+    },
+    "numberOfProbes": {
+      "type": "int",
+      "metadata": {
+        "description": "The number of probes that need to fail before a VM instance is deemed unhealthy"
+      },
+      "defaultValue": 5
+    },
+    "probeRequestPath": {
+      "type": "string",
+      "metadata": {
+        "description": "The path used for the load balancer health probe"
+      },
+      "defaultValue": "/iisstart.htm"
+    },
+    "resourcesStorageAccount": {
+      "type": "string",
+      "metadata": {
+        "description": "The resource storage account name"
+      },
+      "defaultValue": ""
+    },
+    "resourcesStorageKey": {
+      "type": "string",
+      "metadata": {
+        "description": "The key to the resource storage account"
+      },
+      "defaultValue": ""
+    },
+    "customScriptName": {
+      "type": "string",
+      "metadata": {
+        "description": "name of the custom script to be run by bash"
+      },
+      "defaultValue": "run.ps1"
+    },
+    "scanOrchestratorBranch": {
+      "type": "string",
+      "metadata": {
+        "description": "The first argument to the extension script"
+      },
+      "defaultValue": ""
+    },
+
+    "customScriptUri": {
+      "type": "string",
+      "metadata": {
+        "description": "The url to th script in the resource storage account"
+      },
+      "defaultValue": ""
+    },
+    "osType": {
+      "type": "string",
+      "allowedValues": [
+        "Windows",
+        "Linux"
+      ],
+      "metadata": {
+        "description": "This is the OS that your VM will be running"
+      }
+    },
+    "matlabCoreBranch": {
+      "type": "string",
+      "metadata": {
+        "description": "The second argument to the extension script"
+      },
+      "defaultValue": ""
+    },
+    "redis_db": {
+      "type": "string",
+      "metadata": {
+        "description": "The third argument to the extension script, redis_db number"
+      },
+      "defaultValue": "-1"
+    }
+  },
+  "variables": {
+    "newStorageAccountSuffix": "[concat(variables('namingInfix'), 'sa')]",
+    "addressPrefix": "10.0.0.0/16",
+    "vmssName":  "[concat(resourceGroup().name, 'vmss')]",
+    "subnetName": "Subnet",
+    "subnetPrefix": "10.0.0.0/24",
+    "namingInfix": "[toLower(substring(concat(variables('vmssName'), uniqueString(resourceGroup().id)), 0, 9))]",
+    "virtualNetworkName": "vmssvnet",
+    "storageAccountType": "Standard_LRS",
+    "longNamingInfix": "[toLower(variables('vmssName'))]",
+    "jumpBoxName": "['jumpbox']",
+    "jumpBoxSAName": "[concat(uniqueString(concat(resourceGroup().id, variables('newStorageAccountSuffix'), 'jumpboxsa')), 'jb')]",
+    "jumpBoxOSDiskName": "[concat(variables('jumpBoxName'), 'osdisk')]",
+    "jumpBoxVHDContainerName": "[concat(variables('jumpBoxName'), 'vhd')]",
+    "jumpBoxIPConfigName": "[concat(variables('jumpBoxName'), 'ipconfig')]",
+    "jumpBoxNicName": "[concat(variables('jumpBoxName'), 'nic')]",
+    "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
+    "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables('subnetName'))]",
+    "publicIPAddressName": "publicip1",
+    "publicIPAddressID": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIPAddressName'))]",
+    "nicName": "networkInterface1",
+    "nicId": "[resourceId('Microsoft.Network/networkInterfaces',variables('nicName'))]",
+    "lbName": "loadBalancer1",
+    "lbID": "[resourceId('Microsoft.Network/loadBalancers',variables('lbName'))]",
+    "lbFEName": "loadBalancerFrontEnd",
+    "lbWebProbeName": "loadBalancerWebProbe",
+    "lbBEAddressPool": "loadBalancerBEAddressPool",
+    "lbFEIPConfigID": "[concat(variables('lbID'),'/frontendIPConfigurations/',variables('lbFEName'))]",
+    "lbBEAddressPoolID": "[concat(variables('lbID'),'/backendAddressPools/',variables('lbBEAddressPool'))]",
+    "lbWebProbeID": "[concat(variables('lbID'),'/probes/',variables('lbWebProbeName'))]",
+    "networkApi": "2016-03-30",
+    "imageName": "[concat(resourceGroup().name, 'img')]",
+    "computeApiVersion": "2017-03-30",
+    "networkApiVersion": "2017-04-01",
+    "storageApiVersion": "2015-06-15",
+    "ipConfigName": "[concat(variables('namingInfix'), 'ipconfig')]",
+     "osType": {
+      "publisher": "MicrosoftWindowsServer",
+      "offer": "WindowsServer",
+      "sku": "[parameters('windowsOSVersion')]",
+      "version": "latest"
+    },
+    "imageReference": "[variables('osType')]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Compute/images",
+      "apiVersion": "[variables('computeApiVersion')]",
+      "name": "[variables('imageName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "storageProfile": {
+          "osDisk": {
+            "osType": "Windows",
+            "osState": "Generalized",
+            "blobUri": "[parameters('sourceImageVhdUri')]",
+            "storageAccountType": "Standard_LRS"
+          }
+        }
+      }
+    },
+
+      {
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[variables('virtualNetworkName')]",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "[variables('networkApiVersion')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[variables('addressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnetName')]",
+            "properties": {
+              "addressPrefix": "[variables('subnetPrefix')]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[variables('jumpBoxSAName')]",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "[variables('storageApiVersion')]",
+      "properties": {
+        "accountType": "[variables('storageAccountType')]"
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('publicIPAddressName')]",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "[variables('networkApiVersion')]",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "dnsSettings": {
+          "domainNameLabel": "[variables('longNamingInfix')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('jumpBoxNicName')]",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "[variables('networkApiVersion')]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]",
+        "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "[variables('jumpBoxIPConfigName')]",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIPAddressName'))]"
+              },
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },{
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('jumpBoxName')]",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "[variables('computeApiVersion')]",
+      "dependsOn": [
+        "[concat('Microsoft.Storage/storageAccounts/', variables('jumpBoxSAName'))]",
+        "[concat('Microsoft.Network/networkInterfaces/', variables('jumpBoxNicName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('jumpBoxName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": "[variables('imageReference')]",
+          "osDisk": {
+            "name": "[variables('jumpBoxOSDiskName')]",
+            "vhd": {
+              "uri": "[concat('http://',variables('jumpBoxSAName'),'.blob.core.windows.net/',variables('jumpBoxVHDContainerName'),'/',variables('jumpBoxOSDiskName'),'.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('jumpBoxNicName'))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": "true",
+            "storageUri": "[concat('http://',variables('jumpBoxSAName'),'.blob.core.windows.net')]"
+          }
+        }
+      }
+    },
+       {
+      "type": "Microsoft.Compute/virtualMachineScaleSets",
+      "name": "[variables('vmssName')]",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "[variables('computeApiVersion')]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]",
+        "[concat('Microsoft.Compute/images/', variables('imageName'))]"
+      ],
+      "sku": {
+        "name": "[parameters('vmSize')]",
+        "tier": "Standard",
+        "capacity": "[parameters('instanceCount')]"
+      },
+      "properties": {
+        "overprovision": "false",
+        "upgradePolicy": {
+          "mode": "Manual"
+        },
+        "virtualMachineProfile": {
+
+          "storageProfile": {
+            "imageReference": {
+              "id": "[resourceId('Microsoft.Compute/images', variables('imageName'))]"
+            }
+          },
+          "osProfile": {
+            "computerNamePrefix": "[variables('namingInfix')]",
+            "adminUsername": "[parameters('adminUsername')]",
+            "adminPassword": "[parameters('adminPassword')]"
+          },
+          "networkProfile": {
+            "networkInterfaceConfigurations": [
+              {
+                "name": "[variables('nicName')]",
+                "properties": {
+                  "primary": "true",
+                  "ipConfigurations": [
+                    {
+                      "name": "[variables('ipConfigName')]",
+                      "properties": {
+                        "subnet": {
+                          "id": "[concat('/subscriptions/', subscription().subscriptionId,'/resourceGroups/', resourceGroup().name, '/providers/Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'), '/subnets/', variables('subnetName'))]"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+
+          "extensionProfile": {
+            "extensions": [{
+                                "properties": {
+                                  "publisher": "Microsoft.Compute",
+                                  "type": "CustomScriptExtension",
+                                    "typeHandlerVersion": "1.8",
+                                    "autoUpgradeMinorVersion": true,
+                                  "settings": {
+                                      "fileUris": [
+                                        "[parameters('customScriptUri')]"
+                                      ]
+                                    },
+                                   "protectedSettings": {
+                                     "commandToExecute":  "[concat('powershell.exe -ExecutionPolicy Unrestricted -File  ',   parameters('customScriptName'), '  -scanOrchestratorBranch ', parameters('scanOrchestratorBranch'), '  -matlabCoreBranch  ', parameters('matlabCoreBranch'), '  -redis_db ', parameters('redis_db'))]",
+                                      "storageAccountName":"[parameters('resourcesStorageAccount')]",
+                                      "storageAccountKey":"[parameters('resourcesStorageKey')]"
+                                    }
+                                },
+                                "name": "configurationextension"
+                            }
+                        ]
+                    }
+        }
+      }
+    }
+
+  ],
+  "outputs": {
+    "fqdn": {
+      "value": "[reference(variables('publicIPAddressID'),providers('Microsoft.Network','publicIPAddresses').apiVersions[0]).dnsSettings.fqdn]",
+      "type": "string"
+    }
+  }
+}
