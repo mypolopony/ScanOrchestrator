@@ -23,6 +23,8 @@ import requests
 from datetime import datetime
 from utils import RedisManager
 from utils.models_min import dotdict, Scan
+from  utils.s3_utils import get_top_dir_keys
+
 
 #some relative paths needed for detection in linux
 #it needto access files in ../deepLearning module
@@ -742,10 +744,10 @@ def postprocess(task):
 
     try:
         sessionuri = '{}/results/farm_{}/block_{}/{}/'.format(task.clientid, task.farm_name.replace(' ', ''),task.block_name, task.session_name)
-        session_results = s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri)['Contents']
+        session_results_top_level = get_top_dir_keys(s3, config.get('s3','bucket'), sessionuri)
         detection_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'detection/'))
         process_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'process-frames/'))
-        summary = [k['Key'] for k in session_results['Contents'] if 'summary' in k['Key']]
+        summary = [k['Key'] for k in session_results_top_level['Contents'] if k['Key'].lower().startswith('summary')]
 
         # Note, only one core will receive the winning ticket, i.e, for all the tasks that come through to the postprocess queue,
         # only the last one will trigger this action, preventing computers from running into one another
