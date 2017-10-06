@@ -58,6 +58,10 @@ config = ConfigParser.ConfigParser()
 config_path = os.path.join(config_dir, 'utils', 'poller.conf')
 config.read(config_path)
 
+#set the redis/db param from the environment
+config.set('redis', 'db', os.environ.get('REDIS_DB', config.get('redis','db')))
+
+
 # Temporary location for collateral in processing
 tmpdir = config.get('env', 'tmpdir')
 if not os.path.exists(tmpdir):
@@ -818,7 +822,7 @@ def client(roles):
     perform one of these tasks
     '''
     timeout = 180        # This timeout is used to reduce strain on the server
-
+    logger.info(('The redis db param used is ', config.get('redis', 'db')))
     while True:
         try:
             for role in roles:
