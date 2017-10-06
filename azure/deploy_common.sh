@@ -6,9 +6,8 @@ LOC=eastus
 OSTYPE=Linux
 ISDEBUG=0
 RG=foo
-ISRVM=0
 HELP=0
-while getopts l:o:r:dcgvh opts; do
+while getopts l:o:r:dcgh opts; do
    case ${opts} in
       d) DELETE=1 ;;
       c) CREATE=1 ;;
@@ -16,7 +15,6 @@ while getopts l:o:r:dcgvh opts; do
       o) OSTYPE=${OPTARG} ;;
       g) ISDEBUG=1;;
       r) RG=${OPTARG} ;;
-      v) ISRVM=1;;
       h) HELP=1;;
    esac
 done
@@ -29,25 +27,23 @@ echo starting $DATE
 
 if [ "$HELP" == "1" ]
 then
-   echo "-d (flag, delete the specified resource)"
-   echo "-c (flag, create the specified resource)"
+   echo "-d (flag, delete the specified resource, mutually exclusive with -c flag)"
+   echo "-c (flag, create the specified resource, mutually exclusive with -d flag)"
    echo "-l (location should be eastus/southcentralus/westus2)"
    echo "-o (ostype, should be  Windows/Linux)"
    echo "-g (flag, debug mode)"
-   echo "-v  (flag,  tag this as an rvm resource, with different set of params)"
    echo "-r (name of resource group created)"
    echo "-h (flag, print help message and exit)"
+   echo "Usage for creating a set of resources for Windows vmss in westus2 with RG==boo: cd ScanOrchestrator/azure; ./deploy_common.sh -c -l westus2 -r boo -o Windows"
+   echo "Usage for deleting an esisting set of resources for Linux vmss in eastus with RG==boo: cd ScanOrchestrator/azure; ./deploy_common.sh -d -l eastus -r boo -o Linux"
+
    exit 0
 fi
 
-echo DELETE=$DELETE,  CREATE=$CREATE, LOC=$LOC, OSTYPE=$OSTYPE, ISDEBUG=$ISDEBUG, RG=$RG, ISRVM=$ISRVM
+echo DELETE=$DELETE,  CREATE=$CREATE, LOC=$LOC, OSTYPE=$OSTYPE, ISDEBUG=$ISDEBUG, RG=$RG
 #exit 0
 
 RVM_SUFFIX=""
-if [ "$ISRVM" -eq "1" ];then
-    RVM_SUFFIX="_rvm"
-
-fi
 
 DEBUG=""
 if [ "$ISDEBUG" -eq "1" ];then

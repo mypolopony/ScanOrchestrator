@@ -1,0 +1,48 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmSize": {
+      "value": "Standard_D4S_V3"
+    },
+    "instanceCount": {
+      "value": 1
+    },
+    "adminUsername": {
+      "value": "agridata"
+    },
+    "adminPassword": {
+      "value": "BattleOfHastings1066"
+    },
+    "sourceImageVhdUri":{
+        "value":"https://agridatacomputestorage.blob.core.windows.net/images/computeos_august2017.vhd"
+    },
+    "customScriptUri": {
+       "value": "https://agridatacomputestorage.blob.core.windows.net/scripts/run.ps1"
+    },
+    "customScriptName":{
+        "value": "run.ps1"
+    },
+    "resourcesStorageAccount": {
+       "value": "agridatacomputestorage"
+    },
+    "resourcesStorageKey": {
+       "value": "HTqbKnZ/9/lo+G1ohr+KUYteOZSsrh4yqkgIc0KwlaXc+lx6egTVsG2qHCYDm5B4efTT0KX+wk+bNZmZmgrNfA=="
+    },
+    "osType":{
+        "value": "Windows"
+    },
+    "dnsNamePrefix": {
+            "value": "foo"
+    },
+    "scanOrchestratorBranch": {
+      "value": "master"
+    },
+    "matlabCoreBranch": {
+      "value": "master"
+    },
+    "redis_db": {
+      "value": "0"
+    }
+  }
+}

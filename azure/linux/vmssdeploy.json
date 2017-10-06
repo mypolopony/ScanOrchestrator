@@ -45,13 +45,6 @@
         "description": "The source of the blob containing the custom image, must be in the same region of the deployment."
       }
     },
-    "appPackage": {
-      "type": "string",
-      "metadata": {
-        "description": "The source of the application package to copy using the configuration.sh script it should be inside the _artifacts/app folder"
-      },
-      "defaultValue": "package.tar.gz"
-    },
     "destinationFolder": {
       "type": "string",
       "metadata": {
@@ -122,17 +115,17 @@
       },
       "defaultValue": "run.sh"
     },
-    "session_name": {
+    "redis_db": {
       "type": "string",
       "metadata": {
-        "description": "The second argument to the extension script"
+        "description": "The third argument to the extension script, redis_db number"
       },
-      "defaultValue": ""
+      "defaultValue": "-1"
     }
   },
   "variables": {
-    "vmssName": "torvalds",
-    "namingInfix": "torvalds",
+    "vmssName": "[concat(resourceGroup().name, 'vss')]",
+    "namingInfix": "[toLower(variables('vmssName'))]",
     "longNamingInfix": "[toLower(variables('vmssName'))]",
     "jumpBoxName": "[concat(variables('namingInfix'), 'jbox')]",
     "jumpBoxSAName": "[concat(uniqueString(concat(resourceGroup().id, variables('newStorageAccountSuffix'), 'jumpboxsa')), 'jb')]",
@@ -347,7 +340,7 @@
                     ]
                   },
                     "protectedSettings": {
-                        "commandToExecute": "[concat('bash ',parameters('customScriptName'), ' ', parameters('scanOrchestratorBranch'), ' ', parameters('deepLearningBranch'), ' ', parameters('session_name'))]",
+                        "commandToExecute": "[concat('bash ',parameters('customScriptName'), ' ', parameters('scanOrchestratorBranch'), ' ', parameters('deepLearningBranch'), ' ',  parameters('redis_db'))]",
                         "storageAccountName":"[parameters('resourcesStorageAccount')]",
                         "storageAccountKey":"[parameters('resourcesStorageKey')]"
                     }
