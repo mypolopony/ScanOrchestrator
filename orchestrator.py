@@ -59,7 +59,7 @@ config_path = os.path.join(config_dir, 'utils', 'poller.conf')
 config.read(config_path)
 
 #set the redis/db param from the environment
-config.set('redis', 'db', os.environ.get('REDIS_DB', config.get('redis','db')))
+config.set('redis', 'db', os.environ['REDIS_DB'])
 
 
 # Temporary location for collateral in processing
