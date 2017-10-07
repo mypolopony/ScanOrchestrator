@@ -1,0 +1,51 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "vmSku": {
+      "value": "Standard_NC6"
+    },
+    "ubuntuOSVersion": {
+      "value": "16.04-LTS"
+    },
+    "instanceCount": {
+      "value": 5
+    },
+    "adminUsername": {
+      "value": "agridata"
+    },
+    "adminPassword": {
+      "value": "AgriData2Win!"
+    },
+    "resourcesStorageAccount": {
+       "value": "sccomputestorage"
+    },
+    "resourcesStorageKey": {
+       "value": "wzIgIE2m35wK6O+9nKVdknECgE32wSDbkMT07uw+S86kJh9B9FP0Mbz2IA1s+PVDac5wZjJOIwkk/S3OyEvPfg=="
+    },
+    "customScriptUri": {
+       "value": "https://sccomputestorage.blob.core.windows.net/scriptslinux/run.sh"
+    },
+    "sourceImageVhdUri":{
+      "value": "https://sccomputestorage.blob.core.windows.net/vhds-redis/linux_081217.vhd"
+    },
+    "destinationFolder": {
+      "value": "/home/agridata"
+    },
+    "serviceName": {
+      "value": "myservice"
+    },
+    "customScriptName": {
+      "value": "run.sh"
+    },
+    "scanOrchestratorBranch": {
+      "value": "kg_test"
+    },
+    "deepLearningBranch": {
+      "value": "dev2"
+    },
+    "redis_db": {
+      "value": "2"
+    }
+  }
+}

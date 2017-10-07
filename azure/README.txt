@@ -16,8 +16,8 @@ Usage for deleting an esisting set of resources for Linux vmss in eastus with RG
 cd ScanOrchestrator/azure
 ./deploy_common.sh -d -l eastus -r boo -o Linux
 
-Suggestion use simple names of length less than 4 letters for resource groups, as the names of the resources created are dervied from,
-tye RG name. Convention that kgeorge uses, for windows vmss RG , 'KSCnt', K is a mnemonic, SC stands for south central, nt stands for windows
+Suggestion: use simple names of length less than 4 letters for resource groups, as the names of the resources created are derived from,
+the RG name. Convention that kgeorge uses, eg: for windows vmss RG in south central us , 'KSCnt', K is a mnemonic, SC stands for south central, nt stands for windows
 
 
 

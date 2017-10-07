@@ -27,8 +27,10 @@ S3Secret = config.get('s3', 'aws_secret_access_key')
 s3 = boto3.client('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secret)
 s3r = boto3.resource('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secret)
 
+#set the redis/db param from the environment
+config.set('redis', 'db', os.environ['REDIS_DB'])
 # Redis connection
-redisman = RedisManager(host=config.get('redis','host'), db=os.environ['REDIS_DB'], port=config.get('redis','port'))
+redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'))
 
 # Bucket
 bucket = 'agridatadepot'
@@ -290,6 +292,7 @@ def repair(task):
 
 
 if __name__ == '__main__':
+    print('\n db used is:', config.get('redis', 'db'))
     for taskfile in glob.glob('tasks/*.yaml'):
         try:
             print('\nAssessing {}'.format(taskfile.split('/')[-1].replace('.yaml','')))

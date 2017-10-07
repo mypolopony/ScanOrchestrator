@@ -747,7 +747,7 @@ def postprocess(task):
         session_results_top_level = get_top_dir_keys(s3, config.get('s3','bucket'), sessionuri)
         detection_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'detection/'))
         process_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'process-frames/'))
-        summary = [k['Key'] for k in session_results_top_level['Contents'] if k['Key'].lower().startswith('summary')]
+        summary = [k for k in session_results_top_level if k.lower().startswith('summary')]
 
         # Note, only one core will receive the winning ticket, i.e, for all the tasks that come through to the postprocess queue,
         # only the last one will trigger this action, preventing computers from running into one another

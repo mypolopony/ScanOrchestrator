@@ -1,10 +1,8 @@
 import argparse
 from models_min import *
 from connection import *
-import parse
 import glob
 import datetime
-import pandas as pd
 import boto3
 import yaml
 import os
@@ -57,7 +55,7 @@ def get_top_dir_keys(s3client, bucket_to_search, common_prefix):
                 # Get Top level directory from the file by splitting the key.
                 keylist = file['Key'].split('/')
                 assert(len(common_prefix_cmpnts) <= len(keylist))
-                ret_val.append(keylist[len(common_prefix_cmpnts)])
+                ret_val.append(keylist[len(common_prefix_cmpnts)-1])
 
     return list(set(ret_val))
 
