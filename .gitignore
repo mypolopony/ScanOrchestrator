@@ -8,3 +8,4 @@ extern/
 data/
 deploy_common.sh
 poller.conf
+*temp/
