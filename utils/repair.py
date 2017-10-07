@@ -277,8 +277,12 @@ def repair(task):
         session_results = s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri)
         summary = [k['Key'] for k in session_results['Contents'] if 'summary' in k['Key']]
 
-        # Only postprocess remains
-        if len(subtasks['detection']) == len(subtasks['process']) and not summary:
+        # For post process, we can use a few different thresholds
+        # threshold = len(subtasks['process']) == len(subtasks['detection']) and not summary
+        # threshold = not summary
+        threshold = len(subtasks['process']) >= len(subtasks['detection']) - 5 and not summary
+
+        if threshold:
             # Grab an exemplary process task
             task = subtasks['process'][0]
             # Change role
@@ -292,7 +296,7 @@ def repair(task):
 
 
 if __name__ == '__main__':
-    print('\n db used is:', config.get('redis', 'db'))
+    print('\nUsing Redis Databae #{}'.format(config.get('redis', 'db')))
     for taskfile in glob.glob('tasks/*.yaml'):
         try:
             print('\nAssessing {}'.format(taskfile.split('/')[-1].replace('.yaml','')))
