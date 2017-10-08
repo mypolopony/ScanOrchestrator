@@ -739,7 +739,6 @@ def postprocess(task):
     log('Received postprocessing task: {}'.format(task, task['session_name']))
 
     # Convert to useful dotdict and set the role
-    is_manual_run=task.get('is_manual', False)
     task = dotdict(task)
 
     try:
@@ -749,9 +748,12 @@ def postprocess(task):
         process_results = len(s3.list_objects(Bucket=config.get('s3','bucket'), Prefix=sessionuri + 'process-frames/'))
         summary = [k for k in session_results_top_level if k.lower().startswith('summary')]
 
-        # Note, only one core will receive the winning ticket, i.e, for all the tasks that come through to the postprocess queue,
-        # only the last one will trigger this action, preventing computers from running into one another
-        if not summary and ( is_manual_run or  detection_results == process_results):
+        # For post process, we can use a few different thresholds
+        # threshold = process_results == detection_results and not summary
+        # threshold = not summary
+        threshold = process_results >= (detection_results - 5) and not summary
+
+        if threshold or task.get('is_manual', False):
             # Run
             mlab = matlabProcess()
             mlab.runTask(task, nargout=0)
