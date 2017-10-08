@@ -120,21 +120,7 @@ if __name__ == '__main__':
                     newtask['detection_params']['folders'] = [os.path.basename(z)]
                     newtask['detection_params']['result'] = z
                     insert(newtask)
-            elif role == 'postprocess':
-                # Get the list of zips in detection folder
-                base_url_path = '{}/results/farm_{}/block_{}/{}'.format(task['clientid'],
-                                                                        task['farm_name'].replace(' ', ''),
-                                                                        task['block_name'].replace(' ', ''),
-                                                                        task['session_name'])
-                # Task template
-                task['num_retries'] = 0
-                task['is_manual'] =1
-                task['detection_params']['base_url_path'] = base_url_path
-                task['detection_params']['bucket'] = config.get('s3', 'bucket')
-                task['detection_params']['input_path'] = 'preprocess-frames'
-                task['detection_params']['output_path'] = 'detection'
-                task['detection_params']['session_name'] = datetime.datetime.now().strftime('%H-%M-%S')
-                insert(task)
+
 
         except Exception as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
