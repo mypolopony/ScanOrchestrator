@@ -1,0 +1,11 @@
+client_name: Dana Estates
+farm_name: Hershey
+block_name: '3'
+session_name: '3'
+test: False
+exclude_scans:
+include_scans: [2017-07-12_14-18]
+role: rvm
+detection_params:
+        caffemodel_s3_url_cluster: s3://deeplearning_data/models/best/wine-black-green-sep-28-2017-94000.caffemodel
+        caffemodel_s3_url_trunk: s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel
