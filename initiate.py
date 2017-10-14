@@ -77,6 +77,7 @@ if __name__ == '__main__':
         taskfiles = glob.glob('tasks/*.yaml')
 
     for taskfile in taskfiles:
+        print('------ {} -------'.format(taskfile))
         try:
             print('Reading task file: {}'.format(taskfile))
             task = yaml.load(open(taskfile, 'r'))
@@ -121,6 +122,7 @@ if __name__ == '__main__':
                     newtask['detection_params']['result'] = z
                     insert(newtask)
 
+            print('-----------------\n\n'.format(taskfile))
 
         except Exception as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
