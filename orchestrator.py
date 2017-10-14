@@ -60,9 +60,6 @@ config = ConfigParser.ConfigParser()
 config_path = os.path.join(config_dir, 'utils', 'poller.conf')
 config.read(config_path)
 
-#set the redis/db param from the environment
-config.set('redis', 'db', os.environ['REDIS_DB'])
-
 
 # Temporary location for collateral in processing
 tmpdir = config.get('env', 'tmpdir')
@@ -84,7 +81,9 @@ sqsr = boto3.resource('sqs', aws_access_key_id=SQSKey, aws_secret_access_key=SQS
 queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 
 # Redis queue
-redisman = RedisManager(host=config.get('redis','host'), db=os.environ.get('REDIS_DB', 0), port=config.get('redis','port'))
+#set the redis/db param from the environment
+config.set('redis', 'db', os.environ['REDIS_DB'])
+redisman = RedisManager(host=config.get('redis','host'), db=config.get('redos','db'), port=config.get('redis','port'))
 
 # AWS Resources:
 aws_arns = dict()
