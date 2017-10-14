@@ -1,6 +1,7 @@
 from models_min import *
 from connection import *
-import parse
+from parse import *
+from dateutil import parser
 import glob
 import datetime
 import pandas as pd
@@ -152,7 +153,7 @@ def repair(task):
             row['direction'] = row['direction'].replace('dir','')
             row.update(task)
 
-            fileparse = parse.parse('{scandate}_{scantime}_{camera}_{hour}_{minute}.tar.gz', row['file']).__dict__['named']
+            fileparse = parse('{scandate}_{scantime}_{camera}_{hour}_{minute}.tar.gz', row['file']).__dict__['named']
             row.update(fileparse)
 
             subtasks['rvm'].append(dotdict(row))
