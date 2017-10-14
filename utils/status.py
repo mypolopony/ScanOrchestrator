@@ -11,7 +11,7 @@ config_parent_dir = '.'
 config_path = os.path.join(config_parent_dir, 'utils', 'poller.conf')
 config.read(config_path)
 
-redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'))
+redisman = RedisManager(host=config.get('redis','host'), db=os.getenv('REDIS_DB'), port=config.get('redis','port'))
 
 def generator():
     return redisman.status()
