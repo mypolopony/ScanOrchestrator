@@ -55,15 +55,20 @@ class RedisManager(object):
         '''
 
         message = self.db.lpop(queue)
-        # The string returned must be edited to form a proper JSON:
-        # - change from unicode
-        message = message.replace("u'", "'")
-        #     - single quotes-->double quotes
-        message = message.replace("'", '"')
-        #     - boolean values to 0/1
-        message = message.replace('False', '0').replace('True', '1')
 
-        return json.loads(message)
+        if message:
+            # The string returned must be edited to form a proper JSON:
+            #   - change from unicode
+            message = message.replace("u'", "'")
+            #   - single quotes-->double quotes
+            message = message.replace("'", '"')
+            #   - boolean values to 0/1
+            message = message.replace('False', '0').replace('True', '1')
+
+            return json.loads(message)
+        else:
+            # This eliminates a race condition producing an (innocent) error
+            return None
 
 
     def list_queues(self, namespace):
