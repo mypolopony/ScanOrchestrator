@@ -83,7 +83,7 @@ queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 # Redis queue
 #set the redis/db param from the environment
 config.set('redis', 'db', os.environ['REDIS_DB'])
-redisman = RedisManager(host=config.get('redis','host'), db=config.get('redos','db'), port=config.get('redis','port'))
+redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis','db'), port=config.get('redis','port'))
 
 # AWS Resources:
 aws_arns = dict()
