@@ -126,6 +126,8 @@ class Observation(db.Document):
     '''
 
     userId = db.ObjectIdField()
+    clientId = db.ObjectIdField()
+    analysis = db.ObjectIdField()
     lastUpdatedAt = db.DateTimeField()
     type = db.StringField(max_length=255)
     subType = db.StringField(max_length=255)
@@ -140,7 +142,9 @@ class Observation(db.Document):
     createdAt = db.DateTimeField()
     date = db.DateTimeField()
     timestamp = db.DateTimeField()
+    vintage = db.IntField()
     accuracy = db.FloatField()              # GPS accuracy metric at time of observation (meters?)
+
 
 class Farm(db.Document):
     '''
@@ -386,21 +390,35 @@ class Task():
         except AssertionError:
             print('\n\t!!! Error. Can not continue! Camera definition not find in scan: {}\n\n'.format(scanid))
 
+        # Check start rows
+        try:
+            for scanid in self.task.scanids:
+                scan = Scan.objects.get(scanid=scanid)
+                startleft = scan.startleft
+                startright = scan.startright
+                assert((int(startleft) or startleft == '0') and (int(startleft) or startleft == '0'))
+        except (AssertionError, ValueError):
+            print('\n\t!!! Error. Can not continue! Startleft and/or startright are invalid: {}\n\n'.format(scanid))
+        
         # Block has rows
         print('Validating rows')
-        try:
-            block = Block.objects.get(id=self.task.blockid)          # Redundant grabbing of block
+        block = Block.objects.get(id=self.task.blockid)  # Redundant grabbing of block
 
+        try:
+            assert(block.rows)
+        except AssertionError:
+            print('\n\t!!! This block has no rows!\n\n')
+        try:
             # If num_rows is empty, maybe we can capture this from the row array
             if not block.num_rows and block.rows:
                 block.update(num_rows=len(block.rows))
                 block.save()
 
-            assert(block.num_rows != 0)
+                assert(block.num_rows != 0)
         except AssertionError:
             print('\n\t!!! # of block.rows and num_rows is unequal or zero!\n\n')
 
-        # Block ahs spacing
+        # Block has spacing
         print('Validating vine/row spacing')
         try:
             block = Block.objects.get(id=self.task.blockid)          # Redundant grabbing of block
@@ -423,9 +441,10 @@ class Task():
         print('Validating vines')
         try:
             for row in Row.objects(block=self.task.blockid):
+                # assert(row.vines)
                 assert(row.num_plants)
-                assert(row.num_plants == len(row.vines))
-                assert(len(set([v for v in row.vines])-set([v.id for v in Vine.objects(row=row.id)])) == 0)
+                # assert(row.num_plants == len(row.vines))
+                # assert(len(set([v for v in row.vines])-set([v.id for v in Vine.objects(row=row.id)])) == 0)
         except AssertionError:
             print('\n\t!!! Error. Can not conotinue! The number of plants per row does not seem correct\n\n')
 
