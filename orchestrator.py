@@ -23,7 +23,7 @@ import requests
 from datetime import datetime
 from utils import RedisManager
 from utils.models_min import dotdict, Scan
-from  utils.s3_utils import get_top_dir_keys
+from utils.s3_utils import get_top_dir_keys
 
 
 #some relative paths needed for detection in linux
@@ -591,7 +591,7 @@ def check_shapes(task):
         # method. This would catch some odd race cases
         if 'Contents' not in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=tempfile).keys():
             # Place the semaphore
-            body = StringIO(unicode('Work In Progress: {}'.format(datetime.strftime(datetime.now(),'%c'))))
+            body = StringIO(unicode('Work In Progress'))
             s3.put_object(Bucket=config.get('s3', 'bucket'), Key=tempfile, Body=body.read())
 
             # Grab the list of available detection files
