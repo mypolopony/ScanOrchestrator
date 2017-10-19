@@ -25,6 +25,16 @@ from utils import RedisManager
 from utils.models_min import dotdict, Scan
 from  utils.s3_utils import get_top_dir_keys
 
+# Debug
+import inspect
+def lineno():
+    """Returns the current line number in our program."""
+    return inspect.currentframe().f_back.f_lineno
+
+debugfile = open(r'C:\followalong.txt', 'w')
+debugfile.write('{}\n'.format(lineno()))
+
+
 
 #some relative paths needed for detection in linux
 #it needto access files in ../deepLearning module
@@ -34,16 +44,16 @@ if os.name == 'posix':
     parent_dir = os.path.split(os.path.dirname(current_path))[0]
     sys.path.insert(0, parent_dir)
     source_dir=os.path.dirname(current_path)
-
+debugfile.write('{}\n'.format(lineno()))
 # AgriData Database Connection
 from utils.connection import *
-
+debugfile.write('{}\n'.format(lineno()))
 # Operational parameters (for AWS)
 WAIT_TIME = 20      # [AWS] Wait time for messages
 NUM_MSGS = 10       # [AWS] Number of messages to grab at a time
 RETRY_DELAY = 60    # [AWS] Number of seconds to wait upon encountering an error
 NUM_CORES = 4       # [GENERAL] Number of cores (= number of MATLAB instances)
-
+debugfile.write('{}\n'.format(lineno()))
 # OS-Specific Setup
 if os.name == 'nt':
     # Canonical windows paths
@@ -54,24 +64,24 @@ if os.name == 'nt':
 else:
     assert (os.path.basename(os.getcwd()) == 'ScanOrchestrator')
     config_dir = '.'
-
+debugfile.write('{}\n'.format(lineno()))
 # Load config file
 config = ConfigParser.ConfigParser()
 config_path = os.path.join(config_dir, 'utils', 'poller.conf')
 config.read(config_path)
 
-
+debugfile.write('{}\n'.format(lineno()))
 # Temporary location for collateral in processing
 tmpdir = config.get('env', 'tmpdir')
 if not os.path.exists(tmpdir):
     os.makedirs(tmpdir)
-
+debugfile.write('{}\n'.format(lineno()))
 # AWS Resources: S3
 S3Key = config.get('s3', 'aws_access_key_id')
 S3Secret = config.get('s3', 'aws_secret_access_key')
 s3 = boto3.client('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secret)
 s3r = boto3.resource('s3', aws_access_key_id=S3Key, aws_secret_access_key=S3Secret)
-
+debugfile.write('{}\n'.format(lineno()))
 # AWS Resources: SQS
 SQSKey = config.get('sqs', 'aws_access_key_id')
 SQSSecret = config.get('sqs', 'aws_secret_access_key')
@@ -79,44 +89,44 @@ SQSQueueName = config.get('sqs', 'queue_name')
 SQSQueueRegion = config.get('sqs', 'region')
 sqsr = boto3.resource('sqs', aws_access_key_id=SQSKey, aws_secret_access_key=SQSSecret, region_name=SQSQueueRegion)
 queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
-
+debugfile.write('{}\n'.format(lineno()))
 # Redis queue
 #set the redis/db param from the environment
 config.set('redis', 'db', os.environ['REDIS_DB'])
 redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis','db'), port=config.get('redis','port'))
-
+debugfile.write('{}\n'.format(lineno()))
 # AWS Resources:
 aws_arns = dict()
 aws_arns['statuslog'] = config.get('sns','topic')
 sns = boto3.client('sns', region_name=config.get('sns', 'region'))
-
+debugfile.write('{}\n'.format(lineno()))
 # Initialize logging
 logger = logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(message)s',
                              datefmt='%a, %d %b %Y %H:%M:%S')
 logger = logging.getLogger('default')
 logger.setLevel(logging.DEBUG)
-
+debugfile.write('{}\n'.format(lineno()))
 # File Handler
 fh = logging.FileHandler('events.log')
 fh.setLevel(logging.INFO)
-
+debugfile.write('{}\n'.format(lineno()))
 # Console Handler
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
-
+debugfile.write('{}\n'.format(lineno()))
 # Formatter
 formatter = logging.Formatter('%(asctime)s [%(levelname)s]: %(message)s', datefmt='%a, %d %b %Y %H:%M:%S')
 ch.setFormatter(formatter)
 fh.setFormatter(formatter)
-
+debugfile.write('{}\n'.format(lineno()))
 # Add handlers
 logger.addHandler(ch)           # For sanity's sake, toggle console-handler and file-handler, but not both
 logger.addHandler(fh)
-
+debugfile.write('{}\n'.format(lineno()))
 # Miscellany
 tasks, task = None, None   # Avoid annoying failure messages if these are not defined
 childname = random.choice(config.get('offspring','offspring').split(','))
-
+debugfile.write('{}\n'.format(lineno()))
 
 def announce(func, *args, **kwargs):
     '''
@@ -846,10 +856,13 @@ def run(args):
     '''
     The main entry point
     '''
+    debugfile.write('{}\n'.format(lineno()))
     try:
+        debugfile.write('{}\n'.format(lineno()))
         role = args.role or os.name
 
         log('I\'m awake!')
+        debugfile.write('{}\n'.format(lineno()))
 
         # Specialty roles up front
         # Scan filename / log file conversion
@@ -892,10 +905,13 @@ def parse_args():
     '''
     Add other parameters here
     '''
+    debugfile.write('{}\n'.format(lineno()))
     parser=argparse.ArgumentParser('orchestrator')
+    debugfile.write('{}\n'.format(lineno()))
     parser.add_argument('-r', '--role', help='role', dest='role', default=None)
-
+    debugfile.write('{}\n'.format(lineno()))
     args = parser.parse_args()
+    debugfile.write('{}\n'.format(lineno()))
     return args
 
 
@@ -905,5 +921,7 @@ if __name__ == '__main__':
     addeed here, but it is kept simple for now
     '''
     # Arguments
+    debugfile.write('{}\n'.format(lineno()))
     args = parse_args()
+    debugfile.write('{}\n'.format(lineno()))
     run(args)

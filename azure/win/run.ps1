@@ -1,12 +1,12 @@
 param(
-    [string]$scanOrchestratorBranch="redis",
-    [string]$matlabCoreBranch="symphony",
-    [string]$redis_db="-1"
+    [string]$scanOrchestratorBranch="master",
+    [string]$matlabCoreBranch="master",
+    [string]$redis_db="0"
 )
 
 ### Signon
-echo "$(Get-Date): Starting [ver. redis]" > C:\Users\agridata\startup.log
-echo $env:username >> C:\Users\agridata\startup.log
+echo "$(Get-Date): Starting [ver. redis]" > C:\startup.log
+echo $env:username >> C:\startup.log
 
 
 ## Pip Dependencies (bake into future images)
@@ -16,7 +16,7 @@ pip install redis
 
 
 ### Update ScanOrchestrator
-echo "$(Get-Date): Updating ScanOrchestrator" >> C:\Users\agridata\startup.log
+echo "$(Get-Date): Updating ScanOrchestrator" >> C:\startup.log
 cd C:\AgriData\Projects\ScanOrchestrator
 git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/ScanOrchestrator.git"
@@ -26,7 +26,7 @@ git checkout $scanOrchestratorBranch
 
 
 ### Update MatlabCore
-echo "$(Get-Date): Updating MatlabCore" >> C:\Users\agridata\startup.log
+echo "$(Get-Date): Updating MatlabCore" >> C:\startup.log
 cd C:\AgriData\Projects\MatlabCore
 git remote rm origin
 git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/MatlabCore.git"
@@ -59,18 +59,18 @@ cp C:\AgriData\Projects\ScanOrchestrator\credentials\aws_credentials ~\.aws\cred
 [Environment]::SetEnvironmentVariable("REDIS_DB", $redis_db, "User")
 
 ### Copy extern
-echo "$(Get-Date): Copy extern" >> C:\Users\agridata\startup.log
+echo "$(Get-Date): Copy extern" >> C:\startup.log
 aws s3 cp s3://agridataselwyn/extern C:\AgriData\Projects\MatlabCore\extern\ --recursive
 cp C:\AgriData\Projects\MatlabCore\extern\vlfeat-0.9.20\bin\win64\vcomp100.dll C:\Windows\System32
 
 
 ### Launch Orchestrator
-echo "$(Get-Date): Launching Orchestrator" >> C:\Users\agridata\startup.log
+echo "$(Get-Date): Launching Orchestrator" >> C:\startup.log
 pythonw C:\AgriData\Projects\ScanOrchestrator\orchestrator.py
 
 
 ### Signoff
-echo "$(Get-Date): Finished" >> C:\Users\agridata\startup.log
+echo "$(Get-Date): Finished" >> C:\startup.log
 
 
 exit

@@ -1,11 +1,11 @@
 #!/bin/bash
 
-DELETE=0
-CREATE=0
-LOC=eastus
-OSTYPE=Linux
+DELETE=1
+CREATE=1
+LOC=westus2
+OSTYPE=Windows
 ISDEBUG=0
-RG=foo
+RG=concerto
 HELP=0
 while getopts l:o:r:dcgh opts; do
    case ${opts} in
@@ -79,6 +79,15 @@ mkdir -p $OUTDIR
 #         )'
 
 
+
+if [ "$DELETE" -eq "1" ];then
+
+    echo deleting resources
+    echo az group delete -n $RG
+    az group delete -n $RG
+fi
+
+
 if [ "$CREATE" -eq "1" ];then
     DEPLOY_JSON_FILE=$SRC_DIR/vmssdeploy_${LOC2}${RVM_SUFFIX}.parameters.json
     templateFile=$SRC_DIR/vmssdeploy.json
@@ -100,15 +109,6 @@ if [ "$CREATE" -eq "1" ];then
 
 fi
 
-
-
-
-if [ "$DELETE" -eq "1" ];then
-
-    echo deleting resources
-    echo az group delete -n $RG
-    az group delete -n $RG
-fi
 
 DATE=`date +%Y-%m-%d:%H:%M:%S`
 echo ending $DATE

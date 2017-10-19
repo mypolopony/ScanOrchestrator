@@ -42,7 +42,7 @@
       "value": "kg_test"
     },
     "redis_db": {
-      "value": "2"
+      "value": "3"
     }
   }
 }

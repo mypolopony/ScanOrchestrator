@@ -34,7 +34,7 @@ assert(config.get('redis', 'db') == rdb)
 redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 'db'), port=config.get('redis','port'))
 
 CLENSE = False
-INSERT = False
+INSERT = True
 
 def insert(task):
     pprint(task)
