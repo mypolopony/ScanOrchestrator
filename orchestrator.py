@@ -843,7 +843,8 @@ def client(roles):
             time.sleep(timeout)
         except Exception as e:
             # Not sure what types of exceptions we'll get yet
-            log('Redis error: {}'.format(e))
+            tb=traceback.print_exc()
+            log('Redis error: {}, traceback:{}'.format(e, tb))
 
 
 def run(args):
