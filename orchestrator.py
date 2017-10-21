@@ -82,10 +82,7 @@ queue = sqsr.get_queue_by_name(QueueName=SQSQueueName)
 
 # Redis queue
 #set the redis/db param from the environment
-try:
-    config.set('redis', 'db', os.environ['REDIS_DB'])
-except KeyError:
-    pass                    # If the environment variable is not set this will fail -- fallback to poller.conf
+config.set('redis', 'db', os.environ['REDIS_DB'])
 
 redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis','db'), port=config.get('redis','port'))
 
@@ -854,7 +851,7 @@ def run(args):
     try:
         role = args.role or os.name
 
-        log('I\'m awake!')
+        log('I\'m awake! db: {}'.format(config.get('redis','db')))
 
         # Specialty roles up front
         # Scan filename / log file conversion
