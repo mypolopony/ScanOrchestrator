@@ -13,12 +13,11 @@ config.read(config_path)
 
 redisman = RedisManager(host=config.get('redis','host'), db=os.getenv('REDIS_DB'), port=config.get('redis','port'))
 
-def generator():
-    return redisman.status()
-
 if __name__ == '__main__':
     while True:
         print('-----------')
         print(datetime.datetime.strftime(datetime.datetime.now(),'%c'))
-        pprint(generator())
+        status = redisman.status()
+        pprint(status)
+        print('Total: {}'.format(sum([val for val in status.itervalues()])))
         time.sleep(10)
