@@ -118,7 +118,7 @@ logger.addHandler(ch)           # For sanity's sake, toggle console-handler and 
 logger.addHandler(fh)
 
 # Miscellany
-tasks, task = None, None   # Avoid annoying failure messages if these are not defined
+tasks, task = None, None        # Avoid annoying failure messages if these are not defined
 childname = random.choice(config.get('offspring','offspring').split(','))
 
 

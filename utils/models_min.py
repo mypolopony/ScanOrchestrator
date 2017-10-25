@@ -442,7 +442,8 @@ class Task():
         try:
             for row in Row.objects(block=self.task.blockid):
                 # assert(row.vines)
-                assert(row.num_plants)
+                if not row.num_plants:
+                    row.update(num_plants=len(row.vines))
                 # assert(row.num_plants == len(row.vines))
                 # assert(len(set([v for v in row.vines])-set([v.id for v in Vine.objects(row=row.id)])) == 0)
         except AssertionError:

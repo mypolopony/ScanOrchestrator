@@ -2,7 +2,7 @@ from models_min import *
 from mongoengine import connect
 from pymongo import MongoClient
 
-db = 'staging'
+db = 'local'
 
 if db == 'local':
     
