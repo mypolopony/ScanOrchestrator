@@ -886,7 +886,7 @@ def run(args):
 
         # Unknown
         else:
-            log('Could not determine role type.\n{}'.format(getComputerInfoString), , task['session_name'])
+            log('Could not determine role type.\n{}'.format(getComputerInfoString),task['session_name'])
 
     # Overarching error
     except Exception as e:
