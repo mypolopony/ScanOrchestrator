@@ -37,7 +37,7 @@ redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 
 bucket = 'agridatadepot'
 
 # Execute?
-execute = False
+execute = True
 
 
 def toPreprocess(lost):
