@@ -9,7 +9,7 @@
       "value": "16.04-LTS"
     },
     "instanceCount": {
-      "value": 5
+      "value": 25
     },
     "adminUsername": {
       "value": "agridata"
