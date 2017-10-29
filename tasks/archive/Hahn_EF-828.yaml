@@ -1,7 +1,7 @@
 client_name: Hahn Family Wines
 farm_name: Hahn Family Wines
 block_name: EF-828
-session_name: HH_ef828_920_wed_5PM
+session_name: HH_ef828_1012_thu_10PM
 test: False
 exclude_scans:
 include_scans: [2017-08-31_06-51]
