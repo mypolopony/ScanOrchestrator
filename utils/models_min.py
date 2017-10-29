@@ -9,7 +9,6 @@ from pymongo import MongoClient
 from flask_mongoengine import MongoEngine, DoesNotExist
 from flask_login import UserMixin
 
-
 db = MongoEngine()
 
 
@@ -308,7 +307,8 @@ class Task():
                  test=True, 
                  exclude_scans=None, 
                  include_scans=None,
-                 role='rvm'):
+                 role='rvm',
+                 clientid=None):
 
         self.task = dotdict()
 
@@ -331,11 +331,14 @@ class Task():
             print('Creating task')
             # Client
             self.task.client_name = client_name
-            self.task.clientid = Client.objects.get(name=self.task.client_name).id
+            if not clientid:
+                self.task.clientid =  Client.objects.get(name=self.task.client_name).id
+            else:
+                self.task.clientid = clientid
 
             # Farm
             self.task.farm_name = farm_name
-            self.task.farmid = Farm.objects.get(name=self.task.farm_name, client=self.task.clientid).id
+            self.task.farmid = Farm.objects.get(name=self.task.farm_name, client=Client.objects.get(name=self.task.client_name).id).id
 
             # Block
             self.task.block_name = block_name

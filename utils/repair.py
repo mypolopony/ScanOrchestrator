@@ -134,7 +134,8 @@ def repair(task):
                 test=task['test'],
                 exclude_scans=task['exclude_scans'],
                 include_scans=task['include_scans'],
-                role=task['role'])
+                role=task['role'],
+                clientid=task.get('clientid', None))
     task = dotdict(task.to_json())
     task.farm_name = task.farm_name.replace(' ', '')
     task.block_name = task.block_name.replace(' ', '')
@@ -204,7 +205,7 @@ def repair(task):
             extant = [f['Key'] for f in extant]
         except KeyError:
             extant = list()
-
+        print('reached here')
         # Detection (expected (from preprocess))
         subtasks['detection'] = list()
         toadd = list()

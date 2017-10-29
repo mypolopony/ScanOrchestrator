@@ -90,7 +90,8 @@ if __name__ == '__main__':
                         test=task['test'],
                         exclude_scans=task['exclude_scans'],
                         include_scans=task['include_scans'],
-                        role=task['role']).to_json()
+                        role=task['role'],
+                        clientid=task.get('clientid', None)).to_json()
 
             # Add fields to generate process task
             # TODO: Turn responsibility for this over to Task object

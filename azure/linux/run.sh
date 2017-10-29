@@ -6,7 +6,7 @@ set +e
 
 #$1 == ScanOrchestrator brach name
 #$2 == deepLearning brach name
-#$3 == redis db
+#$3 == redis_db
 
 RUNAS=agridata
 
