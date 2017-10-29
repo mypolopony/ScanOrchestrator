@@ -118,7 +118,7 @@ logger.addHandler(ch)           # For sanity's sake, toggle console-handler and 
 logger.addHandler(fh)
 
 # Miscellany
-tasks, task = None, None   # Avoid annoying failure messages if these are not defined
+tasks, task = None, None        # Avoid annoying failure messages if these are not defined
 childname = random.choice(config.get('offspring','offspring').split(','))
 
 
@@ -482,7 +482,7 @@ def generateRVM(task):
 
         log('RVM task complete', task['session_name'])
     except Exception as err:
-        emitSNSMessage('Failure on {}'.format(str(err)), context=traceback.format_exc())
+        log('Failure on {}'.format(str(err)), task['session_name'])
         pass
 
 
@@ -886,11 +886,11 @@ def run(args):
 
         # Unknown
         else:
-            emitSNSMessage('Could not determine role type.\n{}'.format(getComputerInfoString))
+            log('Could not determine role type.\n{}'.format(getComputerInfoString),task['session_name'])
 
     # Overarching error
     except Exception as e:
-        emitSNSMessage(str(e), context=traceback.format_exc())
+        log(str(e), task['session_name'])
 
 
 def parse_args():
