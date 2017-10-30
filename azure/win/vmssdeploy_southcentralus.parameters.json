@@ -6,7 +6,7 @@
       "value": "Standard_D3"
     },
     "instanceCount": {
-      "value": 10
+      "value": 60
     },
     "adminUsername": {
       "value": "agridata"
@@ -42,7 +42,7 @@
       "value": "kg_test"
     },
     "redis_db": {
-      "value": "3"
+      "value": "2"
     }
   }
 }

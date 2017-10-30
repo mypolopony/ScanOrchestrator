@@ -1,7 +1,7 @@
 #!/bin/bash
 
-DELETE=1
-CREATE=1
+DELETE=0
+CREATE=0
 LOC=westus2
 OSTYPE=Windows
 ISDEBUG=0
