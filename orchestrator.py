@@ -42,7 +42,7 @@ from utils.connection import *
 WAIT_TIME = 20      # [AWS] Wait time for messages
 NUM_MSGS = 10       # [AWS] Number of messages to grab at a time
 RETRY_DELAY = 60    # [AWS] Number of seconds to wait upon encountering an error
-NUM_CORES = 1       # [GENERAL] Number of cores (= number of MATLAB instances)
+NUM_CORES = 4       # [GENERAL] Number of cores (= number of MATLAB instances)
 
 # OS-Specific Setup
 if os.name == 'nt':
