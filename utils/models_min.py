@@ -383,6 +383,7 @@ class Task():
                 assert(ObjectId(self.task.blockid) in Scan.objects.get(scanid=scanid).blocks)
         except AssertionError:
             print('\n\t!!! Error. Can not continue! Scans do not match block.\n\n')
+            print('ScanID: {}\tBlocks: {}'.format(scanid, Scan.objects.get(scanid=scanid).blocks))
         except DoesNotExist:
             print('\n\t!!! Error. Does this scan exist? ({})\n\n'.format(scan.scanid))
 

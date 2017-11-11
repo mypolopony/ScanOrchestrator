@@ -37,7 +37,7 @@ redisman = RedisManager(host=config.get('redis','host'), db=config.get('redis', 
 bucket = 'agridatadepot'
 
 # Execute?
-execute = True
+execute = False
 
 
 def toPreprocess(lost):
@@ -187,8 +187,8 @@ def repair(task):
 
         # Inject missing preprocess
         if toadd:
-            insert([toPreprocess(a) for a in toadd])
-            # print('Skipping preprocess')
+            # insert([toPreprocess(a) for a in toadd])
+            print('Skipping preprocess')
         else:
             print('Preprocess all set')
     except Exception as e:
@@ -205,7 +205,6 @@ def repair(task):
             extant = [f['Key'] for f in extant]
         except KeyError:
             extant = list()
-        print('reached here')
         # Detection (expected (from preprocess))
         subtasks['detection'] = list()
         toadd = list()
@@ -227,8 +226,8 @@ def repair(task):
 
         # Inject missing detection
         if toadd:
-            insert([toDetection(a) for a in toadd])
-            # print('Skipping detectopm')
+            # insert([toDetection(a) for a in toadd])
+            print('Skipping detection')
         else:
             print('Detection all set')
     except Exception as e:

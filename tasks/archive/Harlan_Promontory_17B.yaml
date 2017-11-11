@@ -1,11 +1,11 @@
 client_name: Harlan Estate
 farm_name: Promontory
 block_name: 17B
-session_name: 17b
+session_name: nov6-17b
 test: False
 exclude_scans:
 include_scans: [2017-09-10_08-17]
 role: rvm
 detection_params:
-        caffemodel_s3_url_cluster: s3://deeplearning_data/models/best/wine-oct-29-2017.caffemodel
+        caffemodel_s3_url_cluster: s3://deeplearning_data/models/best/wine-nov-06.caffemodel
         caffemodel_s3_url_trunk: s3://deeplearning_data/models/best/trunk_june_10_400000.caffemodel

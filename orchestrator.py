@@ -641,9 +641,11 @@ def check_shapes(task):
                 task.detection_params['folders'] = [os.path.basename(c) for c in cadre]
 
                 # Run the task
+                log('Estimating shapes', task['session_name'])
                 mlab = matlabProcess()
                 mlab.runTask(task, nargout=0)
                 mlab.quit()
+                log('Finished shape estimation', task['session_name'])
 
                 # Remove the semaphore and return
                 s3.delete_object(Bucket=config.get('s3','bucket'), Key=tempfile)
@@ -654,9 +656,6 @@ def check_shapes(task):
 
             # Remove the semaphore (but don't return immediately; unfortunate redundancy)
             s3.delete_object(Bucket=config.get('s3','bucket'), Key=tempfile)
-
-        # Re-enqueue
-        redisman.put(':'.join(['process', task['session_name']]), task)
 
     except Exception as e:
         tb = traceback.format_exc()
@@ -690,7 +689,7 @@ def process(task):
 
         while not fruitfile:                        # If there is a temp file, someone is making the fruit size file, so just wait
             time.sleep(60*3)
-            tempfile = 'Contents' in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=tempuri)
+            fruitfile = 'Contents' in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=fruituri)
             
         # Proceeed with Process
         task['role'] = 'process'
