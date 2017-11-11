@@ -683,43 +683,42 @@ def process(task):
 
         if not fruitfile and not tempfile:          # If there are no fruit size related files, try and make them
             task['role'] = 'shapesize'
-            check_shapes(task)  
-        elif fruitfile:                             # If there is a fruit size file, use it
-            task['role'] = 'process'
-            # Notify
-            log('Received processing task: {}'.format(task, task['session_name']))
+            check_shapes(task)
 
-            # Reformat message if necessary
-            if type(task) == unicode:
-                # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
-                task = json.loads(task.replace("u'", "'").replace("'", '"'))
-            # The detection params reult is sometimes a string and sometimes a list -- is this because of the above?
-            if type(task['detection_params']['result']) == unicode:
-                task['detection_params']['result'] = [task['detection_params']['result']]
+        while not fruitfile:                        # If there is a temp file, someone is making the fruit size file, so just wait
+            time.sleep(60*3)
+            tempfile = 'Contents' in s3.list_objects(Bucket=config.get('s3', 'bucket'), Prefix=tempuri)
+            
+        # Proceeed with Process
+        task['role'] = 'process'
+        
+        # Notify
+        log('Received processing task: {}'.format(task, task['session_name']))
 
-            # Ensure role (this is repeated from the end of preprocess handoff. . .)
-            task['role'] = 'process'
+        # Reformat message if necessary
+        if type(task) == unicode:
+            # MATLAB seems to prefer to send strings with single quotes, which needs to be converted
+            task = json.loads(task.replace("u'", "'").replace("'", '"'))
+        # The detection params reult is sometimes a string and sometimes a list -- is this because of the above?
+        if type(task['detection_params']['result']) == unicode:
+            task['detection_params']['result'] = [task['detection_params']['result']]
 
-            # Rebuild base scan info
-            rebuildScanInfo(task)
+        # Ensure role (this is repeated from the end of preprocess handoff. . .)
+        task['role'] = 'process'
 
-            # Download frames
-            video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
-            for zipfile in task['detection_params']['result']:
-                log('Downloading {}'.format(zipfile), task['session_name'])
-                s3r.Bucket(config.get('s3', 'bucket')).download_file(zipfile, os.path.join(video_dir, os.path.basename(zipfile)))
+        # Rebuild base scan info
+        rebuildScanInfo(task)
 
-            # Run the task
-            mlab = matlabProcess()
-            mlab.runTask(task, nargout=0)
-            mlab.quit()
+        # Download frames
+        video_dir = os.path.join(base_windows_path, task['session_name'], 'videos')
+        for zipfile in task['detection_params']['result']:
+            log('Downloading {}'.format(zipfile), task['session_name'])
+            s3r.Bucket(config.get('s3', 'bucket')).download_file(zipfile, os.path.join(video_dir, os.path.basename(zipfile)))
 
-            # Pass to postprocess
-            # task['role'] = 'postprocess'
-            # redisman.put(':'.join([task['role'], task['session_name']]), task)
-
-        else:
-            time.sleep(60*3)                            # Else, just wait (implicitly, there must be a temp file, i.e. someone is working on it)
+        # Run the task
+        mlab = matlabProcess()
+        mlab.runTask(task, nargout=0)
+        mlab.quit()
 
     except Exception as e:
         tb = traceback.format_exc()
