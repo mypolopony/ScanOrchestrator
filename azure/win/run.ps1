@@ -23,7 +23,8 @@ git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/ScanOr
 git fetch --all
 git reset --hard origin/$scanOrchestratorBranch
 git checkout $scanOrchestratorBranch
-
+git branch --set-upstream-to=origin/$scanOrchestratorBranch $scanOrchestratorBranch
+git pull
 
 ### Update MatlabCore
 echo "$(Get-Date): Updating MatlabCore" >> C:\startup.log
@@ -33,6 +34,8 @@ git remote add origin "https://mypolopony:Waffles2003@github.com/motioniq/Matlab
 git fetch --all
 git reset --hard origin/$matlabCoreBranch
 git checkout $matlabCoreBranch
+git branch --set-upstream-to=origin/$matlabCoreBranch $matlabCoreBranch
+git pull
 
 
 ### AWS Credentials
