@@ -469,9 +469,9 @@ def rebuildScanInfo(task):
             }
             # Remove unnecessary, task specific information
             sessiondata = task.copy()
-            for field in ['folders', 'result', 'session_name']:
+            for field in ['folders', 'result', 'session_name'] and field in sessiondata['detection_params'].keys():
                 sessiondata['detection_params'].pop(field)
-            for field in ['role', 'num_retries', 'tarfiles']:
+            for field in ['role', 'num_retries', 'tarfiles'] and field in sessiondata.keys():
                 sessiondata.pop(field)
             data = StringIO(unicode(json.dumps(sessiondata, sort_keys=True, indent=4)))
             s3.put_object(Bucket=config.get('s3', 'bucket'), Key=sessionfile, Body=data.read())
