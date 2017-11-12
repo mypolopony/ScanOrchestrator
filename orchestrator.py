@@ -15,13 +15,14 @@ import multiprocess
 import tarfile
 import time
 import traceback
-
-from io import BytesIO, StringIO
 import pandas as pd
 import numpy as np
 import requests
+
+from pprint import pprint
 from datetime import datetime
 from utils import RedisManager
+from io import BytesIO, StringIO
 from utils.models_min import dotdict, Scan
 from utils.s3_utils import get_top_dir_keys
 
@@ -412,10 +413,9 @@ def convert(scan):
 
 @announce
 def rebuildScanInfo(task):
-    # Robust directory creation here
-    success = False
-
+    # S3 URIs
     session_dir = os.path.join(base_windows_path, task['session_name'])
+    s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientid'], task['farm_name'].replace(' ',''), task['block_name'].replace(' ',''), task['session_name'])
 
     # If the session directory exists
     if os.path.exists(session_dir):
@@ -442,7 +442,6 @@ def rebuildScanInfo(task):
 
             # Download the RVM, VPR
             if task['role'] != 'rvm':
-                s3_result_path = '{}/results/farm_{}/block_{}/{}/'.format(task['clientid'], task['farm_name'].replace(' ',''), task['block_name'].replace(' ',''), task['session_name'])
                 for csvfile in ['rvm.csv', 'vpr.csv']:
                     s3r.Bucket(config.get('s3', 'bucket')).download_file(s3_result_path + csvfile, os.path.join(base_windows_path,
                                                                                  task['session_name'], 'videos', csvfile))
@@ -453,6 +452,26 @@ def rebuildScanInfo(task):
         except Exception as e:
             log('A serious error has occurred rebuilding scan info: {}'.format(e), task['session_name'])
             raise Exception(e)
+
+    # Ensure that a text file representing the task exists in the S3 session folder 
+    # If it does not, create it and add the versions -- this should probably go with each task
+    # but this works for now
+    jsonfile = s3_result_path + 'task.json'
+    if not 'Contents' in s3.list_objects(Bucket='agridatadepot', Prefix=jsonfile).keys():
+        try:
+            task['versions'] = {
+            'ScanOrchestrator': 
+                {'branch': subprocess.check_output(['git', '--git-dir', 'C:\AgriData\Projects\ScanOrchestrator\.git', 'rev-parse', '--symbolic-full-name', '--abbrev-ref', '@{u}'])[:-1],
+                 'commit': subprocess.check_output(['git', '--git-dir', 'C:\AgriData\Projects\ScanOrchestrator\.git', 'rev-parse', 'HEAD'])[:-1]},
+            'MatlabCore':
+                {'branch': subprocess.check_output(['git', '--git-dir', 'C:\AgriData\Projects\MatlabCore\.git', 'rev-parse', '--symbolic-full-name', '--abbrev-ref', '@{u}'])[:-1],
+                 'commit': subprocess.check_output(['git', '--git-dir', 'C:\AgriData\Projects\MatlabCore\.git', 'rev-parse', 'HEAD'])[:-1]}
+            }
+            data = StringIO(unicode(json.dumps(task, sort_keys=True, indent=4)))
+            s3.put_object(Bucket=config.get('s3', 'bucket'), Key=jsonfile, Body=data.read())
+        except Exception as e:
+            log('While rebuilding, versioning information could not be determined: {}'.format(str(e)), task['session_name'])
+            pass
 
 @announce
 def generateRVM(task):
