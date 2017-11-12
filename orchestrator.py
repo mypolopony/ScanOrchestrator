@@ -460,25 +460,27 @@ def rebuildScanInfo(task):
         try:
             task['versions'] = {
                     'ScanOrchestrator': 
-                        {'branch': subprocess.check_output(['git', '--git-dir', 'C:\AgriData\Projects\ScanOrchestrator\.git', 'rev-parse', '--symbolic-full-name', '--abbrev-ref', '@{u}'])[:-1],
-                         'commit': subprocess.check_output(['git', '--git-dir', 'C:\AgriData\Projects\ScanOrchestrator\.git', 'rev-parse', 'HEAD'])[:-1]},
+                        {'branch': subprocess.check_output(['git', '--git-dir', r'C:\AgriData\Projects\ScanOrchestrator\.git', 'rev-parse', '--symbolic-full-name', '--abbrev-ref', '@{u}'])[:-1],
+                         'commit': subprocess.check_output(['git', '--git-dir', r'C:\AgriData\Projects\ScanOrchestrator\.git', 'rev-parse', 'HEAD'])[:-1]},
                     'MatlabCore':
-                        {'branch': subprocess.check_output(['git', '--git-dir', 'C:\AgriData\Projects\MatlabCore\.git', 'rev-parse', '--symbolic-full-name', '--abbrev-ref', '@{u}'])[:-1],
-                         'commit': subprocess.check_output(['git', '--git-dir', 'C:\AgriData\Projects\MatlabCore\.git', 'rev-parse', 'HEAD'])[:-1]}
+                        {'branch': subprocess.check_output(['git', '--git-dir', r'C:\AgriData\Projects\MatlabCore\.git', 'rev-parse', '--symbolic-full-name', '--abbrev-ref', '@{u}'])[:-1],
+                         'commit': subprocess.check_output(['git', '--git-dir', r'C:\AgriData\Projects\MatlabCore\.git', 'rev-parse', 'HEAD'])[:-1]}
                     }
 
             sessionfile = s3_result_path + 'session.json'
             if not 'Contents' in s3.list_objects(Bucket='agridatadepot', Prefix=sessionfile).keys():
                 # Remove unnecessary, task specific information
                 sessiondata = task.copy()
-                for field in ['folders', 'result', 'session_name'] and field in sessiondata['detection_params'].keys():
-                    sessiondata['detection_params'].pop(field)
-                for field in ['role', 'num_retries', 'tarfiles'] and field in sessiondata.keys():
-                    sessiondata.pop(field)
+                for field in ['folders', 'result', 'session_name']:
+                    if field in sessiondata['detection_params'].keys():
+                        sessiondata['detection_params'].pop(field)
+                for field in ['role', 'num_retries', 'tarfiles']:
+                    if field in sessiondata.keys():
+                        sessiondata.pop(field)
                 data = StringIO(unicode(json.dumps(sessiondata, sort_keys=True, indent=4)))
                 s3.put_object(Bucket=config.get('s3', 'bucket'), Key=sessionfile, Body=data.read())
         except Exception as e:
-            log('An error occured while rebuilding, versioning information could not be determined: {}'.format(str(e)), task['session_name'])
+            log('An error occured while rebuilding: {}'.format(str(e)), task['session_name'])
 
 @announce
 def generateRVM(task):
