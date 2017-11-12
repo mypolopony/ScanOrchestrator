@@ -2,6 +2,7 @@
 import os
 import sys
 import ConfigParser
+import copy
 import argparse
 import glob
 import json
@@ -19,7 +20,6 @@ import pandas as pd
 import numpy as np
 import requests
 
-from pprint import pprint
 from datetime import datetime
 from utils import RedisManager
 from io import BytesIO, StringIO
@@ -470,7 +470,7 @@ def rebuildScanInfo(task):
             sessionfile = s3_result_path + 'session.json'
             if not 'Contents' in s3.list_objects(Bucket='agridatadepot', Prefix=sessionfile).keys():
                 # Remove unnecessary, task specific information
-                sessiondata = task.copy()
+                sessiondata = copy.deepcopy(task)           # Avoid editing task!
                 for field in ['folders', 'result', 'session_name']:
                     if field in sessiondata['detection_params'].keys():
                         sessiondata['detection_params'].pop(field)
