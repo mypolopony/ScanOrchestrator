@@ -469,7 +469,7 @@ def rebuildScanInfo(task):
             }
             # Remove unnecessary, task specific information
             sessiondata = task.copy()
-            for field in ['folders', 'result', 'session_name']
+            for field in ['folders', 'result', 'session_name']:
                 sessiondata['detection_params'].pop(field)
             for field in ['role', 'num_retries', 'tarfiles']:
                 sessiondata.pop(field)
