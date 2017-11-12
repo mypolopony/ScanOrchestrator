@@ -453,11 +453,11 @@ def rebuildScanInfo(task):
             log('A serious error has occurred rebuilding scan info: {}'.format(e), task['session_name'])
             raise Exception(e)
 
-    # Ensure that a text file representing the task exists in the S3 session folder 
+    # Ensure that a text file representing the session exists in the S3 session folder 
     # If it does not, create it and add the versions -- this should probably go with each task
     # but this works for now
-    jsonfile = s3_result_path + 'task.json'
-    if not 'Contents' in s3.list_objects(Bucket='agridatadepot', Prefix=jsonfile).keys():
+    sessionfile = s3_result_path + 'session.json'
+    if not 'Contents' in s3.list_objects(Bucket='agridatadepot', Prefix=sessionfile).keys():
         try:
             task['versions'] = {
             'ScanOrchestrator': 
@@ -467,8 +467,14 @@ def rebuildScanInfo(task):
                 {'branch': subprocess.check_output(['git', '--git-dir', 'C:\AgriData\Projects\MatlabCore\.git', 'rev-parse', '--symbolic-full-name', '--abbrev-ref', '@{u}'])[:-1],
                  'commit': subprocess.check_output(['git', '--git-dir', 'C:\AgriData\Projects\MatlabCore\.git', 'rev-parse', 'HEAD'])[:-1]}
             }
-            data = StringIO(unicode(json.dumps(task, sort_keys=True, indent=4)))
-            s3.put_object(Bucket=config.get('s3', 'bucket'), Key=jsonfile, Body=data.read())
+            # Remove unnecessary, task specific information
+            sessiondata = task.copy()
+            for field in ['folders', 'result', 'session_name']
+                sessiondata['detection_params'].pop(field)
+            for field in ['role', 'num_retries', 'tarfiles']:
+                sessiondata.pop(field)
+            data = StringIO(unicode(json.dumps(sessiondata, sort_keys=True, indent=4)))
+            s3.put_object(Bucket=config.get('s3', 'bucket'), Key=sessionfile, Body=data.read())
         except Exception as e:
             log('While rebuilding, versioning information could not be determined: {}'.format(str(e)), task['session_name'])
             pass
